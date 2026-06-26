@@ -17100,7 +17100,7 @@ function verificarAvisoDezembroBackup() {
     await carregarDoServidor();
     renderDashboard();
     renderClientes(document.getElementById('input-busca-clientes')?.value || '');
-  }, 300000);
+  }, 30000); // Sincroniza a cada 30 segundos
 })();
 
 // Auto-save ao fechar/recarregar o navegador
