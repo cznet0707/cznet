@@ -13324,7 +13324,7 @@ async function carregarDoServidor() {
     if (!resp.ok) throw new Error('offline');
     const d = await resp.json();
     // Só aceita dados do servidor se houver conteúdo real (evita sobrescrever com vazio)
-    const temDados = d.cm_clientes || d.cm_pagamentos || d.cm_planos;
+    const temDados = (d.cm_clientes && d.cm_clientes !== '[]') || (d.cm_pagamentos && d.cm_pagamentos !== '[]') || (d.cm_planos && d.cm_planos !== '[]');
     if (temDados) {
       if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
       if (d.cm_pagamentos)   { pagamentos   = JSON.parse(d.cm_pagamentos);   localStorage.setItem('cm_pagamentos', d.cm_pagamentos); }
@@ -17033,6 +17033,31 @@ function verificarAvisoDezembroBackup() {
 // INIT
 // ============================================================
 (async function() {
+  // 1. Pre-carregar localStorage IMEDIATAMENTE para não piscar
+  try {
+    const _c  = localStorage.getItem('cm_clientes');
+    const _p  = localStorage.getItem('cm_pagamentos');
+    const _pl = localStorage.getItem('cm_planos');
+    const _in = localStorage.getItem('cm_instalacoes');
+    const _ct = localStorage.getItem('cm_cartoes');
+    const _sa = localStorage.getItem('cm_saidas');
+    const _ca = localStorage.getItem('cm_categorias');
+    if (_c  && _c  !== '[]') clientes    = JSON.parse(_c);
+    if (_p  && _p  !== '[]') pagamentos  = JSON.parse(_p);
+    if (_pl && _pl !== '[]') planos      = JSON.parse(_pl);
+    if (_in && _in !== '[]') instalacoes = JSON.parse(_in);
+    if (_ct && _ct !== '[]') cartoes     = JSON.parse(_ct);
+    if (_sa && _sa !== '[]') saidas      = JSON.parse(_sa);
+    if (_ca && _ca !== '[]') categorias  = JSON.parse(_ca);
+    if (clientes.length > 0) {
+      dadosCarregados = true;
+      atualizarSelectPlanos();
+      renderDashboard();
+      renderSelectClientes();
+    }
+  } catch(e) {}
+
+  // 2. Sincronizar com servidor (fonte de verdade)
   await carregarDoServidor();
   atualizarSelectPlanos();
   renderDashboard();
@@ -17042,12 +17067,12 @@ function verificarAvisoDezembroBackup() {
   const el = document.getElementById('backup-ultima');
   const v  = localStorage.getItem('cm_ultimo_backup');
   if (el && v) el.textContent = 'Último backup: ' + v;
-  // Recarregar dados do servidor a cada 30s (outro PC pode ter alterado)
+  // Recarregar do servidor a cada 5 minutos
   setInterval(async () => {
     await carregarDoServidor();
     renderDashboard();
     renderClientes(document.getElementById('input-busca-clientes')?.value || '');
-  }, 30000);
+  }, 300000);
 })();
 
 // Auto-save ao fechar/recarregar o navegador
