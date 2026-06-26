@@ -17054,6 +17054,7 @@ function verificarAvisoDezembroBackup() {
       atualizarSelectPlanos();
       renderDashboard();
       renderSelectClientes();
+      renderClientes();
     }
   } catch(e) {}
 
@@ -17062,6 +17063,7 @@ function verificarAvisoDezembroBackup() {
   atualizarSelectPlanos();
   renderDashboard();
   renderSelectClientes();
+  renderClientes();
   verificarAvisoDezembroBackup();
   // Mostrar data do último backup
   const el = document.getElementById('backup-ultima');
