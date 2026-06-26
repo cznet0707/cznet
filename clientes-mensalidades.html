@@ -13337,6 +13337,7 @@ async function carregarDoServidor() {
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
       if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
       if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
+      if (d.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', d.cm_mes_inicio_sistema);
       dadosCarregados = true;
       console.log('✅ Dados carregados do servidor');
     }
@@ -13422,7 +13423,8 @@ function salvarStorage() {
     cm_empresa:            localStorage.getItem('cm_empresa')     || '{}',
     cm_msg:                localStorage.getItem('cm_msg')         || '',
     cm_msg_agradecimento:  localStorage.getItem('cm_msg_agradecimento') || '',
-    cm_qrcode:             localStorage.getItem('cm_qrcode')      || ''
+    cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
+    cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || ''
   };
   fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
     .catch(() => {}); // silencioso se offline
@@ -13800,6 +13802,7 @@ function salvarMesInicioSistema() {
   ok.style.display = 'inline';
   setTimeout(() => ok.style.display = 'none', 2000);
   renderDashboard();
+  salvarStorage(); // Salva no servidor também
 }
 
 // ============================================================
