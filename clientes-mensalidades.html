@@ -13399,7 +13399,7 @@ function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
 }
 
-function salvarStorage() {
+async function salvarStorage() {
   // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
   if (!dadosCarregados) return;
   try {
@@ -13426,8 +13426,18 @@ function salvarStorage() {
     cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
     cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || ''
   };
-  return fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-    .catch(() => {}); // silencioso se offline
+  try {
+    const resp = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(12000)
+    });
+    if (resp.ok) { const j = await resp.json(); return j.ok === true; }
+    return false;
+  } catch(e) {
+    return false; // offline ou timeout
+  }
 }
 
 // ============================================================
@@ -15915,13 +15925,18 @@ async function desfazerPagamento(clienteId, mes) {
   if (!confirm(`Desfazer pagamento de ${c.nome} referente a ${mesNome}?`)) return;
   pagamentos = pagamentos.filter(p => !(p.clienteId === clienteId && p.mes === mes));
   try { renderDashboard(); renderHistorico(); renderClientes(); } catch(e) { console.error('Render error:', e); }
-  await salvarStorage();
+  let salvou = await salvarStorage();
+  if (!salvou) {
+    // Tenta uma vez mais após 2 segundos
+    await new Promise(r => setTimeout(r, 2000));
+    salvou = await salvarStorage();
+  }
   // Toast de confirmação
   const toast = document.createElement('div');
-  toast.textContent = '↩ Pagamento desfeito e salvo!';
-  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 22px;border-radius:20px;z-index:9999;font-size:0.95rem;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+  toast.textContent = salvou ? '↩ Pagamento desfeito e salvo!' : '↩ Desfeito localmente — sem conexão com servidor';
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${salvou?'#1e7e34':'#c0392b'};color:#fff;padding:10px 22px;border-radius:20px;z-index:9999;font-size:0.95rem;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+  setTimeout(() => toast.remove(), salvou ? 2500 : 4000);
 }
 
 function lancarRapido(clienteId, mesRef) {
