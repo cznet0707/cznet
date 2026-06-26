@@ -1,0 +1,75 @@
+====================================================
+  CZNET TELECOM — SISTEMA EM REDE LOCAL
+====================================================
+
+REQUISITOS (só no PC principal/servidor):
+  - Node.js instalado: https://nodejs.org  (versão LTS)
+
+----------------------------------------------------
+PASSO A PASSO — PC PRINCIPAL (servidor)
+----------------------------------------------------
+
+1. Copie a pasta com os arquivos para um local fixo, ex:
+   C:\CZnET\
+
+   A pasta deve conter:
+     - clientes-mensalidades.html
+     - server.js
+     - package.json
+
+2. Abra o Prompt de Comando (cmd) nessa pasta:
+   - Pressione Win+R, digite cmd, Enter
+   - Digite:  cd C:\CZnET
+   - Enter
+
+3. Instale as dependências (só na primeira vez):
+     npm install
+
+4. Inicie o servidor:
+     node server.js
+
+5. O servidor mostrará o endereço, por exemplo:
+     🖥️  Neste computador: http://localhost:3000
+     📡 Outro PC na rede:  http://192.168.1.10:3000
+
+   Anote o endereço "Outro PC na rede".
+
+----------------------------------------------------
+PASSO A PASSO — SEGUNDO PC (cliente)
+----------------------------------------------------
+
+1. Abra o navegador (Chrome, Edge, etc.)
+
+2. Digite o endereço que apareceu no servidor, ex:
+     http://192.168.1.10:3000
+
+3. Pronto! Os dois PCs compartilham os mesmos dados.
+
+----------------------------------------------------
+COMO FUNCIONA
+----------------------------------------------------
+
+- Os dados ficam salvos no arquivo "dados.json"
+  dentro da pasta CZnET no PC principal.
+
+- O segundo PC acessa tudo pelo navegador via Wi-Fi.
+
+- Se o servidor estiver desligado, o app ainda
+  funciona localmente com os dados do último acesso.
+
+- Os dados sincronizam automaticamente a cada 30
+  segundos entre os dois computadores.
+
+----------------------------------------------------
+PARA INICIAR O SERVIDOR AUTOMATICAMENTE NO WINDOWS
+----------------------------------------------------
+
+Crie um atalho para o servidor:
+  1. Crie um arquivo "iniciar.bat" na pasta CZnET com:
+       @echo off
+       cd /d C:\CZnET
+       node server.js
+  2. Coloque um atalho desse .bat na Inicialização do Windows:
+       Win+R → shell:startup → cole o atalho lá
+
+====================================================

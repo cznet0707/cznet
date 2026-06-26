@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Capa Carnê — CZnET Telecom</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Arial Black',Arial,sans-serif;
+  background:#111;
+  display:flex;flex-direction:column;align-items:center;
+  padding:30px;gap:30px;
+}
+.pagina{
+  width:210mm;height:297mm;
+  position:relative;overflow:hidden;
+  box-shadow:0 16px 60px rgba(0,0,0,.7);
+  flex-shrink:0;
+}
+
+/* ════ FRENTE ════ */
+.frente{
+  background:linear-gradient(155deg,#020c6b 0%,#040f85 35%,#030d72 65%,#010840 100%);
+}
+
+/* Padrão de pontos */
+.dots{
+  position:absolute;
+  background-image:radial-gradient(circle,rgba(255,210,0,.3) 1.5px,transparent 1.5px);
+  background-size:16px 16px;
+}
+.dots-tr{width:160px;height:140px;top:0;right:0;opacity:.5}
+.dots-ml{width:80px;height:80px;bottom:180px;left:0;opacity:.25}
+
+/* Glow circles */
+.gc{position:absolute;border-radius:50%;pointer-events:none}
+.gc1{width:500px;height:500px;top:-180px;right:-100px;
+  background:radial-gradient(circle,rgba(255,200,0,.12) 0%,transparent 65%)}
+.gc2{width:300px;height:300px;bottom:40px;left:-100px;
+  background:radial-gradient(circle,rgba(30,80,255,.15) 0%,transparent 70%)}
+.gc3{width:200px;height:200px;top:200px;left:60px;
+  background:radial-gradient(circle,rgba(255,200,0,.07) 0%,transparent 70%)}
+
+/* Neon lines */
+.nl{position:absolute;border-radius:4px;height:2px}
+.nl1{width:300px;top:102px;right:-30px;
+  background:linear-gradient(90deg,transparent,#ffd200,transparent);
+  box-shadow:0 0 14px 3px rgba(255,210,0,.55);transform:rotate(-7deg)}
+.nl2{width:160px;top:108px;left:20px;
+  background:linear-gradient(90deg,transparent,rgba(255,210,0,.4),transparent);
+  box-shadow:0 0 8px rgba(255,210,0,.3);transform:rotate(-7deg)}
+.nl3{width:220px;bottom:122px;left:-10px;
+  background:linear-gradient(90deg,transparent,rgba(255,180,0,.35),transparent);
+  box-shadow:0 0 10px rgba(255,210,0,.25);transform:rotate(5deg);opacity:.7}
+
+/* Conteúdo */
+.f-content{
+  position:relative;z-index:10;
+  height:100%;display:flex;flex-direction:column;
+  padding:0;
+}
+
+/* ── Topo ── */
+.f-header{
+  padding:22px 26px 18px 26px;
+  display:flex;align-items:center;gap:14px;
+  border-bottom:2px solid rgba(255,210,0,.2);
+}
+.logo-badge{
+  width:52px;height:52px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#1a56f5,#0a30c0);
+  border:2.5px solid #ffd200;
+  box-shadow:0 0 18px rgba(255,210,0,.45),inset 0 0 12px rgba(30,80,255,.5);
+  display:flex;align-items:center;justify-content:center;
+}
+.empresa-topo .nome{font-size:18px;font-weight:900;color:#fff;letter-spacing:2px}
+.empresa-topo .nome span{color:#ffd200;text-shadow:0 0 18px rgba(255,210,0,.5)}
+.empresa-topo .tipo{font-size:8px;color:#ffd200;letter-spacing:2px;text-transform:uppercase;margin-top:3px;font-weight:700}
+.cnpj-badge{margin-left:auto;text-align:right}
+.cnpj-badge .label{font-size:7px;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase}
+.cnpj-badge .val{font-size:9px;color:rgba(255,255,255,.65);font-weight:700;margin-top:2px}
+
+/* ── Faixa slogan ── */
+.f-slogan-faixa{
+  background:linear-gradient(90deg,#ffd200,#e6b800,#ffd200);
+  padding:10px 26px;
+  font-size:13px;font-weight:900;color:#020c6b;
+  letter-spacing:1px;text-transform:uppercase;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 4px 20px rgba(255,210,0,.3);
+}
+.f-slogan-faixa span{opacity:.5;font-size:16px}
+
+/* ── Área central ── */
+.f-main{
+  flex:1;display:flex;align-items:stretch;gap:0;
+  overflow:hidden;
+}
+
+/* Coluna esquerda */
+.f-left{
+  flex:1;padding:22px 18px 22px 26px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.f-pre{
+  font-size:8px;color:#ffd200;letter-spacing:3.5px;text-transform:uppercase;
+  font-weight:700;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.f-pre::before{content:'';width:18px;height:2px;background:#ffd200;display:block;box-shadow:0 0 6px #ffd200}
+.f-h1{
+  font-size:46px;font-weight:900;color:#fff;
+  line-height:.9;text-transform:uppercase;
+  text-shadow:0 2px 30px rgba(255,255,255,.1);
+}
+.f-h1 .yellow{
+  color:#ffd200;display:block;font-size:52px;
+  text-shadow:0 0 30px rgba(255,210,0,.55),0 0 60px rgba(255,210,0,.25);
+}
+.f-tagline{
+  margin-top:14px;
+  font-size:11.5px;color:rgba(255,255,255,.55);
+  font-family:Arial,sans-serif;line-height:1.6;font-weight:400;
+}
+.f-tagline strong{color:rgba(255,255,255,.9)}
+
+/* Fibra label */
+.fibra-label{
+  margin-top:18px;
+  display:flex;align-items:center;gap:8px;
+  font-size:8px;color:#ffd200;letter-spacing:2px;text-transform:uppercase;font-weight:800;
+}
+.fibra-label svg{flex-shrink:0}
+
+/* Coluna direita */
+.f-right{
+  width:115px;flex-shrink:0;
+  position:relative;
+  display:flex;align-items:flex-end;justify-content:center;
+  padding-bottom:0;
+}
+
+/* ── Bloco cliente ── */
+.f-cliente{
+  margin:0 26px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,210,0,.2);
+  border-left:4px solid #ffd200;
+  border-radius:0 8px 8px 0;
+  padding:12px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 0 22px rgba(255,210,0,.07);
+}
+.f-cliente .label{font-size:7.5px;color:#ffd200;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.f-cliente .nome{font-size:18px;font-weight:900;color:#fff}
+.f-cliente .periodo{font-size:9px;color:rgba(255,255,255,.45);margin-top:3px;font-family:Arial,sans-serif}
+.chip-ok{
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.45);
+  border-radius:20px;padding:6px 13px;
+  font-size:9px;font-weight:800;color:#4ade80;letter-spacing:.8px;
+  box-shadow:0 0 12px rgba(34,197,94,.18);
+}
+
+/* ── Rodapé ── */
+.f-footer{
+  background:rgba(0,0,0,.45);
+  padding:11px 26px;
+  border-top:1px solid rgba(255,210,0,.12);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.f-footer span{font-size:8px;color:rgba(255,255,255,.4);font-family:Arial,sans-serif}
+.f-footer strong{color:rgba(255,255,255,.65)}
+
+/* ════ VERSO ════ */
+.verso{background:linear-gradient(165deg,#020c6b 0%,#040f85 50%,#020845 100%)}
+.verso .dots-tr{top:0;right:0;opacity:.35}
+.verso .gc1{top:-120px;left:-60px;width:320px;height:320px;background:radial-gradient(circle,rgba(30,80,255,.13) 0%,transparent 70%)}
+
+.v-content{
+  position:relative;z-index:10;
+  height:100%;display:flex;flex-direction:column;
+  padding:22px 24px 0 24px;gap:12px;
+}
+.v-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding-bottom:12px;border-bottom:2px solid #ffd200;
+}
+.v-header .nome{font-size:16px;font-weight:900;color:#fff;letter-spacing:1px}
+.v-header .nome span{color:#ffd200}
+.v-header .sub{font-size:8px;color:#ffd200;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;font-family:Arial,sans-serif}
+.v-tel .num{font-size:13px;font-weight:900;color:#ffd200;text-align:right;text-shadow:0 0 10px rgba(255,210,0,.35)}
+.v-tel .desc{font-size:7.5px;color:rgba(255,255,255,.4);margin-top:2px;font-family:Arial,sans-serif;text-align:right}
+.v-card{border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+.v-card-head{padding:8px 14px;display:flex;align-items:center;gap:8px;font-size:8px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#fff}
+.v-card-head.am{background:linear-gradient(90deg,rgba(255,210,0,.2),rgba(255,210,0,.06));border-bottom:1px solid rgba(255,210,0,.25)}
+.v-card-head.az{background:rgba(30,80,255,.18);border-bottom:1px solid rgba(30,100,255,.25)}
+.v-card-head .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.v-card-head.am .dot{background:#ffd200;box-shadow:0 0 7px #ffd200}
+.v-card-head.az .dot{background:#4d88ff;box-shadow:0 0 7px #4d88ff}
+.v-card-body{padding:13px 14px;background:rgba(255,255,255,.03)}
+.pix-row{display:flex;align-items:center;gap:14px}
+.pix-tag{font-size:20px;font-weight:900;color:#ffd200;text-shadow:0 0 18px rgba(255,210,0,.45);padding-right:14px;border-right:2px solid rgba(255,210,0,.25);flex-shrink:0;line-height:1}
+.pix-chave{font-size:15px;font-weight:900;color:#fff}
+.pix-desc{font-size:8.5px;color:rgba(255,255,255,.4);margin-top:4px;font-family:Arial,sans-serif;line-height:1.45}
+.passos{display:flex;flex-direction:column;gap:9px}
+.passo{display:flex;align-items:flex-start;gap:11px}
+.pn{width:22px;height:22px;border-radius:50%;background:#ffd200;color:#020c6b;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;margin-top:1px;box-shadow:0 0 9px rgba(255,210,0,.4)}
+.pt{font-size:9.5px;color:rgba(255,255,255,.7);font-family:Arial,sans-serif;line-height:1.5}
+.pt strong{color:#fff}
+.aviso{background:rgba(255,210,0,.06);border:1px solid rgba(255,210,0,.18);border-left:3px solid #ffd200;border-radius:0 6px 6px 0;padding:10px 13px;font-size:9px;color:rgba(255,255,255,.6);font-family:Arial,sans-serif;line-height:1.5}
+.aviso strong{color:#ffd200}
+.contatos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ct .lb{font-size:7px;color:#ffd200;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:3px}
+.ct .val{font-size:11px;font-weight:800;color:#fff}
+.v-footer{margin-top:auto;background:rgba(0,0,0,.4);margin:auto -24px 0 -24px;padding:10px 24px;border-top:2px solid rgba(255,210,0,.18);display:flex;justify-content:space-between;align-items:center}
+.v-footer-txt{font-size:7.5px;color:rgba(255,255,255,.38);font-family:Arial,sans-serif}
+.v-footer-txt strong{color:rgba(255,255,255,.6)}
+.chips{display:flex;gap:5px}
+.chip{background:rgba(255,210,0,.09);border:1px solid rgba(255,210,0,.22);border-radius:20px;padding:3px 9px;font-size:7px;color:#ffd200;font-weight:700;letter-spacing:.5px}
+
+@media print{body{background:#000;padding:0;gap:0}.pagina{box-shadow:none;page-break-after:always}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     FRENTE
+══════════════════════════════════ -->
+<div class="pagina frente">
+
+  <div class="dots dots-tr"></div>
+  <div class="dots dots-ml"></div>
+  <div class="gc gc1"></div>
+  <div class="gc gc2"></div>
+  <div class="gc gc3"></div>
+  <div class="nl nl1"></div>
+  <div class="nl nl2"></div>
+  <div class="nl nl3"></div>
+
+  <div class="f-content">
+
+    <!-- Cabeçalho -->
+    <div class="f-header">
+      <div class="logo-badge">
+        <svg width="30" height="30" viewBox="0 0 60 45" fill="none">
+          <circle cx="30" cy="41" r="5" fill="#ffd200"/>
+          <path d="M16 27c3.8-3.8 8.7-5.9 14-5.9s10.2 2.1 14 5.9" stroke="#ffd200" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M7 18C13.4 11.5 21.4 8 30 8s16.6 3.5 23 10" stroke="white" stroke-width="3.5" stroke-linecap="round" opacity=".85"/>
+          <path d="M0 9C8 1 19-2 30-2S52 1 60 9" stroke="white" stroke-width="3.5" stroke-linecap="round" opacity=".45"/>
+        </svg>
+      </div>
+      <div class="empresa-topo">
+        <div class="nome"><span>CZnET</span> Telecom</div>
+        <div class="tipo">Provedor de Internet · Fibra Óptica</div>
+      </div>
+      <div class="cnpj-badge">
+        <div class="label">CNPJ</div>
+        <div class="val">35.512.601/0001-68</div>
+      </div>
+    </div>
+
+    <!-- Faixa slogan -->
+    <div class="f-slogan-faixa">
+      <span>⚡</span>
+      VOCÊ MERECE A MELHOR CONEXÃO DO BRASIL!
+      <span>⚡</span>
+    </div>
+
+    <!-- Área central -->
+    <div class="f-main">
+
+      <!-- Coluna esquerda -->
+      <div class="f-left">
+        <div>
+          <div class="f-pre">Documento Oficial</div>
+          <div class="f-h1">
+            CARNÊ DE
+            <span class="yellow">PAGAMENTO</span>
+          </div>
+          <div class="f-tagline">
+            <strong>Conectando famílias</strong> com<br>
+            velocidade, qualidade e confiança.<br>
+            Internet de alta performance para<br>
+            <strong>seu lar e sua família.</strong>
+          </div>
+        </div>
+
+        <!-- Fibra óptica -->
+        <div>
+          <div class="fibra-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M2 12 Q6 6 12 12 Q18 18 22 12" stroke="#ffd200" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <path d="M2 8 Q6 2 12 8 Q18 14 22 8" stroke="#ffd200" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".5"/>
+              <path d="M2 16 Q6 10 12 16 Q18 22 22 16" stroke="#ffd200" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".5"/>
+              <circle cx="22" cy="12" r="2" fill="#ffd200"/>
+              <circle cx="22" cy="8" r="1.2" fill="#ffd200" opacity=".5"/>
+              <circle cx="22" cy="16" r="1.2" fill="#ffd200" opacity=".5"/>
+            </svg>
+            Tecnologia Fibra Óptica
+          </div>
+          <!-- SVG Fibra óptica decorativa -->
+          <svg width="160" height="40" viewBox="0 0 200 50" style="margin-top:6px;display:block">
+            <defs>
+              <filter id="gf">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <path d="M0 20 Q40 5 80 25 Q120 45 160 20 Q180 10 200 22" stroke="#ffd200" stroke-width="2" fill="none" stroke-linecap="round" filter="url(#gf)" opacity=".9"/>
+            <path d="M0 28 Q40 12 80 32 Q120 52 160 28 Q180 18 200 30" stroke="#ffd200" stroke-width="1.2" fill="none" stroke-linecap="round" filter="url(#gf)" opacity=".55"/>
+            <path d="M0 14 Q40 0 80 18 Q120 36 160 14 Q180 4 200 16" stroke="white" stroke-width=".8" fill="none" stroke-linecap="round" opacity=".3"/>
+            <path d="M0 34 Q40 18 80 38 Q120 58 160 34 Q180 24 200 36" stroke="white" stroke-width=".8" fill="none" stroke-linecap="round" opacity=".2"/>
+            <circle cx="80" cy="25" r="4" fill="#ffd200" opacity=".8" filter="url(#gf)"/>
+            <circle cx="160" cy="20" r="3" fill="#ffd200" opacity=".6" filter="url(#gf)"/>
+            <circle cx="200" cy="22" r="5" fill="#ffd200" opacity=".9" filter="url(#gf)"/>
+            <circle cx="40" cy="10" r="2" fill="white" opacity=".5"/>
+            <circle cx="120" cy="42" r="2" fill="white" opacity=".4"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Coluna direita: ilustração família + notebook -->
+      <div class="f-right">
+        <svg width="115" height="230" viewBox="0 0 115 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="glowPerson" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffd200" stop-opacity=".25"/>
+              <stop offset="100%" stop-color="#020c6b" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="glow2">
+              <feGaussianBlur stdDeviation="2" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Glow fundo pessoa -->
+          <ellipse cx="57" cy="170" rx="50" ry="55" fill="url(#glowPerson)"/>
+
+          <!-- Sinal WiFi acima -->
+          <circle cx="57" cy="60" r="6" fill="#ffd200" filter="url(#glow2)" opacity=".9"/>
+          <path d="M40 48 Q57 36 74 48" stroke="#ffd200" stroke-width="2.5" stroke-linecap="round" fill="none" filter="url(#glow2)" opacity=".8"/>
+          <path d="M32 40 Q57 24 82 40" stroke="#ffd200" stroke-width="2" stroke-linecap="round" fill="none" filter="url(#glow2)" opacity=".5"/>
+          <path d="M24 32 Q57 12 90 32" stroke="#ffd200" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".25"/>
+
+          <!-- ADULTO sentado -->
+          <!-- Cabeça -->
+          <circle cx="57" cy="90" r="11" fill="#FBBF8C"/>
+          <!-- Cabelo -->
+          <path d="M46 87 Q48 78 57 76 Q66 78 68 87" fill="#4B3010"/>
+          <!-- Corpo -->
+          <rect x="44" y="101" width="26" height="32" rx="8" fill="#1a56f5"/>
+          <!-- Braços -->
+          <path d="M44 110 Q32 118 34 128" stroke="#FBBF8C" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <path d="M70 110 Q82 118 80 128" stroke="#FBBF8C" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <!-- Mãos -->
+          <circle cx="34" cy="130" r="5" fill="#FBBF8C"/>
+          <circle cx="80" cy="130" r="5" fill="#FBBF8C"/>
+          <!-- Pernas -->
+          <rect x="46" y="131" width="9" height="22" rx="4" fill="#1a3fa0"/>
+          <rect x="59" y="131" width="9" height="22" rx="4" fill="#1a3fa0"/>
+          <!-- Sapatos -->
+          <ellipse cx="50" cy="153" rx="7" ry="4" fill="#222"/>
+          <ellipse cx="64" cy="153" rx="7" ry="4" fill="#222"/>
+          <!-- Rosto feliz -->
+          <circle cx="53" cy="89" r="1.5" fill="#333"/>
+          <circle cx="61" cy="89" r="1.5" fill="#333"/>
+          <path d="M52 94 Q57 98 62 94" stroke="#333" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+          <!-- NOTEBOOK -->
+          <rect x="22" y="157" width="71" height="40" rx="5" fill="#1a1a2e"/>
+          <rect x="25" y="160" width="65" height="30" rx="3" fill="#0d1b7a"/>
+          <rect x="27" y="162" width="61" height="26" rx="2" fill="#0a0f5c"/>
+          <!-- Tela - conteúdo web -->
+          <rect x="29" y="164" width="57" height="4" rx="1" fill="#1a56f5" opacity=".7"/>
+          <rect x="29" y="170" width="25" height="3" rx="1" fill="#ffd200" opacity=".8"/>
+          <rect x="29" y="175" width="35" height="2" rx="1" fill="white" opacity=".3"/>
+          <rect x="29" y="179" width="28" height="2" rx="1" fill="white" opacity=".25"/>
+          <rect x="57" y="170" width="29" height="18" rx="2" fill="#1a56f5" opacity=".3"/>
+          <!-- WiFi na tela -->
+          <circle cx="71" cy="176" r="2" fill="#ffd200" opacity=".9"/>
+          <path d="M66 173 Q71 169 76 173" stroke="#ffd200" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".7"/>
+          <path d="M64 171 Q71 166 78 171" stroke="#ffd200" stroke-width="1" stroke-linecap="round" fill="none" opacity=".4"/>
+          <!-- Teclado -->
+          <rect x="30" y="193" width="55" height="2" rx="1" fill="#333" opacity=".6"/>
+          <rect x="48" y="191" width="19" height="5" rx="2" fill="#222" opacity=".5"/>
+
+          <!-- CRIANÇA ao lado -->
+          <circle cx="88" cy="144" r="8" fill="#FBBF8C"/>
+          <path d="M80 141 Q82 135 88 134 Q94 135 96 141" fill="#7B4F1A"/>
+          <rect x="82" y="152" width="12" height="18" rx="5" fill="#ef4444"/>
+          <circle cx="86" cy="143" r="1.2" fill="#333"/>
+          <circle cx="91" cy="143" r="1.2" fill="#333"/>
+          <path d="M85 147 Q88 150 91 147" stroke="#333" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+          <!-- Braço da criança apontando -->
+          <path d="M82 158 Q76 162 68 160" stroke="#FBBF8C" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+          <!-- Brilhos decorativos -->
+          <path d="M20 100 L21.5 103 L25 104.5 L21.5 106 L20 109 L18.5 106 L15 104.5 L18.5 103 Z" fill="#ffd200" opacity=".7" filter="url(#glow2)"/>
+          <path d="M95 85 L96 87 L98 88 L96 89 L95 91 L94 89 L92 88 L94 87 Z" fill="#ffd200" opacity=".5"/>
+          <circle cx="18" cy="140" r="2" fill="#ffd200" opacity=".4"/>
+          <circle cx="100" cy="115" r="1.5" fill="white" opacity=".4"/>
+        </svg>
+      </div>
+
+    </div>
+
+    <!-- Bloco cliente -->
+    <div class="f-cliente">
+      <div>
+        <div class="label">Titular do contrato</div>
+        <div class="nome">Nal</div>
+        <div class="periodo">Internet Banda Larga &nbsp;·&nbsp; Julho – Dezembro 2026 &nbsp;·&nbsp; 6 parcelas</div>
+      </div>
+      <div class="chip-ok">✓ ATIVO</div>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="f-footer">
+      <span><strong>CNPJ:</strong> 35.512.601/0001-68</span>
+      <span><strong>Tel/PIX:</strong> (82) 99657-9470</span>
+      <span>CZnET Telecom &copy; 2026</span>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════
+     VERSO
+══════════════════════════════════ -->
+<div class="pagina verso">
+
+  <div class="dots dots-tr"></div>
+  <div class="gc gc1"></div>
+  <div class="nl nl3"></div>
+
+  <div class="v-content">
+
+    <div class="v-header">
+      <div>
+        <div class="nome"><span>CZnET</span> Telecom</div>
+        <div class="sub">Provedor · Internet Banda Larga · Fibra Óptica</div>
+      </div>
+      <div class="v-tel">
+        <div class="num">(82) 99657-9470</div>
+        <div class="desc">Suporte &amp; Atendimento</div>
+      </div>
+    </div>
+
+    <!-- Slogan verso -->
+    <div style="text-align:center;padding:6px 0">
+      <div style="font-size:10px;color:rgba(255,255,255,.35);font-family:Arial,sans-serif;letter-spacing:.5px">
+        🌐 &nbsp;<em>Conectando sua família ao mundo — com velocidade e confiança</em>&nbsp; 🌐
+      </div>
+    </div>
+
+    <!-- PIX -->
+    <div class="v-card">
+      <div class="v-card-head am"><div class="dot"></div>Pagamento via PIX</div>
+      <div class="v-card-body">
+        <div class="pix-row">
+          <div class="pix-tag">PIX</div>
+          <div>
+            <div class="pix-chave">(82) 99657-9470</div>
+            <div class="pix-desc">Chave PIX Telefone — CZnET Telecom<br>Envie o comprovante pelo WhatsApp após pagar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Passos -->
+    <div class="v-card">
+      <div class="v-card-head az"><div class="dot"></div>Como efetuar o pagamento</div>
+      <div class="v-card-body">
+        <div class="passos">
+          <div class="passo"><div class="pn">1</div><div class="pt">Localize o boleto do <strong>mês correspondente</strong> neste carnê.</div></div>
+          <div class="passo"><div class="pn">2</div><div class="pt">Pague <strong>até a data de vencimento</strong> via PIX ou presencialmente.</div></div>
+          <div class="passo"><div class="pn">3</div><div class="pt">Se PIX, <strong>envie o comprovante</strong> pelo WhatsApp para confirmar.</div></div>
+          <div class="passo"><div class="pn">4</div><div class="pt">Guarde o <strong>canhoto</strong> como seu comprovante de pagamento.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aviso -->
+    <div class="aviso">
+      <strong>⚠ Atenção:</strong> Pagamentos após o vencimento estão sujeitos a multa e juros de mora.
+      Em caso de dificuldades, entre em contato <strong>antes do vencimento</strong>.
+    </div>
+
+    <!-- Contatos -->
+    <div class="v-card">
+      <div class="v-card-head am"><div class="dot"></div>Fale Conosco</div>
+      <div class="v-card-body">
+        <div class="contatos">
+          <div class="ct"><div class="lb">WhatsApp / PIX</div><div class="val">(82) 99657-9470</div></div>
+          <div class="ct"><div class="lb">Empresa</div><div class="val">CZnET Telecom</div></div>
+          <div class="ct"><div class="lb">CNPJ</div><div class="val">35.512.601/0001-68</div></div>
+          <div class="ct"><div class="lb">Serviço</div><div class="val">Internet Banda Larga</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fibra decorativa verso -->
+    <div style="text-align:center;padding:4px 0">
+      <svg width="200" height="28" viewBox="0 0 200 28" fill="none">
+        <path d="M0 14 Q50 4 100 14 Q150 24 200 14" stroke="#ffd200" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/>
+        <path d="M0 20 Q50 10 100 20 Q150 30 200 20" stroke="#ffd200" stroke-width=".8" fill="none" stroke-linecap="round" opacity=".25"/>
+        <circle cx="100" cy="14" r="4" fill="#ffd200" opacity=".6"/>
+        <circle cx="50" cy="8" r="2.5" fill="#ffd200" opacity=".4"/>
+        <circle cx="150" cy="20" r="2.5" fill="#ffd200" opacity=".4"/>
+      </svg>
+    </div>
+
+    <div class="v-footer">
+      <div class="v-footer-txt"><strong>CZnET Telecom</strong> · CNPJ: 35.512.601/0001-68 · Tel/PIX: (82) 99657-9470</div>
+      <div class="chips">
+        <span class="chip">📶 INTERNET</span>
+        <span class="chip">📡 FIBRA</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

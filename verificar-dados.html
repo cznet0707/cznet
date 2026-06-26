@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>🔍 Verificar Dados Salvos</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;background:#f5f5f5}
+h1{color:#1a73e8}
+.card{background:#fff;border-radius:12px;padding:20px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.ok{border-left:5px solid #34a853;color:#1e5c2a}
+.warn{border-left:5px solid #ea4335;color:#b31412}
+.num{font-size:2rem;font-weight:900;color:#1a73e8}
+.btn{background:#1a73e8;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:1rem;cursor:pointer;margin:8px 4px}
+.btn.red{background:#ea4335}
+pre{background:#f8f9fa;padding:12px;border-radius:8px;font-size:0.8rem;max-height:200px;overflow:auto}
+</style>
+</head>
+<body>
+<h1>🔍 Verificador de Dados — CZnET</h1>
+<p>Esta página lê os dados salvos no seu navegador (localStorage) e mostra quantos clientes, pagamentos etc. estão guardados.</p>
+
+<div id="resultado"></div>
+
+<script>
+function verificar() {
+  const keys = ['cm_clientes','cm_pagamentos','cm_planos','cm_instalacoes','cm_cartoes','cm_saidas'];
+  let html = '';
+  let totalClientes = 0;
+  let totalPagtos = 0;
+  let clientesBaixados = 0;
+
+  keys.forEach(key => {
+    const raw = localStorage.getItem(key);
+    let data = [];
+    try { data = raw ? JSON.parse(raw) : []; } catch(e) { data = []; }
+    const n = Array.isArray(data) ? data.length : (data ? 1 : 0);
+
+    if (key === 'cm_clientes') totalClientes = n;
+    if (key === 'cm_pagamentos') {
+      totalPagtos = n;
+      // Count payments with baixa
+      clientesBaixados = data.filter(p => p && p.pago).length;
+    }
+
+    const ok = n > 0;
+    html += `<div class="card ${ok ? 'ok' : 'warn'}">
+      <strong>${key}</strong><br>
+      <span class="num">${n}</span> ${key === 'cm_clientes' ? 'clientes' : 'registros'}
+      ${raw ? `<br><small style="color:#777">Tamanho: ${raw.length.toLocaleString()} chars</small>` : ''}
+    </div>`;
+  });
+
+  html = `<div class="card" style="border-left:5px solid #1a73e8;background:#e8f0fe">
+    <h2 style="margin:0 0 8px">📊 Resumo</h2>
+    <p><strong>${totalClientes}</strong> clientes encontrados</p>
+    <p><strong>${clientesBaixados}</strong> pagamentos marcados como pagos</p>
+    ${totalClientes > 0
+      ? '<p style="color:#1e5c2a;font-size:1.1rem">✅ <strong>Seus dados estão seguros no navegador!</strong></p>'
+      : '<p style="color:#b31412;font-size:1.1rem">⚠️ <strong>Nenhum dado encontrado — localStorage pode estar vazio.</strong></p>'
+    }
+  </div>` + html;
+
+  // Add client list preview
+  const clientes = JSON.parse(localStorage.getItem('cm_clientes') || '[]');
+  if (clientes.length > 0) {
+    html += `<div class="card">
+      <strong>Primeiros 10 clientes encontrados:</strong>
+      <pre>${clientes.slice(0,10).map((c,i) => `${i+1}. ${c.nome || c.name || JSON.stringify(c).slice(0,60)}`).join('\n')}</pre>
+    </div>`;
+  }
+
+  document.getElementById('resultado').innerHTML = html;
+}
+
+// Roda ao carregar
+verificar();
+</script>
+
+<p style="margin-top:20px;color:#777;font-size:0.85rem">
+  <strong>Importante:</strong> Esta página só funciona no <strong>mesmo navegador e computador</strong> onde você usa a planilha CZnET.
+  Os dados do localStorage são exclusivos por navegador.
+</p>
+</body>
+</html>
