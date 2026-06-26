@@ -13317,7 +13317,7 @@ Qualquer dúvida, estamos à disposição!`;
 // Carrega do servidor se disponível, senão usa localStorage local
 async function carregarDoServidor() {
   try {
-    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(2000) });
+    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(15000) });
     if (!resp.ok) throw new Error('offline');
     const d = await resp.json();
     if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
