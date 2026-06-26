@@ -15913,7 +15913,7 @@ function desfazerPagamento(clienteId, mes) {
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   if (!confirm(`Desfazer pagamento de ${c.nome} referente a ${mesNome}?`)) return;
   pagamentos = pagamentos.filter(p => !(p.clienteId === clienteId && p.mes === mes));
-  salvarStorage(); renderDashboard(); renderHistorico();
+  salvarStorage(); renderDashboard(); renderHistorico(); renderClientes();
 }
 
 function lancarRapido(clienteId, mesRef) {
