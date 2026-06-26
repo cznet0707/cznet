@@ -13314,24 +13314,32 @@ Muito obrigado pela pontualidade! 🙏
 
 Qualquer dúvida, estamos à disposição!`;
 
+// Flag: só permite salvar no servidor depois que os dados foram carregados
+let dadosCarregados = false;
+
 // Carrega do servidor se disponível, senão usa localStorage local
 async function carregarDoServidor() {
   try {
     const resp = await fetch('/api/data', { signal: AbortSignal.timeout(15000) });
     if (!resp.ok) throw new Error('offline');
     const d = await resp.json();
-    if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
-    if (d.cm_pagamentos)   { pagamentos   = JSON.parse(d.cm_pagamentos);   localStorage.setItem('cm_pagamentos', d.cm_pagamentos); }
-    if (d.cm_planos)       { planos       = JSON.parse(d.cm_planos);       localStorage.setItem('cm_planos', d.cm_planos); }
-    if (d.cm_instalacoes)  { instalacoes  = JSON.parse(d.cm_instalacoes);  localStorage.setItem('cm_instalacoes', d.cm_instalacoes); }
-    if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
-    if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
-    if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
-    if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
-    if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
-    if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
-    if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
-    console.log('✅ Dados carregados do servidor');
+    // Só aceita dados do servidor se houver conteúdo real (evita sobrescrever com vazio)
+    const temDados = d.cm_clientes || d.cm_pagamentos || d.cm_planos;
+    if (temDados) {
+      if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
+      if (d.cm_pagamentos)   { pagamentos   = JSON.parse(d.cm_pagamentos);   localStorage.setItem('cm_pagamentos', d.cm_pagamentos); }
+      if (d.cm_planos)       { planos       = JSON.parse(d.cm_planos);       localStorage.setItem('cm_planos', d.cm_planos); }
+      if (d.cm_instalacoes)  { instalacoes  = JSON.parse(d.cm_instalacoes);  localStorage.setItem('cm_instalacoes', d.cm_instalacoes); }
+      if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
+      if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
+      if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
+      if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
+      if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
+      if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
+      if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
+      dadosCarregados = true;
+      console.log('✅ Dados carregados do servidor');
+    }
     return true;
   } catch(e) {
     console.warn('⚠️ Servidor offline — usando dados locais');
@@ -13350,6 +13358,7 @@ async function carregarDoServidor() {
       if (ct_) cartoes    = JSON.parse(ct_);
       if (sa_) saidas     = JSON.parse(sa_);
       if (ca_) categorias = JSON.parse(ca_);
+      if (c || p || pl) dadosCarregados = true; // Tinha dados no localStorage
     } catch(e2) {}
     return false;
   }
@@ -13390,6 +13399,8 @@ function getCfgEmpresa() {
 }
 
 function salvarStorage() {
+  // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
+  if (!dadosCarregados) return;
   try {
     localStorage.setItem('cm_clientes',    JSON.stringify(clientes));
     localStorage.setItem('cm_pagamentos',  JSON.stringify(pagamentos));
