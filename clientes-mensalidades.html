@@ -12969,6 +12969,31 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
   </div>
 
+  <!-- ===== CARD TROCAR ACESSO ===== -->
+  <div class="card" style="max-width:520px">
+    <h2>🔐 Acesso ao Sistema</h2>
+    <p style="color:#5a6070;font-size:0.9rem;margin-bottom:18px">Altere o usuário e senha usados na tela de login.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:360px">
+      <div>
+        <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:4px">Usuário</label>
+        <input type="text" id="cfg-acesso-user" placeholder="Ex: zal" style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:4px">Nova senha</label>
+        <input type="password" id="cfg-acesso-pass" placeholder="Nova senha" style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:4px">Confirmar senha</label>
+        <input type="password" id="cfg-acesso-pass2" placeholder="Repita a senha" style="width:100%;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;align-items:center;gap:14px">
+      <button class="btn btn-primary" onclick="salvarAcesso()">💾 Salvar</button>
+      <span id="cfg-acesso-msg" style="font-size:0.9rem"></span>
+    </div>
+  </div>
+  <!-- ===== FIM CARD TROCAR ACESSO ===== -->
+
 </div>
 
 <!-- MODAL EDITAR CLIENTE -->
@@ -16050,6 +16075,14 @@ function confirmarEscolhaMeses() {
 // CONFIGURAÇÕES
 // ============================================================
 function carregarConfig() {
+  // Preencher campo usuário atual na seção de acesso
+  var elUser = document.getElementById('cfg-acesso-user');
+  if (elUser) {
+    elUser.value = localStorage.getItem('cznet_login_user') || 'zal';
+  }
+  var elMsg = document.getElementById('cfg-acesso-msg');
+  if (elMsg) elMsg.textContent = '';
+
   // Mês de início do sistema
   const mesInicio = getMesInicioSistema();
   const elInicio  = document.getElementById('cfg-mes-inicio-sistema');
@@ -17132,9 +17165,12 @@ window.addEventListener('beforeunload', function() {
 <!-- ===== SCRIPT LOGIN CZnET ===== -->
 <script>
 (function() {
-  var USERS = [
-    { user: 'zal', pass: '141184' }
-  ];
+  function getUsers() {
+    var u = localStorage.getItem('cznet_login_user');
+    var p = localStorage.getItem('cznet_login_pass');
+    if (u && p) return [{ user: u, pass: p }];
+    return [{ user: 'zal', pass: '141184' }];
+  }
 
   if (sessionStorage.getItem('cznet_auth') === '1') {
     var o = document.getElementById('cznet-auth-overlay');
@@ -17144,7 +17180,7 @@ window.addEventListener('beforeunload', function() {
   window.cznetLogin = function() {
     var u = document.getElementById('cznet-user').value.trim();
     var p = document.getElementById('cznet-pass').value;
-    var ok = USERS.some(function(x){ return x.user === u && x.pass === p; });
+    var ok = getUsers().some(function(x){ return x.user === u && x.pass === p; });
     if (ok) {
       sessionStorage.setItem('cznet_auth', '1');
       document.getElementById('cznet-auth-overlay').remove();
@@ -17162,6 +17198,22 @@ window.addEventListener('beforeunload', function() {
     }
   });
 })();
+
+window.salvarAcesso = function() {
+  var u = document.getElementById('cfg-acesso-user').value.trim();
+  var p = document.getElementById('cfg-acesso-pass').value;
+  var p2 = document.getElementById('cfg-acesso-pass2').value;
+  var msg = document.getElementById('cfg-acesso-msg');
+  if (!u) { msg.style.color='#c0392b'; msg.textContent='❌ Informe o usuário.'; return; }
+  if (!p) { msg.style.color='#c0392b'; msg.textContent='❌ Informe a senha.'; return; }
+  if (p !== p2) { msg.style.color='#c0392b'; msg.textContent='❌ As senhas não coincidem.'; return; }
+  localStorage.setItem('cznet_login_user', u);
+  localStorage.setItem('cznet_login_pass', p);
+  document.getElementById('cfg-acesso-pass').value = '';
+  document.getElementById('cfg-acesso-pass2').value = '';
+  msg.style.color='#1e8449';
+  msg.textContent='✅ Salvo! Próximo acesso usará as novas credenciais.';
+};
 </script>
 <!-- ===== FIM SCRIPT LOGIN ===== -->
 </body>
