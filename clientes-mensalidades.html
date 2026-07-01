@@ -13361,6 +13361,11 @@ Qualquer dúvida, estamos à disposição!`;
 // Flag: só permite salvar no servidor depois que os dados foram carregados
 let dadosCarregados = false;
 
+// Retorna data/mês no fuso horário LOCAL do usuário (evita bug de virar o mês
+// horas antes da meia-noite local para quem está em fusos UTC-negativos, como o Brasil).
+function fmtData(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtMes(d)  { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+
 // Carrega do servidor se disponível, senão usa localStorage local
 async function carregarDoServidor() {
   try {
@@ -13415,7 +13420,7 @@ function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimen
 function montarAgradecimento(clienteId, mesRef) {
   const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
   const pl = planos.find(x => x.id === c.planoId);
-  const mes = mesRef || new Date().toISOString().slice(0,7);
+  const mes = mesRef || fmtMes();
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long', year:'numeric'});
   return getMsgAgradecimento()
@@ -13676,7 +13681,7 @@ function salvarCliente(e) {
   clientes.push(cliente);
   // Registra instalação automaticamente se solicitado
   if (document.getElementById('c-registrar-inst').checked) {
-    const instData   = document.getElementById('c-inst-data').value || new Date().toISOString().slice(0,10);
+    const instData   = document.getElementById('c-inst-data').value || fmtData();
     const instGratis = document.getElementById('c-inst-gratis').checked;
     instalacoes.push({ id: Date.now(), clienteId: cliente.id, data: instData, gratis: instGratis, paga: false });
   }
@@ -13688,7 +13693,7 @@ function toggleCamposInstalacaoCadastro() {
   document.getElementById('campos-instalacao-cadastro').style.display = mostrar ? 'block' : 'none';
   if (mostrar) {
     const dataEl = document.getElementById('c-inst-data');
-    if (!dataEl.value) dataEl.value = new Date().toISOString().slice(0,10);
+    if (!dataEl.value) dataEl.value = fmtData();
   }
 }
 function limparForm() { document.getElementById('form-cliente').reset(); document.getElementById('campos-instalacao-cadastro').style.display='none'; }
@@ -13728,7 +13733,7 @@ const _FORMA_COR   = { pix:'#1565c0', cartao:'#6a1b9a', dinheiro:'#2e7d32', bole
 
 function abrirDetalheForma(forma) {
   const dashMesEl = document.getElementById('dash-mes');
-  const mes = dashMesEl?.value || new Date().toISOString().slice(0,7);
+  const mes = dashMesEl?.value || fmtMes();
   _detalheFormaAtual = forma;
   _detalheFormaMes   = mes;
 
@@ -13872,7 +13877,7 @@ function navegarMes(delta) {
 
 function irMesAtual() {
   const el = document.getElementById('dash-mes'); if (!el) return;
-  el.value = new Date().toISOString().slice(0,7);
+  el.value = fmtMes();
   renderDashboard();
 }
 
@@ -14149,7 +14154,7 @@ function baixarMesPill(clienteId, mes) {
     const [y,m] = mes.split('-');
     const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
     abrirModalFormaPagamento(`Baixa rápida de ${c.nome} — ${mesNome}`, (forma, comprovante) => {
-      const hoje = new Date().toISOString().slice(0,10);
+      const hoje = fmtData();
       pagamentos.push({ id: Date.now() + Math.random(), clienteId, valor: c.valor, mes, data: hoje, obs: 'Baixa rápida', formaPagamento: forma, comprovante: comprovante||null });
       _ultimoPagClienteId = clienteId; _ultimoPagMes = mes;
       salvarStorage();
@@ -14481,7 +14486,7 @@ function preencherSelectInstalacoes() {
     lista.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   // data padrão = hoje
   const dataEl = document.getElementById('inst-data');
-  if (dataEl && !dataEl.value) dataEl.value = new Date().toISOString().slice(0,10);
+  if (dataEl && !dataEl.value) dataEl.value = fmtData();
 }
 
 function adicionarInstalacao() {
@@ -14626,7 +14631,7 @@ function montarMensagem(clienteId, mesRef) {
   const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
   const pl = planos.find(x => x.id === c.planoId);
   const hoje = new Date();
-  const mes = mesRef || hoje.toISOString().slice(0,7);
+  const mes = mesRef || fmtMes(hoje);
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const emp = getCfgEmpresa();
@@ -14644,7 +14649,7 @@ let _zapMesesSel = new Set(); // múltiplos meses selecionados
 
 function abrirZap(clienteId, mesRef) {
   zapClienteId  = clienteId;
-  _zapMesRef    = mesRef || new Date().toISOString().slice(0,7);
+  _zapMesRef    = mesRef || fmtMes();
   _zapMesesSel  = new Set([_zapMesRef]);
   const c = clientes.find(x => x.id === clienteId);
   document.getElementById('zap-nome-cliente').textContent = c?.nome || '';
@@ -14664,7 +14669,7 @@ function zapMudarAno(delta) {
 function _renderMesesAbertos(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mesAtual = new Date().toISOString().slice(0,7);
+  const mesAtual = fmtMes();
 
   const anoLabel = document.getElementById('zap-ano-label');
   if (anoLabel) anoLabel.textContent = _zapAnoSel;
@@ -14767,7 +14772,7 @@ function zapMarcarPagoEEnviar() {
   const nomes = meses.map(k => { const [y,m]=k.split('-'); return new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); });
   const total = moeda(c.valor * meses.length);
   if (!confirm(`Marcar ${meses.length} pagamento(s) de ${c.nome}:\n${nomes.join(', ')}\nTotal: ${total}\n\nConfirmar?`)) return;
-  const hoje = new Date().toISOString().slice(0,10);
+  const hoje = fmtData();
   meses.forEach(mes => {
     const jaPago = pagamentos.some(p => p.clienteId === zapClienteId && p.mes === mes);
     if (!jaPago) pagamentos.push({ id: Date.now() + Math.random(), clienteId: zapClienteId, valor: c.valor, mes, data: hoje, obs: 'WhatsApp' });
@@ -15607,7 +15612,7 @@ function lancarPagamento() {
   if (!clienteId || isNaN(valor) || !mes) { alert('Preencha cliente, valor e mês.'); return; }
   const existe = pagamentos.find(p => p.clienteId === clienteId && p.mes === mes);
   if (existe && !confirm('Já existe pagamento para este mês. Adicionar mesmo assim?')) return;
-  pagamentos.push({ id: Date.now(), clienteId, valor, mes, data: data || new Date().toISOString().slice(0,10), obs });
+  pagamentos.push({ id: Date.now(), clienteId, valor, mes, data: data || fmtData(), obs });
   salvarStorage(); renderHistorico(); renderDashboard();
   document.getElementById('p-valor').value = '';
   document.getElementById('p-obs').value   = '';
@@ -15672,9 +15677,9 @@ function excluirPagamento(id) {
 function renderDashboard() {
   // Garante que o seletor de mês está inicializado
   const dashMesEl = document.getElementById('dash-mes');
-  if (dashMesEl && !dashMesEl.value) dashMesEl.value = new Date().toISOString().slice(0,7);
-  const mesSel   = dashMesEl ? dashMesEl.value : new Date().toISOString().slice(0,7);
-  const mesAtual = new Date().toISOString().slice(0,7);
+  if (dashMesEl && !dashMesEl.value) dashMesEl.value = fmtMes();
+  const mesSel   = dashMesEl ? dashMesEl.value : fmtMes();
+  const mesAtual = fmtMes();
 
   document.getElementById('stat-total').textContent = clientes.length;
 
@@ -15803,9 +15808,9 @@ function renderDashboard() {
     return;
   }
 
-  // Filtro por mês devedor específico
+  // Filtro por mês devedor específico (não aplicar na aba "pago": clientes pagos não aparecem em getMesesDevendo)
   const mesFiltroDevedor = document.getElementById('dash-filtro-mes-devedor')?.value || '';
-  const listaPorMesDevedor = mesFiltroDevedor
+  const listaPorMesDevedor = (mesFiltroDevedor && _dashTabAtiva !== 'pago')
     ? clientesFiltrados.filter(c => getMesesDevendo(c.id).includes(mesFiltroDevedor))
     : clientesFiltrados;
 
@@ -15910,7 +15915,7 @@ function renderDashboard() {
 
 
 function getMesesDevendo(clienteId) {
-  const mesAtual       = new Date().toISOString().slice(0,7);
+  const mesAtual       = fmtMes();
   const mesInicioSist  = getMesInicioSistema(); // ex: '2026-04'
   const hoje           = new Date();
   const resultado      = [];
@@ -15985,13 +15990,13 @@ async function desfazerPagamento(clienteId, mes) {
 
 function lancarRapido(clienteId, mesRef) {
   const c   = clientes.find(x => x.id === clienteId); if (!c) return;
-  const mes = mesRef || new Date().toISOString().slice(0,7);
+  const mes = mesRef || fmtMes();
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   abrirModalFormaPagamento(`${c.nome} — ${mesNome} — ${moeda(c.valor)}`, (forma, comprovante) => {
     pagamentos.push({
       id: Date.now(), clienteId, valor: c.valor, mes,
-      data: new Date().toISOString().slice(0,10), obs: 'Dashboard',
+      data: fmtData(), obs: 'Dashboard',
       formaPagamento: forma, comprovante: comprovante||null
     });
     _ultimoPagClienteId = clienteId; _ultimoPagMes = mes;
@@ -16060,7 +16065,7 @@ function confirmarEscolhaMeses() {
   document.getElementById('modal-escolha-meses').classList.remove('open');
 
   abrirModalFormaPagamento(`${c.nome} — ${nomes.join(', ')} — Total: ${total}`, (forma, comprovante) => {
-    const hoje = new Date().toISOString().slice(0,10);
+    const hoje = fmtData();
     meses.forEach(mes => {
       if (!pagamentos.some(p => p.clienteId === clienteId && p.mes === mes))
         pagamentos.push({ id: Date.now() + Math.random(), clienteId, valor: c.valor, mes, data: hoje, obs: 'Baixa acumulada', formaPagamento: forma, comprovante: comprovante||null });
@@ -16136,6 +16141,12 @@ function importarDados(modo) {
 
   if (modo === 'substituir') {
     if (!confirm(`⚠️ Isso vai APAGAR todos os ${clientes.length} clientes, ${pagamentos.length} pagamentos e ${planos.length} planos atuais e substituir pelos ${novosClientes.length} do arquivo. Confirma?`)) return;
+    // Proteção: bloqueia substituição se o arquivo importado tiver muito menos pagamentos
+    // do que o sistema já tem — evita apagar baixas por engano com um backup incompleto/parcial.
+    if (pagamentos.length > 0 && novosPagamentos.length < pagamentos.length * 0.5) {
+      alert(`🛑 Importação bloqueada por segurança!\n\nO arquivo selecionado tem apenas ${novosPagamentos.length} pagamentos, mas o sistema atualmente tem ${pagamentos.length}.\n\nIsso indica que o arquivo é um backup incompleto ou desatualizado. Substituir agora apagaria baixas já registradas.\n\nSe tiver certeza que quer usar este arquivo mesmo assim, use a opção "Mesclar" em vez de "Substituir".`);
+      return;
+    }
     clientes   = novosClientes;
     pagamentos = novosPagamentos;
     planos     = novosPlanos;
@@ -16351,7 +16362,7 @@ function togglePagamentoCalendario(clienteId, mesKey, jaPago) {
     abrirModalFormaPagamento(`${c.nome} — ${mesNome} — ${moeda(c.valor)}`, (forma, comprovante) => {
       pagamentos.push({
         id: Date.now(), clienteId, valor: c.valor, mes: mesKey,
-        data: new Date().toISOString().slice(0,10), obs: 'Calendário',
+        data: fmtData(), obs: 'Calendário',
         formaPagamento: forma, comprovante: comprovante||null
       });
       salvarStorage(); renderCalendario(); renderDashboard();
@@ -16477,7 +16488,7 @@ function confirmarBaixa() {
   // Fechar modal de baixa antes de abrir o de forma de pagamento
   document.getElementById('modal-baixa').classList.remove('open');
   abrirModalFormaPagamento(`${c.nome} — ${nomes.join(', ')} — Total: ${total}`, (forma, comprovante) => {
-    const hoje = new Date().toISOString().slice(0,10);
+    const hoje = fmtData();
     meses.forEach(mes => {
       if (!pagamentos.some(p => p.clienteId === _baixaClienteId && p.mes === mes))
         pagamentos.push({ id: Date.now() + Math.random(), clienteId: _baixaClienteId, valor: c.valor, mes, data: hoje, obs: 'Baixa parcial', formaPagamento: forma, comprovante: comprovante||null });
@@ -16539,7 +16550,7 @@ function renderSaidas() {
 
   // Preenche campo de data padrão se vazio
   const dataEl = document.getElementById('saida-data');
-  if (dataEl && !dataEl.value) dataEl.value = new Date().toISOString().slice(0,10);
+  if (dataEl && !dataEl.value) dataEl.value = fmtData();
 
   // Renderiza lista de cartões e categorias
   renderListaCartoes();
@@ -16658,7 +16669,7 @@ function pagarSaida(id) {
   const s = saidas.find(x => x.id === id);
   if (!s) return;
   s.pago = true;
-  s.dataPago = new Date().toISOString().slice(0,10);
+  s.dataPago = fmtData();
   salvarStorage();
   renderTabelaSaidas();
 }
@@ -16687,8 +16698,8 @@ const CATEGORIA_EMOJI = {
 
 function renderTabelaSaidas() {
   const mesFiltroEl = document.getElementById('saida-filtro-mes');
-  if (mesFiltroEl && !mesFiltroEl.value) mesFiltroEl.value = new Date().toISOString().slice(0,7);
-  const mesSel        = mesFiltroEl?.value || new Date().toISOString().slice(0,7);
+  if (mesFiltroEl && !mesFiltroEl.value) mesFiltroEl.value = fmtMes();
+  const mesSel        = mesFiltroEl?.value || fmtMes();
   const cartaoFiltro  = document.getElementById('saida-filtro-cartao')?.value || '';
   const catFiltro     = document.getElementById('saida-filtro-categoria')?.value || '';
 
@@ -16771,7 +16782,7 @@ function exportarBackup() {
   const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const data = new Date().toISOString().slice(0,10);
+  const data = fmtData();
   a.href     = url;
   a.download = `backup_cznet_${data}.json`;
   a.click();
@@ -16804,8 +16815,8 @@ function gerarRelatorioPDF() {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const dashMesEl = document.getElementById('dash-mes');
-  const mesSel   = dashMesEl && dashMesEl.value ? dashMesEl.value : new Date().toISOString().slice(0,7);
-  const mesAtual = new Date().toISOString().slice(0,7);
+  const mesSel   = dashMesEl && dashMesEl.value ? dashMesEl.value : fmtMes();
+  const mesAtual = fmtMes();
   const [anoSel, mSel] = mesSel.split('-').map(Number);
   const mesNome = new Date(anoSel, mSel - 1, 1)
     .toLocaleDateString('pt-BR', { month:'long', year:'numeric' })
@@ -17203,18 +17214,4 @@ window.salvarAcesso = function() {
   var u = document.getElementById('cfg-acesso-user').value.trim();
   var p = document.getElementById('cfg-acesso-pass').value;
   var p2 = document.getElementById('cfg-acesso-pass2').value;
-  var msg = document.getElementById('cfg-acesso-msg');
-  if (!u) { msg.style.color='#c0392b'; msg.textContent='❌ Informe o usuário.'; return; }
-  if (!p) { msg.style.color='#c0392b'; msg.textContent='❌ Informe a senha.'; return; }
-  if (p !== p2) { msg.style.color='#c0392b'; msg.textContent='❌ As senhas não coincidem.'; return; }
-  localStorage.setItem('cznet_login_user', u);
-  localStorage.setItem('cznet_login_pass', p);
-  document.getElementById('cfg-acesso-pass').value = '';
-  document.getElementById('cfg-acesso-pass2').value = '';
-  msg.style.color='#1e8449';
-  msg.textContent='✅ Salvo! Próximo acesso usará as novas credenciais.';
-};
-</script>
-<!-- ===== FIM SCRIPT LOGIN ===== -->
-</body>
-</html>
+  var 
