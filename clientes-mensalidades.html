@@ -350,6 +350,46 @@
 </div>
 <!-- ===== FIM LOGIN ===== -->
 
+<!-- ===== SCRIPT LOGIN CZnET (movido para o topo: cznetLogin fica disponivel na hora) ===== -->
+<script>
+(function() {
+  function getUsers() {
+    var u = localStorage.getItem('cznet_login_user');
+    var p = localStorage.getItem('cznet_login_pass');
+    if (u && p) return [{ user: u, pass: p }];
+    return [{ user: 'zal', pass: '141184' }];
+  }
+
+  if (sessionStorage.getItem('cznet_auth') === '1') {
+    var o = document.getElementById('cznet-auth-overlay');
+    if (o) o.remove();
+  }
+
+  window.cznetLogin = function() {
+    var u = document.getElementById('cznet-user').value.trim();
+    var p = document.getElementById('cznet-pass').value;
+    var ok = getUsers().some(function(x){ return x.user === u && x.pass === p; });
+    if (ok) {
+      sessionStorage.setItem('cznet_auth', '1');
+      document.getElementById('cznet-auth-overlay').remove();
+    } else {
+      document.getElementById('cznet-error').textContent = 'Usuário ou senha incorretos.';
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var passInput = document.getElementById('cznet-pass');
+    if (passInput) {
+      passInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') cznetLogin();
+      });
+    }
+  });
+})();
+</script>
+<!-- ===== FIM SCRIPT LOGIN (movido) ===== -->
+
+
 <header>
   <div class="header-logo">📡</div>
   <div>
@@ -15808,9 +15848,9 @@ function renderDashboard() {
     return;
   }
 
-  // Filtro por mês devedor específico (não aplicar na aba "pago": clientes pagos não aparecem em getMesesDevendo)
+  // Filtro por mês devedor específico
   const mesFiltroDevedor = document.getElementById('dash-filtro-mes-devedor')?.value || '';
-  const listaPorMesDevedor = (mesFiltroDevedor && _dashTabAtiva !== 'pago')
+  const listaPorMesDevedor = mesFiltroDevedor
     ? clientesFiltrados.filter(c => getMesesDevendo(c.id).includes(mesFiltroDevedor))
     : clientesFiltrados;
 
@@ -16141,8 +16181,8 @@ function importarDados(modo) {
 
   if (modo === 'substituir') {
     if (!confirm(`⚠️ Isso vai APAGAR todos os ${clientes.length} clientes, ${pagamentos.length} pagamentos e ${planos.length} planos atuais e substituir pelos ${novosClientes.length} do arquivo. Confirma?`)) return;
-    // Proteção: bloqueia substituição se o arquivo importado tiver muito menos pagamentos
-    // do que o sistema já tem — evita apagar baixas por engano com um backup incompleto/parcial.
+    // Protecao: bloqueia substituicao se o arquivo importado tiver muito menos pagamentos
+    // do que o sistema ja tem - evita apagar baixas por engano com um backup incompleto/parcial.
     if (pagamentos.length > 0 && novosPagamentos.length < pagamentos.length * 0.5) {
       alert(`🛑 Importação bloqueada por segurança!\n\nO arquivo selecionado tem apenas ${novosPagamentos.length} pagamentos, mas o sistema atualmente tem ${pagamentos.length}.\n\nIsso indica que o arquivo é um backup incompleto ou desatualizado. Substituir agora apagaria baixas já registradas.\n\nSe tiver certeza que quer usar este arquivo mesmo assim, use a opção "Mesclar" em vez de "Substituir".`);
       return;
@@ -17173,45 +17213,23 @@ window.addEventListener('beforeunload', function() {
 
 </script>
 
-<!-- ===== SCRIPT LOGIN CZnET ===== -->
 <script>
-(function() {
-  function getUsers() {
-    var u = localStorage.getItem('cznet_login_user');
-    var p = localStorage.getItem('cznet_login_pass');
-    if (u && p) return [{ user: u, pass: p }];
-    return [{ user: 'zal', pass: '141184' }];
-  }
-
-  if (sessionStorage.getItem('cznet_auth') === '1') {
-    var o = document.getElementById('cznet-auth-overlay');
-    if (o) o.remove();
-  }
-
-  window.cznetLogin = function() {
-    var u = document.getElementById('cznet-user').value.trim();
-    var p = document.getElementById('cznet-pass').value;
-    var ok = getUsers().some(function(x){ return x.user === u && x.pass === p; });
-    if (ok) {
-      sessionStorage.setItem('cznet_auth', '1');
-      document.getElementById('cznet-auth-overlay').remove();
-    } else {
-      document.getElementById('cznet-error').textContent = 'Usuário ou senha incorretos.';
-    }
-  };
-
-  document.addEventListener('DOMContentLoaded', function() {
-    var passInput = document.getElementById('cznet-pass');
-    if (passInput) {
-      passInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') cznetLogin();
-      });
-    }
-  });
-})();
-
 window.salvarAcesso = function() {
   var u = document.getElementById('cfg-acesso-user').value.trim();
   var p = document.getElementById('cfg-acesso-pass').value;
   var p2 = document.getElementById('cfg-acesso-pass2').value;
-  var 
+  var msg = document.getElementById('cfg-acesso-msg');
+  if (!u) { msg.style.color='#c0392b'; msg.textContent='❌ Informe o usuário.'; return; }
+  if (!p) { msg.style.color='#c0392b'; msg.textContent='❌ Informe a senha.'; return; }
+  if (p !== p2) { msg.style.color='#c0392b'; msg.textContent='❌ As senhas não coincidem.'; return; }
+  localStorage.setItem('cznet_login_user', u);
+  localStorage.setItem('cznet_login_pass', p);
+  document.getElementById('cfg-acesso-pass').value = '';
+  document.getElementById('cfg-acesso-pass2').value = '';
+  msg.style.color='#1e8449';
+  msg.textContent='✅ Salvo! Próximo acesso usará as novas credenciais.';
+};
+</script>
+<!-- ===== FIM SCRIPT LOGIN ===== -->
+</body>
+</html>
