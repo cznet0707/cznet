@@ -13153,6 +13153,13 @@ Qualquer dúvida, estamos à disposição!</div>
         ☑️ Selecionar tudo
       </button>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-shrink:0">
+      <label for="detalhe-forma-cliente" style="font-size:0.83rem;font-weight:600;color:#555;white-space:nowrap">👤 Cliente:</label>
+      <select id="detalhe-forma-cliente" onchange="atualizarDetalheFormaSelecao()"
+        style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:0.85rem">
+        <option value="">Todos os Clientes</option>
+      </select>
+    </div>
     <div id="detalhe-forma-resumo" style="font-size:0.85rem;color:#555;margin-bottom:12px;flex-shrink:0"></div>
     <div style="overflow-y:auto;flex:1">
       <table id="detalhe-forma-tabela" style="width:100%;border-collapse:collapse;font-size:0.88rem">
@@ -13827,6 +13834,18 @@ const _FORMA_NOME  = { pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Din
 const _FORMA_COR   = { pix:'#1565c0', cartao:'#6a1b9a', dinheiro:'#2e7d32', boleto:'#e65100' };
 const _FORMA_ORDEM = ['pix','cartao','dinheiro','boleto'];
 
+// Preenche o seletor de cliente do modal (ordenado A-Z), mantendo a seleção atual se possível.
+function preencherDetalheFormaClientes() {
+  const sel = document.getElementById('detalhe-forma-cliente');
+  if (!sel) return;
+  const valorAtual = sel.value;
+  const lista = [...clientes].sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  sel.innerHTML = '<option value="">Todos os Clientes</option>' +
+    lista.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  // Mantém o cliente selecionado se ele ainda existir na lista
+  if (valorAtual && lista.some(c => String(c.id) === valorAtual)) sel.value = valorAtual;
+}
+
 // Abre o modal já filtrado pela forma clicada no card do dashboard (comportamento de sempre).
 function abrirDetalheForma(forma) {
   const dashMesEl = document.getElementById('dash-mes');
@@ -13838,6 +13857,9 @@ function abrirDetalheForma(forma) {
     const chk = document.getElementById('chk-forma-' + f);
     if (chk) chk.checked = (f === forma);
   });
+  preencherDetalheFormaClientes();
+  const selCliente = document.getElementById('detalhe-forma-cliente');
+  if (selCliente) selCliente.value = ''; // volta para "Todos os Clientes" a cada abertura
 
   document.getElementById('modal-detalhe-forma').classList.add('open');
   renderDetalheFormaSelecionadas();
@@ -13872,16 +13894,20 @@ function renderDetalheFormaSelecionadas() {
   }
   _detalheFormasAtual = formas;
 
+  const clienteIdSel = parseInt(document.getElementById('detalhe-forma-cliente')?.value) || null;
+  const clienteSel   = clienteIdSel ? clientes.find(x => x.id === clienteIdSel) : null;
+
   const [y,m] = mes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const empresa = getCfgEmpresa();
 
-  const pags  = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento));
+  const pags  = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento) && (!clienteIdSel || p.clienteId === clienteIdSel));
   const total = pags.reduce((s,p) => s+p.valor, 0);
 
-  const titulo = formas.length === _FORMA_ORDEM.length
+  const tituloFormas = formas.length === _FORMA_ORDEM.length
     ? '💰 Todas as Formas'
     : formas.map(f => _FORMA_NOME[f]).join(' + ');
+  const titulo = clienteSel ? `${tituloFormas} — 👤 ${clienteSel.nome}` : tituloFormas;
 
   document.getElementById('detalhe-forma-titulo').innerHTML =
     `<span style="color:${formas.length===1 ? _FORMA_COR[formas[0]] : '#333'}">${titulo}</span> — ${mesNome}`;
@@ -13925,12 +13951,15 @@ function pdfDetalheForma() {
   const [y,m]   = mes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const empresa = getCfgEmpresa();
-  const pags    = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento));
+  const clienteIdSel = parseInt(document.getElementById('detalhe-forma-cliente')?.value) || null;
+  const clienteSel   = clienteIdSel ? clientes.find(x => x.id === clienteIdSel) : null;
+  const pags    = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento) && (!clienteIdSel || p.clienteId === clienteIdSel));
   const total   = pags.reduce((s,p) => s+p.valor, 0);
   const sorted  = [...pags].sort((a,b) => (a.data||'').localeCompare(b.data||''));
   const tituloFormas = formas.length === _FORMA_ORDEM.length
     ? 'Todas as Formas'
     : formas.map(f => _FORMA_NOME[f].replace(/[^\w\s]/g,'').trim()).join(' + ');
+  const tituloCompleto = clienteSel ? `${tituloFormas} — ${clienteSel.nome}` : tituloFormas;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -13943,7 +13972,7 @@ function pdfDetalheForma() {
   doc.text(empresa?.nome || 'Relatório', W/2, y2, {align:'center'}); y2+=7;
   doc.setFontSize(11); doc.setFont('helvetica','normal');
   doc.setTextColor(80,80,80);
-  doc.text(`Relatório de Pagamentos — ${tituloFormas} — ${mesNome}`, W/2, y2, {align:'center'}); y2+=5;
+  doc.text(`Relatório de Pagamentos — ${tituloCompleto} — ${mesNome}`, W/2, y2, {align:'center'}); y2+=5;
   doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, W/2, y2, {align:'center'}); y2+=8;
 
   // Linha separadora
@@ -13985,8 +14014,9 @@ function pdfDetalheForma() {
   doc.setTextColor(30,30,30); doc.text(`Total: ${moeda(total)}`, W-mg, y2, {align:'right'});
   doc.setTextColor(80,80,80); doc.text(`${sorted.length} pagamento(s)`, mg, y2);
 
-  const sufixoArquivo = formas.length === _FORMA_ORDEM.length ? 'todas' : formas.join('-');
-  const nomeArquivo = `pagamentos_${sufixoArquivo}_${mes}.pdf`;
+  const sufixoForma    = formas.length === _FORMA_ORDEM.length ? 'todas' : formas.join('-');
+  const sufixoCliente  = clienteSel ? '_' + clienteSel.nome.replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase() : '';
+  const nomeArquivo = `pagamentos_${sufixoForma}${sufixoCliente}_${mes}.pdf`;
   doc.save(nomeArquivo);
 }
 
