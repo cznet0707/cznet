@@ -13400,6 +13400,9 @@ Qualquer dúvida, estamos à disposição!`;
 
 // Flag: só permite salvar no servidor depois que os dados foram carregados
 let dadosCarregados = false;
+// Carimbo de tempo da última versão dos dados vinda do servidor (usado para
+// detectar se outro dispositivo salvou algo novo antes de nós salvarmos).
+let ultimoUpdatedAt = null;
 
 // Retorna data/mês no fuso horário LOCAL do usuário (evita bug de virar o mês
 // horas antes da meia-noite local para quem está em fusos UTC-negativos, como o Brasil).
@@ -13430,6 +13433,7 @@ async function carregarDoServidor() {
       dadosCarregados = true;
       console.log('✅ Dados carregados do servidor');
     }
+    if (d._updatedAt) ultimoUpdatedAt = d._updatedAt;
     return true;
   } catch(e) {
     console.warn('⚠️ Servidor offline — usando dados locais');
@@ -13513,7 +13517,11 @@ async function salvarStorage() {
     cm_msg:                localStorage.getItem('cm_msg')         || '',
     cm_msg_agradecimento:  localStorage.getItem('cm_msg_agradecimento') || '',
     cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
-    cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || ''
+    cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
+    // Usado pelo servidor para detectar se outro dispositivo já salvou uma
+    // versão mais nova entre a nossa última leitura e este save (evita
+    // sobrescrever silenciosamente as mudanças de outro dispositivo).
+    _baseUpdatedAt: ultimoUpdatedAt
   };
   try {
     const resp = await fetch('/api/data', {
@@ -13522,7 +13530,35 @@ async function salvarStorage() {
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(12000)
     });
-    if (resp.ok) { const j = await resp.json(); return j.ok === true; }
+    if (resp.status === 409) {
+      // Conflito: outro dispositivo salvou primeiro. Em vez de tentar de novo
+      // e apagar o que ele salvou, adotamos a versão mais recente do servidor
+      // e avisamos o usuário para refazer a última alteração se precisar.
+      let j = {};
+      try { j = await resp.json(); } catch(e) {}
+      const d = j.data || {};
+      try {
+        if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
+        if (d.cm_pagamentos)   { pagamentos   = JSON.parse(d.cm_pagamentos);   localStorage.setItem('cm_pagamentos', d.cm_pagamentos); }
+        if (d.cm_planos)       { planos       = JSON.parse(d.cm_planos);       localStorage.setItem('cm_planos', d.cm_planos); }
+        if (d.cm_instalacoes)  { instalacoes  = JSON.parse(d.cm_instalacoes);  localStorage.setItem('cm_instalacoes', d.cm_instalacoes); }
+        if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
+        if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
+        if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
+      } catch(e2) {}
+      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
+      try {
+        renderDashboard();
+        renderClientes(document.getElementById('input-busca-clientes')?.value || '');
+      } catch(e3) {}
+      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
+      return false;
+    }
+    if (resp.ok) {
+      const j = await resp.json();
+      if (j.updatedAt) ultimoUpdatedAt = j.updatedAt;
+      return j.ok === true;
+    }
     return false;
   } catch(e) {
     return false; // offline ou timeout
@@ -14430,7 +14466,7 @@ function renderClientes(filtro = '') {
       <tbody>${lista.map(c => {
         const pl = planos.find(x => x.id === c.planoId);
         const end = enderecoCompleto(c);
-        return `<tr>
+        return `<tr ondblclick="abrirEditar(${c.id})" title="Duplo clique para ver os dados completos do cliente" style="cursor:pointer">
           <td><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
           <td>${c.tel}</td>
           <td>${c.cpf||'-'}</td>
