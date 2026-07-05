@@ -15969,7 +15969,7 @@ function renderDashboard() {
           </div>`;
         }
 
-        return `<tr>
+        return `<tr ondblclick="abrirEditar(${c.id})" title="Duplo clique para ver os dados completos do cliente" style="cursor:pointer">
           <td><strong>${c.nome}</strong></td>
           <td>${c.tel}</td>
           <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
