@@ -13130,10 +13130,28 @@ Qualquer dúvida, estamos à disposição!</div>
 
 <!-- MODAL DETALHE FORMA DE PAGAMENTO -->
 <div class="modal-overlay" id="modal-detalhe-forma">
-  <div class="modal" style="max-width:620px;max-height:85vh;display:flex;flex-direction:column">
+  <div class="modal" style="max-width:660px;max-height:85vh;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
       <h3 id="detalhe-forma-titulo" style="margin:0;border:none;padding:0"></h3>
       <button onclick="pdfDetalheForma()" style="padding:7px 14px;border:none;border-radius:8px;background:#1a73e8;color:white;cursor:pointer;font-size:0.85rem;font-weight:600">📥 Baixar PDF</button>
+    </div>
+    <div id="detalhe-forma-filtros" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px;flex-shrink:0;padding:10px 12px;background:#f8f9fa;border-radius:10px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="chk-forma-pix" onchange="atualizarDetalheFormaSelecao()" style="width:15px;height:15px;accent-color:#1565c0"> 🔵 Pix
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="chk-forma-cartao" onchange="atualizarDetalheFormaSelecao()" style="width:15px;height:15px;accent-color:#6a1b9a"> 💳 Cartão
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="chk-forma-dinheiro" onchange="atualizarDetalheFormaSelecao()" style="width:15px;height:15px;accent-color:#2e7d32"> 💵 Dinheiro
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="chk-forma-boleto" onchange="atualizarDetalheFormaSelecao()" style="width:15px;height:15px;accent-color:#e65100"> 🧾 Boleto
+      </label>
+      <button type="button" onclick="selecionarTodasFormas()"
+        style="margin-left:auto;font-size:0.78rem;padding:5px 12px;border-radius:8px;border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;cursor:pointer;font-weight:600">
+        ☑️ Selecionar tudo
+      </button>
     </div>
     <div id="detalhe-forma-resumo" style="font-size:0.85rem;color:#555;margin-bottom:12px;flex-shrink:0"></div>
     <div style="overflow-y:auto;flex:1">
@@ -13143,6 +13161,7 @@ Qualquer dúvida, estamos à disposição!</div>
             <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ddd">#</th>
             <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ddd">Cliente</th>
             <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ddd">Mês Ref.</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ddd">Forma</th>
             <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #ddd">Valor</th>
             <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #ddd">Data Pagto.</th>
           </tr>
@@ -13801,35 +13820,78 @@ function toggleMesesRow(clienteId) {
 // ============================================================
 // DETALHE POR FORMA DE PAGAMENTO
 // ============================================================
-let _detalheFormaAtual = '';
-let _detalheFormaMes   = '';
+let _detalheFormasAtual = []; // array com as formas selecionadas no momento (ex: ['pix'] ou ['pix','cartao'])
+let _detalheFormaMes    = '';
 
 const _FORMA_NOME  = { pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro', boleto:'🧾 Boleto' };
 const _FORMA_COR   = { pix:'#1565c0', cartao:'#6a1b9a', dinheiro:'#2e7d32', boleto:'#e65100' };
+const _FORMA_ORDEM = ['pix','cartao','dinheiro','boleto'];
 
+// Abre o modal já filtrado pela forma clicada no card do dashboard (comportamento de sempre).
 function abrirDetalheForma(forma) {
   const dashMesEl = document.getElementById('dash-mes');
   const mes = dashMesEl?.value || fmtMes();
-  _detalheFormaAtual = forma;
-  _detalheFormaMes   = mes;
+  _detalheFormaMes = mes;
+
+  // Marca só a forma clicada e desmarca as outras
+  _FORMA_ORDEM.forEach(f => {
+    const chk = document.getElementById('chk-forma-' + f);
+    if (chk) chk.checked = (f === forma);
+  });
+
+  document.getElementById('modal-detalhe-forma').classList.add('open');
+  renderDetalheFormaSelecionadas();
+}
+
+// Marca todas as 4 formas (usado pelo botão "Selecionar tudo")
+function selecionarTodasFormas() {
+  _FORMA_ORDEM.forEach(f => {
+    const chk = document.getElementById('chk-forma-' + f);
+    if (chk) chk.checked = true;
+  });
+  renderDetalheFormaSelecionadas();
+}
+
+// Chamado quando o usuário marca/desmarca uma das caixinhas de forma de pagamento
+function atualizarDetalheFormaSelecao() {
+  renderDetalheFormaSelecionadas();
+}
+
+function _formasSelecionadas() {
+  return _FORMA_ORDEM.filter(f => document.getElementById('chk-forma-' + f)?.checked);
+}
+
+function renderDetalheFormaSelecionadas() {
+  const mes     = _detalheFormaMes || (document.getElementById('dash-mes')?.value || fmtMes());
+  _detalheFormaMes = mes;
+  let formas    = _formasSelecionadas();
+  if (!formas.length) {
+    // Não deixa ficar sem nenhuma marcada — volta pra "todas" para não mostrar tela vazia
+    selecionarTodasFormas();
+    return;
+  }
+  _detalheFormasAtual = formas;
 
   const [y,m] = mes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const empresa = getCfgEmpresa();
 
-  // Filtrar pagamentos do mês com essa forma
-  const pags = pagamentos.filter(p => p.mes === mes && p.formaPagamento === forma);
+  const pags  = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento));
   const total = pags.reduce((s,p) => s+p.valor, 0);
 
+  const titulo = formas.length === _FORMA_ORDEM.length
+    ? '💰 Todas as Formas'
+    : formas.map(f => _FORMA_NOME[f]).join(' + ');
+
   document.getElementById('detalhe-forma-titulo').innerHTML =
-    `<span style="color:${_FORMA_COR[forma]}">${_FORMA_NOME[forma]}</span> — ${mesNome}`;
+    `<span style="color:${formas.length===1 ? _FORMA_COR[formas[0]] : '#333'}">${titulo}</span> — ${mesNome}`;
   document.getElementById('detalhe-forma-resumo').innerHTML =
     `<strong>${pags.length}</strong> pagamento(s) &nbsp;·&nbsp; Total: <strong style="color:#1e8449">${moeda(total)}</strong>
      ${empresa?.nome ? `&nbsp;·&nbsp; <span style="color:#888">${empresa.nome}</span>` : ''}`;
 
   if (!pags.length) {
     document.getElementById('detalhe-forma-body').innerHTML =
-      `<tr><td colspan="5" style="text-align:center;padding:30px;color:#aaa">Nenhum pagamento com ${_FORMA_NOME[forma]} em ${mesNome}</td></tr>`;
+      `<tr><td colspan="6" style="text-align:center;padding:30px;color:#aaa">Nenhum pagamento com ${titulo} em ${mesNome}</td></tr>`;
     document.getElementById('detalhe-forma-foot').innerHTML = '';
   } else {
     const sorted = [...pags].sort((a,b) => (a.data||'').localeCompare(b.data||''));
@@ -13843,29 +13905,32 @@ function abrirDetalheForma(forma) {
         <td style="padding:8px 10px;color:#888;font-size:0.8rem">${i+1}</td>
         <td style="padding:8px 10px;font-weight:600">${c?.nome||'Removido'}</td>
         <td style="padding:8px 10px;color:#555">${pMesNome}</td>
+        <td style="padding:8px 10px;color:${_FORMA_COR[p.formaPagamento]||'#555'}">${_FORMA_NOME[p.formaPagamento]||p.formaPagamento||'-'}</td>
         <td style="padding:8px 10px;text-align:right;color:#1e8449;font-weight:600">${moeda(p.valor)}</td>
         <td style="padding:8px 10px;text-align:center;color:#555">${dataFmt}</td>
       </tr>`;
     }).join('');
     document.getElementById('detalhe-forma-foot').innerHTML =
       `<tr style="background:#f0f4f8;font-weight:700">
-        <td colspan="3" style="padding:9px 10px">Total</td>
+        <td colspan="4" style="padding:9px 10px">Total</td>
         <td style="padding:9px 10px;text-align:right;color:#1e8449">${moeda(total)}</td>
         <td></td>
       </tr>`;
   }
-  document.getElementById('modal-detalhe-forma').classList.add('open');
 }
 
 function pdfDetalheForma() {
-  const forma   = _detalheFormaAtual;
+  const formas  = _detalheFormasAtual.length ? _detalheFormasAtual : _formasSelecionadas();
   const mes     = _detalheFormaMes;
   const [y,m]   = mes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const empresa = getCfgEmpresa();
-  const pags    = pagamentos.filter(p => p.mes === mes && p.formaPagamento === forma);
+  const pags    = pagamentos.filter(p => p.mes === mes && formas.includes(p.formaPagamento));
   const total   = pags.reduce((s,p) => s+p.valor, 0);
   const sorted  = [...pags].sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  const tituloFormas = formas.length === _FORMA_ORDEM.length
+    ? 'Todas as Formas'
+    : formas.map(f => _FORMA_NOME[f].replace(/[^\w\s]/g,'').trim()).join(' + ');
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -13878,7 +13943,7 @@ function pdfDetalheForma() {
   doc.text(empresa?.nome || 'Relatório', W/2, y2, {align:'center'}); y2+=7;
   doc.setFontSize(11); doc.setFont('helvetica','normal');
   doc.setTextColor(80,80,80);
-  doc.text(`Relatório de Pagamentos — ${_FORMA_NOME[forma].replace(/[^\w\s]/g,'')} — ${mesNome}`, W/2, y2, {align:'center'}); y2+=5;
+  doc.text(`Relatório de Pagamentos — ${tituloFormas} — ${mesNome}`, W/2, y2, {align:'center'}); y2+=5;
   doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, W/2, y2, {align:'center'}); y2+=8;
 
   // Linha separadora
@@ -13889,9 +13954,10 @@ function pdfDetalheForma() {
   doc.setFillColor(235,240,248); doc.rect(mg, y2-4, W-mg*2, 8, 'F');
   doc.text('#',   mg+2,  y2);
   doc.text('Cliente', mg+10, y2);
-  doc.text('Mês Ref.', mg+105, y2);
-  doc.text('Valor', mg+140, y2);
-  doc.text('Data Pagto.', mg+160, y2);
+  doc.text('Mês Ref.', mg+95, y2);
+  doc.text('Forma', mg+120, y2);
+  doc.text('Valor', mg+148, y2);
+  doc.text('Data Pagto.', mg+168, y2);
   y2+=7;
 
   // Linhas
@@ -13901,12 +13967,14 @@ function pdfDetalheForma() {
     const [py,pm] = p.mes.split('-');
     const pMes = new Date(py,pm-1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
     const data = p.data ? p.data.split('-').reverse().join('/') : '—';
+    const formaTxt = (_FORMA_NOME[p.formaPagamento]||p.formaPagamento||'-').replace(/[^\w\s]/g,'').trim();
     if (i%2===0) { doc.setFillColor(250,250,252); doc.rect(mg, y2-3.5, W-mg*2, 7, 'F'); }
     doc.setTextColor(120,120,120); doc.text(String(i+1), mg+2, y2);
-    doc.setTextColor(30,30,30);    doc.text((c?.nome||'Removido').substring(0,42), mg+10, y2);
-    doc.setTextColor(80,80,80);    doc.text(pMes, mg+105, y2);
-    doc.setTextColor(30,120,60);   doc.text(moeda(p.valor), mg+140, y2);
-    doc.setTextColor(80,80,80);    doc.text(data, mg+162, y2);
+    doc.setTextColor(30,30,30);    doc.text((c?.nome||'Removido').substring(0,36), mg+10, y2);
+    doc.setTextColor(80,80,80);    doc.text(pMes, mg+95, y2);
+    doc.setTextColor(80,80,80);    doc.text(formaTxt, mg+120, y2);
+    doc.setTextColor(30,120,60);   doc.text(moeda(p.valor), mg+148, y2);
+    doc.setTextColor(80,80,80);    doc.text(data, mg+170, y2);
     y2+=7;
     if (y2 > 270) { doc.addPage(); y2 = 16; }
   });
@@ -13917,7 +13985,8 @@ function pdfDetalheForma() {
   doc.setTextColor(30,30,30); doc.text(`Total: ${moeda(total)}`, W-mg, y2, {align:'right'});
   doc.setTextColor(80,80,80); doc.text(`${sorted.length} pagamento(s)`, mg, y2);
 
-  const nomeArquivo = `pagamentos_${forma}_${mes}.pdf`;
+  const sufixoArquivo = formas.length === _FORMA_ORDEM.length ? 'todas' : formas.join('-');
+  const nomeArquivo = `pagamentos_${sufixoArquivo}_${mes}.pdf`;
   doc.save(nomeArquivo);
 }
 
