@@ -15073,10 +15073,10 @@ function gerarCapasCarne() {
 
   // Dimensões baseadas no arquivo Word original
   const PW = 210, PH = 297;
-  const CARD_W = 199, CARD_H = 47.6;
+  const CARD_W = 204, CARD_H = 47.6; // largura aumentada (era 199) para ocupar mais a folha nas laterais
   const POR_PAG = 6;
   const margTop  = (PH - CARD_H * POR_PAG) / 2;   // ≈5.7mm
-  const margLeft = (PW - CARD_W) / 2;              // ≈5.5mm
+  const margLeft = (PW - CARD_W) / 2;              // ≈3mm
 
   // === PÁGINA 1 — 6 FRENTES ===
   doc.setFillColor(0,0,0);
@@ -15718,7 +15718,7 @@ function gerarCarne() {
 
     // === QR CODE ===
     if (qrBase64 && QR_SIZE > 0) {
-      const qrX = mx + TW + QR_PAD;
+      const qrX = mx + TW + QR_PAD - 1.5; // recuado 1.5mm para a caixinha (com borda) não ultrapassar a margem direita da folha
       const qrY = offsetY + CAB_H + 1 + 6 + 2;
       doc.setFillColor(...brancoR);
       doc.setDrawColor(...azul); doc.setLineWidth(0.5);
