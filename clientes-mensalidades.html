@@ -15469,13 +15469,13 @@ function gerarCarne() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  // A4: 210 × 297mm — 6 carnês por página
+  // A4: 210 × 297mm — 6 carnês por página (a capa já é feita para esse tamanho)
   const PW = 210, PH = 297;
   const SLIPS_POR_PG = 6;
   const MAR_H   = 6;
   const MAR_TOP = 4;
   const GAP     = 1;
-  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG; // ≈ 47mm
+  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG; // ≈ 47.3mm
   const W       = PW - MAR_H * 2; // ≈ 198mm
 
   // CANHOTO: faixa esquerda que o cliente leva
@@ -15535,50 +15535,53 @@ function gerarCarne() {
     doc.setFontSize(6); doc.setFont('helvetica','bold');
     doc.text('CANHOTO — RECIBO DO CLIENTE', x + CANHOTO_W / 2, offsetY + 4.8, { align: 'center' });
 
-    let cy = offsetY + 10;
+    let cy = offsetY + 9;
 
     doc.setTextColor(...azulEsc);
     doc.setFontSize(6.5); doc.setFont('helvetica','bold');
     doc.text(empresa.nome || 'E S M DE LIMA', x + CANHOTO_W / 2, cy, { align: 'center' });
-    cy += 3.5;
+    cy += 2.6;
 
     // Linha separadora
     doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
-    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 3;
+    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
 
-    doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...escuro);
-    doc.text('Cliente:', x + 2, cy);
-    doc.setFont('helvetica','normal');
-    const nomeLinhas = doc.splitTextToSize(c.nome, CANHOTO_W - 4);
-    doc.text(nomeLinhas, x + 2, cy + 3.5); cy += 3.5 + nomeLinhas.length * 3.5;
-    // CPF e endereço — comprovante
+    // Cliente — rótulo e nome na mesma linha (economiza espaço vertical)
+    doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    const nomeLinhas = doc.splitTextToSize('Cliente: ' + c.nome, CANHOTO_W - 4);
+    doc.text(nomeLinhas, x + 2, cy); cy += nomeLinhas.length * 2.6;
+
+    // CPF e endereço — comprovante (cada um em uma linha só)
     doc.setFontSize(5.2); doc.setTextColor(80,80,80);
     const _fmtCpfC = v => v ? v.replace(/\D/g,'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v;
-    if (c.cpf) { doc.text('CPF: ' + _fmtCpfC(c.cpf), x + 2, cy); cy += 3; }
+    if (c.cpf) {
+      const cpfLinhas = doc.splitTextToSize('CPF: ' + _fmtCpfC(c.cpf), CANHOTO_W - 4);
+      doc.text(cpfLinhas, x + 2, cy); cy += cpfLinhas.length * 2.4;
+    }
     const _partsC = [];
     if (c.rua || c.endereco) _partsC.push(c.rua || c.endereco);
     if (c.bairro) _partsC.push(c.bairro);
     if (c.cidade) _partsC.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
     if (c.cep) _partsC.push('CEP:' + c.cep);
-    if (_partsC.length) { const _eLs = doc.splitTextToSize(_partsC.join(', '), CANHOTO_W - 4); doc.text(_eLs, x + 2, cy); cy += _eLs.length * 3; }
+    if (_partsC.length) { const _eLs = doc.splitTextToSize(_partsC.join(', '), CANHOTO_W - 4); doc.text(_eLs, x + 2, cy); cy += _eLs.length * 2.4; }
 
-    doc.setDrawColor(...cinzaMd); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 3;
+    doc.setDrawColor(...cinzaMd); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
 
-    // Mês + Valor em destaque
-    doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
-    doc.text('COMPETÊNCIA', x + CANHOTO_W/2, cy, { align:'center'}); cy += 3.5;
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
-    doc.text(mesNome.toUpperCase(), x + CANHOTO_W/2, cy, { align:'center'}); cy += 4;
+    // Competência, vencimento e valor — rótulo e valor na mesma linha
+    doc.setFontSize(5.4); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('COMPETÊNCIA:', x + 2, cy);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+    doc.text(mesNome, x + 24, cy); cy += 2.8;
 
-    doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
-    doc.text('VENCIMENTO', x + CANHOTO_W/2, cy, { align:'center'}); cy += 3.5;
-    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
-    doc.text(vctoStr, x + CANHOTO_W/2, cy, { align:'center'}); cy += 4;
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VENCIMENTO:', x + 2, cy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text(vctoStr, x + 24, cy); cy += 2.8;
 
-    doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
-    doc.text('VALOR PAGO', x + CANHOTO_W/2, cy, { align:'center'}); cy += 3.5;
-    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
-    doc.text(moeda(c.valor), x + CANHOTO_W/2, cy, { align:'center'});
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VALOR PAGO:', x + 2, cy);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
+    doc.text(moeda(c.valor), x + 24, cy);
 
     // ══════════════════════════════════════════════════
     //  ÁREA DE ASSINATURA / DATA — ancorada na BASE do canhoto
@@ -15586,27 +15589,29 @@ function gerarCarne() {
     //  aparecer inteira, mesmo quando nome/endereço do cliente
     //  ocupam mais linhas no topo)
     // ══════════════════════════════════════════════════
-    const parcelaY  = offsetY + SLIP_H - 2;
-    const sigLabelY = parcelaY - 4.5;
-    const sigLineY  = sigLabelY - 2.5;
-    const dataY     = sigLineY - 2.5;
-    const dataLineY = dataY - 3;
+    const parcelaY  = offsetY + SLIP_H - 1.8;
+    const sigLabelY = parcelaY - 3;
+    const sigLineY  = sigLabelY - 1.8;
+    const dataY     = sigLineY - 1.8;
+    const dataLineY = dataY - 2.2;
 
     // Linha de data de pagamento
     doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
     doc.line(x+2, dataLineY, x + CANHOTO_W - 2, dataLineY);
-    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(90,90,90);
+    doc.setFontSize(5.3); doc.setFont('helvetica','normal'); doc.setTextColor(90,90,90);
     doc.text('Data de pagamento: ___/___/______', x + 2, dataY);
 
     // Linha de assinatura
     doc.setDrawColor(180,180,180);
     doc.line(x+2, sigLineY, x + CANHOTO_W - 2, sigLineY);
-    doc.setFontSize(5); doc.setTextColor(130,130,130);
+    doc.setFontSize(4.8); doc.setTextColor(130,130,130);
     doc.text('Assinatura / Carimbo', x + CANHOTO_W/2, sigLabelY, { align:'center' });
 
     // Parcela no rodapé do canhoto
-    doc.setFontSize(5); doc.setTextColor(150,150,150);
+    doc.setFontSize(4.8); doc.setTextColor(150,150,150);
     doc.text(`Parcela ${idx+1} de ${qtd}`, x + CANHOTO_W/2, parcelaY, { align:'center' });
+
+
 
     // ══════════════════════════════════════════════════
     //  LINHA PONTILHADA VERTICAL (tesoura)
