@@ -12949,6 +12949,51 @@ Qualquer dúvida, estamos à disposição! 😊</div>
     </div>
 
     <div class="card">
+      <h2>🧾 Mensagem de Cobrança via Boleto</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Usada quando você escolhe "Boleto" ao enviar a cobrança pelo WhatsApp. Clique numa variável para inserir no cursor:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{nome}','config-msg-boleto')"><code>{nome}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{valor}','config-msg-boleto')"><code>{valor}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{vencimento}','config-msg-boleto')"><code>{vencimento}</code> Vencimento</span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{mes}','config-msg-boleto')"><code>{mes}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{plano}','config-msg-boleto')"><code>{plano}</code></span>
+      </div>
+      <textarea id="config-msg-boleto" rows="7" style="margin-bottom:10px"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarConfigBoleto()">💾 Salvar</button>
+        <button class="btn btn-outline" onclick="restaurarMsgBoletoPadrao()">↩️ Padrão</button>
+      </div>
+      <div style="margin-top:14px">
+        <label>Pré-visualização:</label>
+        <div class="zap-preview" id="config-preview-boleto"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎩 Mensagem de Cobrança Formal / Profissional</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Versão mais formal, sem emojis, ideal para clientes corporativos. Usada quando você escolhe "Formal" ao enviar a cobrança pelo WhatsApp. Clique numa variável para inserir no cursor:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{nome}','config-msg-profissional')"><code>{nome}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{valor}','config-msg-profissional')"><code>{valor}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{vencimento}','config-msg-profissional')"><code>{vencimento}</code> Vencimento</span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{mes}','config-msg-profissional')"><code>{mes}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{plano}','config-msg-profissional')"><code>{plano}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{pix}','config-msg-profissional')"><code>{pix}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{telefone}','config-msg-profissional')"><code>{telefone}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{empresa}','config-msg-profissional')"><code>{empresa}</code></span>
+      </div>
+      <textarea id="config-msg-profissional" rows="9" style="margin-bottom:10px"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarConfigProfissional()">💾 Salvar</button>
+        <button class="btn btn-outline" onclick="restaurarMsgProfissionalPadrao()">↩️ Padrão</button>
+      </div>
+      <div style="margin-top:14px">
+        <label>Pré-visualização:</label>
+        <div class="zap-preview" id="config-preview-profissional"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>🙏 Mensagem de Agradecimento (após pagamento)</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Enviada ao cliente após confirmar o pagamento:</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -13287,6 +13332,16 @@ Qualquer dúvida, estamos à disposição!</div>
     <h3>📱 Enviar Cobrança via WhatsApp</h3>
     <p style="color:#555;font-size:0.88rem;margin-bottom:12px">Para: <strong id="zap-nome-cliente"></strong></p>
 
+    <!-- Seletor de forma de pagamento da mensagem -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:6px;display:block">💳 Forma de pagamento da mensagem:</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="zap-forma-pix" onclick="zapEscolherForma('pix')">🔵 Pix</button>
+        <button type="button" id="zap-forma-boleto" onclick="zapEscolherForma('boleto')">🧾 Boleto</button>
+        <button type="button" id="zap-forma-profissional" onclick="zapEscolherForma('profissional')">🎩 Formal</button>
+      </div>
+    </div>
+
     <!-- Seletor de meses da cobrança -->
     <div style="background:#f0f4ff;border-radius:12px;padding:14px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -13416,6 +13471,39 @@ Por favor, efetue o pagamento para evitar a suspensão do serviço.
 
 Qualquer dúvida, estamos à disposição! 😊`;
 
+const MSG_PADRAO_BOLETO = `Olá, {nome}! 👋
+
+Passando para avisar que a sua mensalidade referente ao mês de *{mes}* no valor de *{valor}* está pendente.
+
+📅 Vencimento: dia *{vencimento}*
+📦 Plano: {plano}
+
+🧾 *Pague via Boleto:*
+O boleto está anexado / segue o link para pagamento.
+
+📞 Contato: *{telefone}*
+
+Por favor, efetue o pagamento para evitar a suspensão do serviço.
+
+Qualquer dúvida, estamos à disposição! 😊`;
+
+const MSG_PADRAO_PROFISSIONAL = `Prezado(a) {nome},
+
+Informamos que consta em nosso sistema um débito referente à mensalidade de {mes}, no valor de {valor}, com vencimento em {vencimento}.
+
+Plano contratado: {plano}
+
+Para regularização, disponibilizamos os seguintes dados:
+Chave Pix: {pix}
+Contato: {telefone}
+
+Solicitamos a gentileza de efetuar o pagamento o quanto antes, a fim de evitar a suspensão do serviço.
+
+Permanecemos à disposição para esclarecer quaisquer dúvidas.
+
+Atenciosamente,
+{empresa}`;
+
 const MSG_AGRADECIMENTO_PADRAO = `Olá, {nome}! 😊
 
 Confirmamos o recebimento do seu pagamento referente ao mês de *{mes}* no valor de *{valor}*. ✅
@@ -13453,6 +13541,8 @@ async function carregarDoServidor() {
       if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
+      if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
+      if (d.cm_msg_profissional) localStorage.setItem('cm_msg_profissional', d.cm_msg_profissional);
       if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
       if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
       if (d.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', d.cm_mes_inicio_sistema);
@@ -13485,6 +13575,8 @@ async function carregarDoServidor() {
 }
 
 function getMsgCobranca() { return localStorage.getItem('cm_msg') || MSG_PADRAO; }
+function getMsgCobrancaBoleto() { return localStorage.getItem('cm_msg_boleto') || MSG_PADRAO_BOLETO; }
+function getMsgCobrancaProfissional() { return localStorage.getItem('cm_msg_profissional') || MSG_PADRAO_PROFISSIONAL; }
 function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimento') || MSG_AGRADECIMENTO_PADRAO; }
 
 function montarAgradecimento(clienteId, mesRef) {
@@ -13541,6 +13633,8 @@ async function salvarStorage() {
     cm_categorias:         localStorage.getItem('cm_categorias')  || '[]',
     cm_empresa:            localStorage.getItem('cm_empresa')     || '{}',
     cm_msg:                localStorage.getItem('cm_msg')         || '',
+    cm_msg_boleto:         localStorage.getItem('cm_msg_boleto')  || '',
+    cm_msg_profissional:   localStorage.getItem('cm_msg_profissional') || '',
     cm_msg_agradecimento:  localStorage.getItem('cm_msg_agradecimento') || '',
     cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
     cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
@@ -14802,7 +14896,7 @@ function enviarWifiZap(clienteId) {
 // ============================================================
 // WHATSAPP
 // ============================================================
-function montarMensagem(clienteId, mesRef) {
+function montarMensagem(clienteId, mesRef, forma) {
   const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
   const pl = planos.find(x => x.id === c.planoId);
   const hoje = new Date();
@@ -14810,28 +14904,53 @@ function montarMensagem(clienteId, mesRef) {
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const emp = getCfgEmpresa();
-  return getMsgCobranca()
+  const template = (forma === 'boleto') ? getMsgCobrancaBoleto()
+                  : (forma === 'profissional') ? getMsgCobrancaProfissional()
+                  : getMsgCobranca();
+  return template
     .replace(/{nome}/g, c.nome)
     .replace(/{valor}/g, moeda(c.valor))
     .replace(/{vencimento}/g, `dia ${c.dia}`)
     .replace(/{mes}/g, mesNome)
     .replace(/{plano}/g, pl ? pl.nome : 'Padrão')
     .replace(/{pix}/g, emp.pix || '(não cadastrado)')
-    .replace(/{telefone}/g, emp.tel || '(não cadastrado)');
+    .replace(/{telefone}/g, emp.tel || '(não cadastrado)')
+    .replace(/{empresa}/g, emp.nome || '');
 }
 let _zapMesRef = null;
 let _zapMesesSel = new Set(); // múltiplos meses selecionados
+let _zapFormaMsg = 'pix'; // 'pix' ou 'boleto' — define qual mensagem padrão é usada
 
 function abrirZap(clienteId, mesRef) {
   zapClienteId  = clienteId;
   _zapMesRef    = mesRef || fmtMes();
   _zapMesesSel  = new Set([_zapMesRef]);
+  _zapFormaMsg  = 'pix';
   const c = clientes.find(x => x.id === clienteId);
   document.getElementById('zap-nome-cliente').textContent = c?.nome || '';
   document.getElementById('zap-mes-sel').value = _zapMesRef;
+  _atualizarBotoesFormaZap();
   _renderMesesAbertos(clienteId);
   _atualizarMsgMulti();
   document.getElementById('modal-zap').classList.add('open');
+}
+
+function zapEscolherForma(forma) {
+  _zapFormaMsg = forma;
+  _atualizarBotoesFormaZap();
+  _atualizarMsgMulti();
+}
+
+function _atualizarBotoesFormaZap() {
+  const btnPix    = document.getElementById('zap-forma-pix');
+  const btnBoleto = document.getElementById('zap-forma-boleto');
+  const btnProf   = document.getElementById('zap-forma-profissional');
+  if (!btnPix || !btnBoleto || !btnProf) return;
+  const ativoStyle   = 'flex:1;padding:8px;border-radius:8px;border:2px solid #1a73e8;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer;font-size:0.85rem';
+  const inativoStyle = 'flex:1;padding:8px;border-radius:8px;border:2px solid #c5d5f5;background:#fff;color:#1a73e8;font-weight:600;cursor:pointer;font-size:0.85rem';
+  btnPix.style.cssText    = (_zapFormaMsg === 'pix')          ? ativoStyle : inativoStyle;
+  btnBoleto.style.cssText = (_zapFormaMsg === 'boleto')       ? ativoStyle : inativoStyle;
+  btnProf.style.cssText   = (_zapFormaMsg === 'profissional') ? ativoStyle : inativoStyle;
 }
 
 let _zapAnoSel = new Date().getFullYear();
@@ -14906,7 +15025,7 @@ function _atualizarMsgMulti() {
 
   let msg;
   if (mesesOrdenados.length === 1) {
-    msg = montarMensagem(zapClienteId, mesesOrdenados[0]);
+    msg = montarMensagem(zapClienteId, mesesOrdenados[0], _zapFormaMsg);
   } else {
     // Mensagem para múltiplos meses
     const nomesMeses = mesesOrdenados.map(k => {
@@ -14915,11 +15034,19 @@ function _atualizarMsgMulti() {
     });
     const totalMeses  = mesesOrdenados.length;
     const totalValor  = moeda(c.valor * totalMeses);
-    const listaMeses  = nomesMeses.map((n,i) => `  • ${n} — ${moeda(c.valor)}`).join('\n');
     const emp2 = getCfgEmpresa();
-    const pixLine = emp2.pix ? `\n\n💳 *Pague via PIX:*\n🔑 Chave: *${emp2.pix}*` : '';
-    const telLine = emp2.tel ? `\n📞 Contato: *${emp2.tel}*` : '';
-    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pixLine}${telLine}\n\nPor favor, regularize para evitar a suspensão do serviço. 🙏`;
+
+    if (_zapFormaMsg === 'profissional') {
+      const listaFormal = nomesMeses.map(n => `- ${n}: ${moeda(c.valor)}`).join('\n');
+      msg = `Prezado(a) ${c.nome},\n\nInformamos que constam em nosso sistema ${totalMeses} mensalidade(s) em aberto:\n\n${listaFormal}\n\nValor total: ${totalValor}\nPlano contratado: ${pl ? pl.nome : 'Padrão'}\nVencimento: dia ${c.dia}\n\nChave Pix: ${emp2.pix || '(não cadastrado)'}\nContato: ${emp2.tel || '(não cadastrado)'}\n\nSolicitamos a gentileza de regularizar o quanto antes, a fim de evitar a suspensão do serviço.\n\nAtenciosamente,\n${emp2.nome || ''}`;
+    } else {
+      const listaMeses  = nomesMeses.map((n,i) => `  • ${n} — ${moeda(c.valor)}`).join('\n');
+      const pagLine = (_zapFormaMsg === 'boleto')
+        ? `\n\n🧾 *Pague via Boleto:*\nO boleto está anexado / segue o link para pagamento.`
+        : (emp2.pix ? `\n\n💳 *Pague via PIX:*\n🔑 Chave: *${emp2.pix}*` : '');
+      const telLine = emp2.tel ? `\n📞 Contato: *${emp2.tel}*` : '';
+      msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pagLine}${telLine}\n\nPor favor, regularize para evitar a suspensão do serviço. 🙏`;
+    }
   }
   document.getElementById('zap-msg-edit').value = msg;
   atualizarPreviewZap();
@@ -16296,8 +16423,12 @@ function carregarConfig() {
   document.getElementById('cfg-tel-empresa').value  = emp.tel      || '';
   document.getElementById('cfg-pix').value          = emp.pix      || '';
   document.getElementById('config-msg').value       = getMsgCobranca();
+  document.getElementById('config-msg-boleto').value = getMsgCobrancaBoleto();
+  document.getElementById('config-msg-profissional').value = getMsgCobrancaProfissional();
   document.getElementById('config-msg-agr').value  = getMsgAgradecimento();
   atualizarPreviewAgr();
+  atualizarPreviewBoleto();
+  atualizarPreviewProfissional();
   // QR Code
   const qr = localStorage.getItem('cm_qrcode');
   renderQRPreview(qr);
@@ -16407,12 +16538,16 @@ const PREVIEW_EXEMPLO = {
   mes: 'junho de 2026', plano: 'Plano Básico'
 };
 function aplicarExemplo(msg) {
+  const emp = getCfgEmpresa();
   return msg
     .replace(/{nome}/g, PREVIEW_EXEMPLO.nome)
     .replace(/{valor}/g, PREVIEW_EXEMPLO.valor)
     .replace(/{vencimento}/g, PREVIEW_EXEMPLO.vencimento)
     .replace(/{mes}/g, PREVIEW_EXEMPLO.mes)
-    .replace(/{plano}/g, PREVIEW_EXEMPLO.plano);
+    .replace(/{plano}/g, PREVIEW_EXEMPLO.plano)
+    .replace(/{pix}/g, emp.pix || '(não cadastrado)')
+    .replace(/{telefone}/g, emp.tel || '(não cadastrado)')
+    .replace(/{empresa}/g, emp.nome || '(não cadastrado)');
 }
 function atualizarPreview() {
   const el = document.getElementById('config-preview');
@@ -16422,10 +16557,28 @@ function atualizarPreviewAgr() {
   const el = document.getElementById('config-preview-agr');
   if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-agr').value);
 }
+function atualizarPreviewBoleto() {
+  const el = document.getElementById('config-preview-boleto');
+  if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-boleto').value);
+}
+function atualizarPreviewProfissional() {
+  const el = document.getElementById('config-preview-profissional');
+  if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-profissional').value);
+}
 function salvarConfig() {
   localStorage.setItem('cm_msg', document.getElementById('config-msg').value);
   salvarStorage();
   alert('✅ Mensagem de cobrança salva!');
+}
+function salvarConfigBoleto() {
+  localStorage.setItem('cm_msg_boleto', document.getElementById('config-msg-boleto').value);
+  salvarStorage();
+  alert('✅ Mensagem de cobrança via boleto salva!');
+}
+function salvarConfigProfissional() {
+  localStorage.setItem('cm_msg_profissional', document.getElementById('config-msg-profissional').value);
+  salvarStorage();
+  alert('✅ Mensagem formal/profissional salva!');
 }
 function salvarConfigAgr() {
   localStorage.setItem('cm_msg_agradecimento', document.getElementById('config-msg-agr').value);
@@ -16435,6 +16588,14 @@ function salvarConfigAgr() {
 function restaurarMsgPadrao() {
   document.getElementById('config-msg').value = MSG_PADRAO;
   atualizarPreview();
+}
+function restaurarMsgBoletoPadrao() {
+  document.getElementById('config-msg-boleto').value = MSG_PADRAO_BOLETO;
+  atualizarPreviewBoleto();
+}
+function restaurarMsgProfissionalPadrao() {
+  document.getElementById('config-msg-profissional').value = MSG_PADRAO_PROFISSIONAL;
+  atualizarPreviewProfissional();
 }
 function restaurarMsgAgr() {
   document.getElementById('config-msg-agr').value = MSG_AGRADECIMENTO_PADRAO;
@@ -16447,10 +16608,14 @@ function inserirVar(v, targetId = 'config-msg') {
   el.focus();
   el.selectionStart = el.selectionEnd = pos + v.length;
   if (targetId === 'config-msg') atualizarPreview();
+  else if (targetId === 'config-msg-boleto') atualizarPreviewBoleto();
+  else if (targetId === 'config-msg-profissional') atualizarPreviewProfissional();
   else atualizarPreviewAgr();
 }
 document.addEventListener('input', e => {
   if (e.target.id === 'config-msg')     atualizarPreview();
+  if (e.target.id === 'config-msg-boleto') atualizarPreviewBoleto();
+  if (e.target.id === 'config-msg-profissional') atualizarPreviewProfissional();
   if (e.target.id === 'config-msg-agr') atualizarPreviewAgr();
   if (e.target.id === 'zap-msg-edit')   document.getElementById('zap-preview').textContent = e.target.value;
 });
@@ -16971,6 +17136,8 @@ function exportarBackup() {
     cm_planos:     planos,
     cm_empresa:    getCfgEmpresa(),
     cm_msg:        localStorage.getItem('cm_msg')        || '',
+    cm_msg_boleto: localStorage.getItem('cm_msg_boleto') || '',
+    cm_msg_profissional: localStorage.getItem('cm_msg_profissional') || '',
     cm_msg_agradecimento: localStorage.getItem('cm_msg_agradecimento') || '',
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
