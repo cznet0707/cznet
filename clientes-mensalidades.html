@@ -16121,7 +16121,7 @@ function gerarCarneBoleto() {
     doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
     doc.text('SERVIÇO:', mx, y);
     doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
-    doc.text('Internet Banda Larga' + (pl ? ' — ' + pl.nome : ''), mx + 15, y);
+    doc.text('Internet Banda Larga', mx + 15, y);
     y += 4;
     if (obsExtra) {
       doc.setFont('helvetica','italic'); doc.setTextColor(...cinzaEsc);
