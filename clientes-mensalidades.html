@@ -13411,6 +13411,15 @@ Qualquer dúvida, estamos à disposição!</div>
       Selecione os meses que deseja incluir no carnê. Clique para marcar/desmarcar.
     </div>
 
+    <!-- Seletor de estilo do carnê -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.83rem;color:#6d28d9;font-weight:600;margin-bottom:6px;display:block">🎨 Modelo do carnê:</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="carne-estilo-classico" onclick="carneEscolherEstilo('classico')">📋 Clássico</button>
+        <button type="button" id="carne-estilo-boleto" onclick="carneEscolherEstilo('boleto')">🏦 Estilo Boleto Bancário</button>
+      </div>
+    </div>
+
     <!-- Seletor de ano + botões rápidos -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <label style="font-size:0.85rem;font-weight:600">Ano:</label>
@@ -15109,6 +15118,21 @@ function confirmarEnvioZap() {
 // ============================================================
 // Conjunto de meses selecionados no carnê (Set de strings "YYYY-MM")
 let _carneMesesSel = new Set();
+let _carneEstilo = 'classico'; // 'classico' ou 'boleto'
+
+function carneEscolherEstilo(estilo) {
+  _carneEstilo = estilo;
+  _atualizarBotoesEstiloCarne();
+}
+function _atualizarBotoesEstiloCarne() {
+  const btnClassico = document.getElementById('carne-estilo-classico');
+  const btnBoleto    = document.getElementById('carne-estilo-boleto');
+  if (!btnClassico || !btnBoleto) return;
+  const ativoStyle   = 'flex:1;padding:8px;border-radius:8px;border:2px solid #6d28d9;background:#6d28d9;color:#fff;font-weight:700;cursor:pointer;font-size:0.83rem';
+  const inativoStyle = 'flex:1;padding:8px;border-radius:8px;border:2px solid #d8c8fa;background:#fff;color:#6d28d9;font-weight:600;cursor:pointer;font-size:0.83rem';
+  btnClassico.style.cssText = (_carneEstilo === 'classico') ? ativoStyle : inativoStyle;
+  btnBoleto.style.cssText   = (_carneEstilo === 'boleto')   ? ativoStyle : inativoStyle;
+}
 
 function abrirCarne(clienteId) {
   carneClienteId = clienteId;
@@ -15117,6 +15141,7 @@ function abrirCarne(clienteId) {
   document.getElementById('carne-obs').value = '';
   document.getElementById('carne-zap-preview').style.display = 'none';
   _carneMesesSel = new Set();
+  _carneEstilo = 'classico';
 
   // Popular seletor de ano: ano atual e próximos 2
   const hoje = new Date();
@@ -15131,6 +15156,7 @@ function abrirCarne(clienteId) {
   }
 
   renderMesesCarne();
+  _atualizarBotoesEstiloCarne();
   document.getElementById('modal-carne').classList.add('open');
 }
 
@@ -15585,6 +15611,11 @@ function _gerarCapaCarne(doc, c, empresa, meses, qtd) {
 }
 
 function gerarCarne() {
+  if (_carneEstilo === 'boleto') { gerarCarneBoleto(); return; }
+  gerarCarneClassico();
+}
+
+function gerarCarneClassico() {
   const c = clientes.find(x => x.id === carneClienteId); if (!c) return;
   const pl       = planos.find(x => x.id === c.planoId);
   const obsExtra = document.getElementById('carne-obs').value.trim();
@@ -15867,6 +15898,210 @@ function gerarCarne() {
 
   const primeiroMes = [..._carneMesesSel].sort()[0] || 'carne';
   const nomeArquivo = `carne_${c.nome.replace(/\s+/g,'_')}_${primeiroMes}.pdf`;
+  doc.save(nomeArquivo);
+  fecharModal();
+}
+
+// ============================================================
+// CARNÊ ESTILO BOLETO BANCÁRIO (modelo alternativo)
+// ============================================================
+function gerarCarneBoleto() {
+  const c        = clientes.find(x => x.id === carneClienteId); if (!c) return;
+  const pl       = planos.find(x => x.id === c.planoId);
+  const obsExtra = document.getElementById('carne-obs').value.trim();
+  const empresa  = getCfgEmpresa();
+
+  if (_carneMesesSel.size === 0) { alert('Selecione pelo menos um mês.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const PW = 210, PH = 297;
+  const SLIPS_POR_PG = 3; // modelo bancário é mais alto/detalhado — 3 por página
+  const MAR_H   = 8;
+  const MAR_TOP = 6;
+  const GAP     = 5;
+  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG;
+  const W       = PW - MAR_H * 2;
+
+  const preto   = [20, 20, 20];
+  const cinzaEsc= [90, 90, 90];
+  const cinzaClr= [235, 235, 235];
+  const branco  = [255, 255, 255];
+  const verde   = [30, 130, 76];
+  const linha   = [150, 150, 150];
+
+  const meses = [..._carneMesesSel].sort().map(key => {
+    const [y, m] = key.split('-').map(Number);
+    return { y, m: m - 1 };
+  });
+  const qtd = meses.length;
+
+  // gera um "código de barras" decorativo (não é código bancário real —
+  // serve apenas para dar a identidade visual de boleto)
+  function desenharBarras(doc, x, y, w, h, seedStr) {
+    let seed = 0;
+    for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return (seed % 1000) / 1000; };
+    let bx = x;
+    doc.setFillColor(0,0,0);
+    while (bx < x + w) {
+      const bw = 0.3 + rnd() * 1.3;
+      if (rnd() > 0.42) doc.rect(bx, y, bw, h, 'F');
+      bx += bw + 0.25;
+    }
+  }
+
+  meses.forEach((mes, idx) => {
+    const slot = idx % SLIPS_POR_PG;
+    if (idx > 0 && slot === 0) doc.addPage();
+
+    const offsetY = MAR_TOP + slot * (SLIP_H + GAP);
+    const x = MAR_H;
+    let y = offsetY;
+
+    const mesNome = new Date(mes.y, mes.m, 1)
+      .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      .replace(/^./, s => s.toUpperCase());
+    const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(mes.m+1).padStart(2,'0')}/${mes.y}`;
+    const nossoNumero = `${String(c.id).padStart(6,'0')}-${String(mes.m+1).padStart(2,'0')}${mes.y}`;
+    const _fmtCpfB = v => v ? v.replace(/\D/g,'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v;
+
+    // moldura externa
+    doc.setDrawColor(...preto); doc.setLineWidth(0.5);
+    doc.rect(x, offsetY, W, SLIP_H);
+
+    // ══════════════════════════════════════
+    // RECIBO DO SACADO (canhoto superior, estilo boleto)
+    // ══════════════════════════════════════
+    const RECIBO_H = SLIP_H * 0.30;
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+    doc.text(empresa.nome || 'E S M DE LIMA', x + 2, y + 4);
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    doc.text(empresa.cnpj || '', x + 2, y + 7.5);
+    doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+    doc.text('RECIBO DO SACADO', x + W - 2, y + 4, { align:'right' });
+
+    let ry = y + 11;
+    doc.setDrawColor(...linha); doc.setLineWidth(0.2);
+    doc.line(x+2, ry, x+W-2, ry); ry += 3.2;
+
+    doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    doc.text('Sacado: ' + c.nome + (c.cpf ? '   CPF: ' + _fmtCpfB(c.cpf) : ''), x + 2, ry); ry += 3.4;
+    const partsB = [];
+    if (c.rua || c.endereco) partsB.push(c.rua || c.endereco);
+    if (c.bairro) partsB.push(c.bairro);
+    if (c.cidade) partsB.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
+    if (partsB.length) { doc.setFontSize(5.2); doc.setTextColor(...cinzaEsc); doc.text(partsB.join(', '), x + 2, ry); ry += 3.2; }
+
+    // mini tabela do recibo
+    const rTabY = offsetY + RECIBO_H - 6;
+    const rCols = [
+      { l:'Nosso Número', v: nossoNumero },
+      { l:'Vencimento',   v: vctoStr },
+      { l:'Valor Documento', v: moeda(c.valor) },
+    ];
+    const rColW = W / rCols.length;
+    rCols.forEach((col,i) => {
+      const cx = x + i*rColW;
+      doc.setDrawColor(...linha); doc.setLineWidth(0.15);
+      if (i>0) doc.line(cx, rTabY-4, cx, rTabY+3.5);
+      doc.setFontSize(4.8); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+      doc.text(col.l.toUpperCase(), cx + 2, rTabY - 1.5);
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+      doc.text(String(col.v), cx + 2, rTabY + 3);
+    });
+
+    // linha serrilhada separando recibo do corpo principal
+    const serrY = offsetY + RECIBO_H;
+    doc.setDrawColor(...preto); doc.setLineDash([1,1],0); doc.setLineWidth(0.3);
+    doc.line(x, serrY, x+W, serrY); doc.setLineDash([],0);
+
+    // ══════════════════════════════════════
+    // FICHA DE COMPENSAÇÃO (corpo principal, preto no cabeçalho)
+    // ══════════════════════════════════════
+    let fy = serrY + 1;
+    doc.setFillColor(...preto);
+    doc.rect(x, fy, W, 6, 'F');
+    doc.setTextColor(...branco); doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', x + 2, fy + 4);
+    doc.setFontSize(6.5);
+    doc.text(`Parcela ${idx+1}/${qtd}  —  ${mesNome.toUpperCase()}`, x + W - 2, fy + 4, { align:'right' });
+    fy += 6;
+
+    // linha de campos estilo boleto (Beneficiário / CPF-CNPJ / Nosso número)
+    const campos1 = [
+      { l:'BENEFICIÁRIO', v: empresa.nome || '-' , w: 0.42},
+      { l:'CNPJ',          v: empresa.cnpj || '-', w: 0.30},
+      { l:'NOSSO NÚMERO',  v: nossoNumero,          w: 0.28},
+    ];
+    let cxAcc = x;
+    const rowH1 = 8;
+    campos1.forEach(cp => {
+      const cw = W*cp.w;
+      doc.setDrawColor(...preto); doc.setLineWidth(0.2);
+      doc.rect(cxAcc, fy, cw, rowH1);
+      doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+      doc.text(cp.l, cxAcc + 1.2, fy + 2.6);
+      doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+      const vLinhas = doc.splitTextToSize(String(cp.v), cw - 2.4);
+      doc.text(vLinhas.slice(0,2), cxAcc + 1.2, fy + 6);
+      cxAcc += cw;
+    });
+    fy += rowH1;
+
+    // linha 2: Sacado / Vencimento / Valor
+    const campos2 = [
+      { l:'SACADO', v: c.nome + (c.cpf ? ' - CPF ' + _fmtCpfB(c.cpf) : ''), w:0.42 },
+      { l:'VENCIMENTO', v: vctoStr, w:0.28 },
+      { l:'VALOR DOCUMENTO', v: moeda(c.valor), w:0.30, destaque:true },
+    ];
+    cxAcc = x;
+    const rowH2 = 8;
+    campos2.forEach(cp => {
+      const cw = W*cp.w;
+      doc.setDrawColor(...preto); doc.setLineWidth(0.2);
+      doc.rect(cxAcc, fy, cw, rowH2);
+      doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+      doc.text(cp.l, cxAcc + 1.2, fy + 2.6);
+      doc.setFontSize(cp.destaque?7:5.6); doc.setFont('helvetica','bold');
+      doc.setTextColor(...(cp.destaque? verde : preto));
+      const vLinhas = doc.splitTextToSize(String(cp.v), cw - 2.4);
+      doc.text(vLinhas.slice(0,2), cxAcc + 1.2, fy + (cp.destaque?7:6));
+      cxAcc += cw;
+    });
+    fy += rowH2;
+
+    // linha 3: Serviço / Pix / Observações
+    const obsLinha = [
+      empresa.pix ? ('Pix: ' + empresa.pix) : null,
+      'Serviço: Internet Banda Larga' + (pl ? ' — ' + pl.nome : ''),
+      obsExtra ? ('Obs: ' + obsExtra) : null,
+    ].filter(Boolean).join('     |     ');
+    const rowH3 = 7;
+    doc.setDrawColor(...preto); doc.setLineWidth(0.2);
+    doc.rect(x, fy, W, rowH3);
+    doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('INSTRUÇÕES / OBSERVAÇÕES', x + 1.2, fy + 2.6);
+    doc.setFontSize(5.4); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    const obsLinhas = doc.splitTextToSize(obsLinha, W - 2.4);
+    doc.text(obsLinhas.slice(0,2), x + 1.2, fy + 6);
+    fy += rowH3;
+
+    // código de barras decorativo + linha digitável (identidade visual de boleto)
+    const barY = fy + 2;
+    const barH = Math.max(6, offsetY + SLIP_H - barY - 2);
+    desenharBarras(doc, x, barY, W*0.62, barH, `${c.id}-${nossoNumero}`);
+
+    doc.setFontSize(4.6); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    const linhaDig = `${String(c.id).padStart(3,'0')}.${String(mes.m+1).padStart(2,'0')}${mes.y} ${nossoNumero.replace('-','')}  ${vctoStr.replace(/\//g,'')}  ${Math.round(c.valor*100)}`;
+    doc.text('Autenticação mecânica / ficha de compensação', x + W*0.62 + 3, barY + barH*0.4);
+    doc.setFontSize(5); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+    doc.text(linhaDig, x + W*0.62 + 3, barY + barH*0.4 + 4);
+  });
+
+  const primeiroMes = [..._carneMesesSel].sort()[0] || 'carne';
+  const nomeArquivo = `carne_boleto_${c.nome.replace(/\s+/g,'_')}_${primeiroMes}.pdf`;
   doc.save(nomeArquivo);
   fecharModal();
 }
