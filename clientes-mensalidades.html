@@ -13414,13 +13414,30 @@ Qualquer dúvida, estamos à disposição!</div>
     <!-- Seletor de estilo do carnê -->
     <div style="margin-bottom:12px">
       <label style="font-size:0.83rem;color:#6d28d9;font-weight:600;margin-bottom:6px;display:block">🎨 Modelo do carnê:</label>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" id="carne-estilo-classico" onclick="carneEscolherEstilo('classico')">📋 Clássico</button>
         <button type="button" id="carne-estilo-boleto" onclick="carneEscolherEstilo('boleto')">🏦 Estilo Boleto Bancário</button>
+        <button type="button" id="carne-estilo-branco" onclick="carneEscolherEstilo('branco')">🗒️ Em Branco (12 vias)</button>
+      </div>
+    </div>
+
+    <!-- Campos exclusivos do modelo "Em Branco" -->
+    <div id="carne-branco-campos" style="display:none;margin-bottom:12px;background:#f5f0ff;border-left:4px solid #6d28d9;border-radius:8px;padding:12px 16px">
+      <div style="font-size:0.85rem;color:#6d28d9;font-weight:600;margin-bottom:8px">🗒️ Carnê genérico — sem nome nem endereço do cliente (para preencher à mão). Gera 12 vias.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px">
+          <label style="font-size:0.82rem;font-weight:600">Valor de cada parcela (R$):</label>
+          <input type="number" id="carne-branco-valor" step="0.01" style="margin-top:4px;width:100%">
+        </div>
+        <div style="flex:1;min-width:140px">
+          <label style="font-size:0.82rem;font-weight:600">Data do 1º vencimento:</label>
+          <input type="date" id="carne-branco-data" style="margin-top:4px;width:100%">
+        </div>
       </div>
     </div>
 
     <!-- Seletor de ano + botões rápidos -->
+    <div id="carne-normal-campos">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <label style="font-size:0.85rem;font-weight:600">Ano:</label>
       <select id="carne-ano" onchange="renderMesesCarne()" style="padding:5px 10px;border-radius:6px;border:1px solid #ddd;font-size:0.9rem"></select>
@@ -13432,6 +13449,7 @@ Qualquer dúvida, estamos à disposição!</div>
     <!-- Grid de meses -->
     <div id="carne-meses-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
     <div id="carne-total-resumo" style="display:none;background:#6d28d9;color:white;border-radius:8px;padding:8px 14px;font-weight:700;font-size:0.92rem;text-align:center;margin-bottom:10px"></div>
+    </div>
 
     <!-- Observação -->
     <div style="margin-bottom:14px">
@@ -15123,15 +15141,20 @@ let _carneEstilo = 'classico'; // 'classico' ou 'boleto'
 function carneEscolherEstilo(estilo) {
   _carneEstilo = estilo;
   _atualizarBotoesEstiloCarne();
+  const ehBranco = (estilo === 'branco');
+  document.getElementById('carne-branco-campos').style.display = ehBranco ? 'block' : 'none';
+  document.getElementById('carne-normal-campos').style.display = ehBranco ? 'none'  : 'block';
 }
 function _atualizarBotoesEstiloCarne() {
   const btnClassico = document.getElementById('carne-estilo-classico');
   const btnBoleto    = document.getElementById('carne-estilo-boleto');
-  if (!btnClassico || !btnBoleto) return;
-  const ativoStyle   = 'flex:1;padding:8px;border-radius:8px;border:2px solid #6d28d9;background:#6d28d9;color:#fff;font-weight:700;cursor:pointer;font-size:0.83rem';
-  const inativoStyle = 'flex:1;padding:8px;border-radius:8px;border:2px solid #d8c8fa;background:#fff;color:#6d28d9;font-weight:600;cursor:pointer;font-size:0.83rem';
+  const btnBranco    = document.getElementById('carne-estilo-branco');
+  if (!btnClassico || !btnBoleto || !btnBranco) return;
+  const ativoStyle   = 'flex:1;min-width:120px;padding:8px;border-radius:8px;border:2px solid #6d28d9;background:#6d28d9;color:#fff;font-weight:700;cursor:pointer;font-size:0.83rem';
+  const inativoStyle = 'flex:1;min-width:120px;padding:8px;border-radius:8px;border:2px solid #d8c8fa;background:#fff;color:#6d28d9;font-weight:600;cursor:pointer;font-size:0.83rem';
   btnClassico.style.cssText = (_carneEstilo === 'classico') ? ativoStyle : inativoStyle;
   btnBoleto.style.cssText   = (_carneEstilo === 'boleto')   ? ativoStyle : inativoStyle;
+  btnBranco.style.cssText   = (_carneEstilo === 'branco')   ? ativoStyle : inativoStyle;
 }
 
 function abrirCarne(clienteId) {
@@ -15142,6 +15165,11 @@ function abrirCarne(clienteId) {
   document.getElementById('carne-zap-preview').style.display = 'none';
   _carneMesesSel = new Set();
   _carneEstilo = 'classico';
+  document.getElementById('carne-branco-campos').style.display = 'none';
+  document.getElementById('carne-normal-campos').style.display = 'block';
+  document.getElementById('carne-branco-valor').value = c.valor || '';
+  const hojeISO = new Date().toISOString().slice(0,10);
+  document.getElementById('carne-branco-data').value = hojeISO;
 
   // Popular seletor de ano: ano atual e próximos 2
   const hoje = new Date();
@@ -15612,6 +15640,7 @@ function _gerarCapaCarne(doc, c, empresa, meses, qtd) {
 
 function gerarCarne() {
   if (_carneEstilo === 'boleto') { gerarCarneBoleto(); return; }
+  if (_carneEstilo === 'branco') { gerarCarneBranco(); return; }
   gerarCarneClassico();
 }
 
@@ -16155,7 +16184,209 @@ function gerarCarneBoleto() {
   fecharModal();
 }
 
+// ============================================================
+// CARNÊ EM BRANCO — 12 vias genéricas (sem nome/endereço do cliente)
+// ============================================================
+function gerarCarneBranco() {
+  const empresa = getCfgEmpresa();
+  const obsExtra = document.getElementById('carne-obs').value.trim();
+  const valorStr = document.getElementById('carne-branco-valor').value;
+  const valor = parseFloat(valorStr);
+  const dataStr = document.getElementById('carne-branco-data').value; // YYYY-MM-DD
+
+  if (isNaN(valor) || valor <= 0) { alert('Informe um valor válido para a parcela.'); return; }
+  if (!dataStr) { alert('Informe a data do 1º vencimento.'); return; }
+
+  const [anoIni, mesIni, diaIni] = dataStr.split('-').map(Number);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const PW = 210, PH = 297;
+  const SLIPS_POR_PG = 6;
+  const MAR_H   = 6;
+  const MAR_TOP = 4;
+  const GAP     = 1;
+  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG;
+  const W       = PW - MAR_H * 2;
+
+  const CANHOTO_W = 52;
+  const MAIN_X    = MAR_H + CANHOTO_W + 4;
+  const MAIN_W    = W - CANHOTO_W - 4;
+
+  const azul   = [26, 115, 232];
+  const azulEsc= [15, 80, 180];
+  const cinza  = [240, 244, 248];
+  const escuro = [30, 30, 30];
+  const verde  = [52, 168, 83];
+  const brancoR= [255, 255, 255];
+  const cinzaMd= [160, 160, 160];
+
+  const TOTAL_VIAS = 12;
+
+  for (let idx = 0; idx < TOTAL_VIAS; idx++) {
+    const slot = idx % SLIPS_POR_PG;
+    if (idx > 0 && slot === 0) doc.addPage();
+
+    const offsetY = MAR_TOP + slot * (SLIP_H + GAP);
+    const x = MAR_H;
+
+    // data de vencimento desta parcela = data inicial + idx meses
+    const dVenc = new Date(anoIni, (mesIni - 1) + idx, diaIni);
+    const mesNome = dVenc.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase());
+    const vctoStr = `${String(dVenc.getDate()).padStart(2,'0')}/${String(dVenc.getMonth()+1).padStart(2,'0')}/${dVenc.getFullYear()}`;
+
+    // ══════════════════════════════════════
+    // CANHOTO
+    // ══════════════════════════════════════
+    doc.setFillColor(235, 242, 255);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H, 'F');
+    doc.setDrawColor(...azul); doc.setLineWidth(0.4);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H);
+
+    doc.setFillColor(...azul);
+    doc.rect(x, offsetY, CANHOTO_W, 7, 'F');
+    doc.setTextColor(...brancoR);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text('CANHOTO — RECIBO DO CLIENTE', x + CANHOTO_W / 2, offsetY + 4.8, { align: 'center' });
+
+    let cy = offsetY + 9;
+    doc.setTextColor(...azulEsc);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', x + CANHOTO_W / 2, cy, { align: 'center' });
+    cy += 2.8;
+
+    doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
+    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 3.2;
+
+    // linha em branco para o nome (preencher à mão)
+    doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text('Cliente: ______________________________', x + 2, cy); cy += 4.4;
+    doc.setFontSize(5.2); doc.setTextColor(90,90,90);
+    doc.text('Endereço: ____________________________', x + 2, cy); cy += 4.4;
+
+    doc.setDrawColor(...cinzaMd); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.6;
+
+    doc.setFontSize(5.4); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('COMPETÊNCIA:', x + 2, cy);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+    doc.text(mesNome, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VENCIMENTO:', x + 2, cy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text(vctoStr, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VALOR:', x + 2, cy);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
+    doc.text(moeda(valor), x + 24, cy);
+
+    const parcelaY  = offsetY + SLIP_H - 1.8;
+    const sigLabelY = parcelaY - 3;
+    const sigLineY  = sigLabelY - 1.8;
+    const dataY     = sigLineY - 1.8;
+    const dataLineY = dataY - 2.2;
+
+    doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
+    doc.line(x+2, dataLineY, x + CANHOTO_W - 2, dataLineY);
+    doc.setFontSize(5.3); doc.setFont('helvetica','normal'); doc.setTextColor(90,90,90);
+    doc.text('Data de pagamento: ___/___/______', x + 2, dataY);
+
+    doc.setDrawColor(180,180,180);
+    doc.line(x+2, sigLineY, x + CANHOTO_W - 2, sigLineY);
+    doc.setFontSize(4.8); doc.setTextColor(130,130,130);
+    doc.text('Assinatura / Carimbo', x + CANHOTO_W/2, sigLabelY, { align:'center' });
+
+    doc.setFontSize(4.8); doc.setTextColor(150,150,150);
+    doc.text(`Parcela ${idx+1} de ${TOTAL_VIAS}`, x + CANHOTO_W/2, parcelaY, { align:'center' });
+
+    doc.setDrawColor(...cinzaMd);
+    doc.setLineDash([1.5, 1.5], 0); doc.setLineWidth(0.4);
+    doc.line(x + CANHOTO_W + 2, offsetY + 1, x + CANHOTO_W + 2, offsetY + SLIP_H - 1);
+    doc.setLineDash([], 0);
+
+    // ══════════════════════════════════════
+    // SLIP PRINCIPAL
+    // ══════════════════════════════════════
+    const mx = MAIN_X;
+    let y = offsetY;
+
+    if (slot > 0) {
+      doc.setDrawColor(180,180,180);
+      doc.setLineDash([2,2], 0); doc.setLineWidth(0.3);
+      doc.line(MAR_H, offsetY - GAP/2, PW - MAR_H, offsetY - GAP/2);
+      doc.setLineDash([], 0);
+    }
+
+    const CAB_H = 8;
+    doc.setFillColor(...azul);
+    doc.rect(mx, y, MAIN_W, CAB_H, 'F');
+    doc.setTextColor(...brancoR);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', mx + 3, y + 4);
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+    doc.text(empresa.cnpj || '', mx + 3, y + 7);
+    if (empresa.tel) { doc.setFontSize(6); doc.text('Tel: ' + empresa.tel, mx + MAIN_W - 3, y + 5, { align:'right' }); }
+    y += CAB_H + 1;
+
+    doc.setFillColor(...cinza);
+    doc.rect(mx, y, MAIN_W, 6, 'F');
+    doc.setTextColor(...azul);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(`CARNÊ EM BRANCO — ${mesNome.toUpperCase()}   Parcela ${idx+1} de ${TOTAL_VIAS}`, mx + MAIN_W/2, y + 4, { align: 'center' });
+    y += 9;
+
+    // linhas em branco para nome e endereço (preencher à mão)
+    doc.setFontSize(6.4); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text('Cliente: ________________________________________________', mx, y); y += 5;
+    doc.setFontSize(6); doc.setTextColor(90,90,90);
+    doc.text('Endereço: ______________________________________________', mx, y); y += 5.5;
+
+    // boxes: Vencimento / Serviço / Valor
+    const BOX_H = 10;
+    const bW    = (MAIN_W - 4) / 3;
+    const boxes = [
+      { label:'VENCIMENTO', value: vctoStr },
+      { label:'SERVIÇO',    value: 'Internet Banda Larga' },
+      { label:'VALOR',      value: moeda(valor) },
+    ];
+    boxes.forEach((b, i) => {
+      const bx = mx + i * (bW + 2);
+      doc.setFillColor(...cinza);
+      doc.roundedRect(bx, y, bW, BOX_H, 1, 1, 'F');
+      doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(130,130,130);
+      doc.text(b.label, bx + bW/2, y + 4, { align: 'center' });
+      doc.setFontSize(b.label==='VALOR'?8:6.5); doc.setFont('helvetica','bold');
+      doc.setTextColor(...(b.label==='VALOR'? verde : escuro));
+      doc.text(b.value, bx + bW/2, y + 8.5, { align: 'center' });
+    });
+    y += BOX_H + 2;
+
+    doc.setFontSize(6.5);
+    if (empresa.pix) {
+      doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+      doc.text('Pix:', mx, y);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+      doc.text(empresa.pix, mx + 10, y);
+      y += 4;
+    }
+    if (obsExtra) {
+      doc.setFont('helvetica','italic'); doc.setTextColor(130,130,130);
+      doc.text('Obs: ' + obsExtra, mx, y);
+    }
+
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
+    doc.line(x, offsetY + SLIP_H, x + W, offsetY + SLIP_H);
+  }
+
+  const nomeArquivo = `carne_em_branco_${TOTAL_VIAS}vias_${dataStr}.pdf`;
+  doc.save(nomeArquivo);
+  fecharModal();
+}
+
 function gerarCarneEZap() {
+
   if (_carneMesesSel.size === 0) { alert('Selecione pelo menos um mês.'); return; }
   gerarCarne();
   const c   = clientes.find(x => x.id === carneClienteId); if (!c) return;
