@@ -15910,47 +15910,43 @@ function gerarCarneBoleto() {
   const pl       = planos.find(x => x.id === c.planoId);
   const obsExtra = document.getElementById('carne-obs').value.trim();
   const empresa  = getCfgEmpresa();
+  const qrBase64 = localStorage.getItem('cm_qrcode') || null;
 
   if (_carneMesesSel.size === 0) { alert('Selecione pelo menos um mês.'); return; }
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
+  // A4 — mesmo layout de 6 por página do clássico, com canhoto à esquerda
   const PW = 210, PH = 297;
-  const SLIPS_POR_PG = 3; // modelo bancário é mais alto/detalhado — 3 por página
-  const MAR_H   = 8;
-  const MAR_TOP = 6;
-  const GAP     = 5;
+  const SLIPS_POR_PG = 6;
+  const MAR_H   = 6;
+  const MAR_TOP = 4;
+  const GAP     = 1;
   const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG;
   const W       = PW - MAR_H * 2;
+
+  const CANHOTO_W = 52;
+  const MAIN_X    = MAR_H + CANHOTO_W + 4;
+  const MAIN_W    = W - CANHOTO_W - 4;
 
   const preto   = [20, 20, 20];
   const cinzaEsc= [90, 90, 90];
   const cinzaClr= [235, 235, 235];
   const branco  = [255, 255, 255];
   const verde   = [30, 130, 76];
-  const linha   = [150, 150, 150];
+  const linhaCz = [150, 150, 150];
+
+  const QR_SIZE = qrBase64 ? Math.min(22, Math.floor(SLIP_H - 8)) : 0;
+  const QR_PAD  = qrBase64 ? 2 : 0;
+  const TW      = MAIN_W - QR_SIZE - QR_PAD;
 
   const meses = [..._carneMesesSel].sort().map(key => {
     const [y, m] = key.split('-').map(Number);
     return { y, m: m - 1 };
   });
   const qtd = meses.length;
-
-  // gera um "código de barras" decorativo (não é código bancário real —
-  // serve apenas para dar a identidade visual de boleto)
-  function desenharBarras(doc, x, y, w, h, seedStr) {
-    let seed = 0;
-    for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
-    const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return (seed % 1000) / 1000; };
-    let bx = x;
-    doc.setFillColor(0,0,0);
-    while (bx < x + w) {
-      const bw = 0.3 + rnd() * 1.3;
-      if (rnd() > 0.42) doc.rect(bx, y, bw, h, 'F');
-      bx += bw + 0.25;
-    }
-  }
+  const _fmtCpfB = v => v ? v.replace(/\D/g,'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v;
 
   meses.forEach((mes, idx) => {
     const slot = idx % SLIPS_POR_PG;
@@ -15958,146 +15954,199 @@ function gerarCarneBoleto() {
 
     const offsetY = MAR_TOP + slot * (SLIP_H + GAP);
     const x = MAR_H;
-    let y = offsetY;
 
     const mesNome = new Date(mes.y, mes.m, 1)
       .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
       .replace(/^./, s => s.toUpperCase());
     const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(mes.m+1).padStart(2,'0')}/${mes.y}`;
     const nossoNumero = `${String(c.id).padStart(6,'0')}-${String(mes.m+1).padStart(2,'0')}${mes.y}`;
-    const _fmtCpfB = v => v ? v.replace(/\D/g,'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v;
-
-    // moldura externa
-    doc.setDrawColor(...preto); doc.setLineWidth(0.5);
-    doc.rect(x, offsetY, W, SLIP_H);
 
     // ══════════════════════════════════════
-    // RECIBO DO SACADO (canhoto superior, estilo boleto)
+    // CANHOTO (lado esquerdo — cliente leva) — estilo boleto, preto e branco
     // ══════════════════════════════════════
-    const RECIBO_H = SLIP_H * 0.30;
-    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
-    doc.text(empresa.nome || 'E S M DE LIMA', x + 2, y + 4);
-    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
-    doc.text(empresa.cnpj || '', x + 2, y + 7.5);
-    doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
-    doc.text('RECIBO DO SACADO', x + W - 2, y + 4, { align:'right' });
+    doc.setFillColor(...cinzaClr);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H, 'F');
+    doc.setDrawColor(...preto);
+    doc.setLineWidth(0.4);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H);
 
-    let ry = y + 11;
-    doc.setDrawColor(...linha); doc.setLineWidth(0.2);
-    doc.line(x+2, ry, x+W-2, ry); ry += 3.2;
+    doc.setFillColor(...preto);
+    doc.rect(x, offsetY, CANHOTO_W, 7, 'F');
+    doc.setTextColor(...branco);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text('RECIBO DO SACADO', x + CANHOTO_W / 2, offsetY + 4.8, { align: 'center' });
+
+    let cy = offsetY + 9;
+    doc.setTextColor(...preto);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', x + CANHOTO_W / 2, cy, { align: 'center' });
+    cy += 2.6;
+
+    doc.setDrawColor(...linhaCz); doc.setLineWidth(0.2);
+    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
 
     doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
-    doc.text('Sacado: ' + c.nome + (c.cpf ? '   CPF: ' + _fmtCpfB(c.cpf) : ''), x + 2, ry); ry += 3.4;
-    const partsB = [];
-    if (c.rua || c.endereco) partsB.push(c.rua || c.endereco);
-    if (c.bairro) partsB.push(c.bairro);
-    if (c.cidade) partsB.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
-    if (partsB.length) { doc.setFontSize(5.2); doc.setTextColor(...cinzaEsc); doc.text(partsB.join(', '), x + 2, ry); ry += 3.2; }
+    const nomeLinhas = doc.splitTextToSize('Sacado: ' + c.nome, CANHOTO_W - 4);
+    doc.text(nomeLinhas, x + 2, cy); cy += nomeLinhas.length * 2.6;
 
-    // mini tabela do recibo
-    const rTabY = offsetY + RECIBO_H - 6;
-    const rCols = [
-      { l:'Nosso Número', v: nossoNumero },
-      { l:'Vencimento',   v: vctoStr },
-      { l:'Valor Documento', v: moeda(c.valor) },
-    ];
-    const rColW = W / rCols.length;
-    rCols.forEach((col,i) => {
-      const cx = x + i*rColW;
-      doc.setDrawColor(...linha); doc.setLineWidth(0.15);
-      if (i>0) doc.line(cx, rTabY-4, cx, rTabY+3.5);
-      doc.setFontSize(4.8); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
-      doc.text(col.l.toUpperCase(), cx + 2, rTabY - 1.5);
-      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
-      doc.text(String(col.v), cx + 2, rTabY + 3);
-    });
+    doc.setFontSize(5.2); doc.setTextColor(...cinzaEsc);
+    if (c.cpf) {
+      const cpfLinhas = doc.splitTextToSize('CPF: ' + _fmtCpfB(c.cpf), CANHOTO_W - 4);
+      doc.text(cpfLinhas, x + 2, cy); cy += cpfLinhas.length * 2.4;
+    }
+    const _partsC = [];
+    if (c.rua || c.endereco) _partsC.push(c.rua || c.endereco);
+    if (c.bairro) _partsC.push(c.bairro);
+    if (c.cidade) _partsC.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
+    if (c.cep) _partsC.push('CEP:' + c.cep);
+    if (_partsC.length) { const _eLs = doc.splitTextToSize(_partsC.join(', '), CANHOTO_W - 4); doc.text(_eLs, x + 2, cy); cy += _eLs.length * 2.4; }
 
-    // linha serrilhada separando recibo do corpo principal
-    const serrY = offsetY + RECIBO_H;
-    doc.setDrawColor(...preto); doc.setLineDash([1,1],0); doc.setLineWidth(0.3);
-    doc.line(x, serrY, x+W, serrY); doc.setLineDash([],0);
+    doc.setDrawColor(...linhaCz); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
+
+    doc.setFontSize(5.4); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('NOSSO NÚMERO:', x + 2, cy);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+    doc.text(nossoNumero, x + 2, cy + 2.6); cy += 5.2;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('VENCIMENTO:', x + 2, cy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    doc.text(vctoStr, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('VALOR:', x + 2, cy);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
+    doc.text(moeda(c.valor), x + 24, cy);
+
+    const parcelaY  = offsetY + SLIP_H - 1.8;
+    const sigLabelY = parcelaY - 3;
+    const sigLineY  = sigLabelY - 1.8;
+    const dataY     = sigLineY - 1.8;
+    const dataLineY = dataY - 2.2;
+
+    doc.setDrawColor(...linhaCz); doc.setLineWidth(0.2);
+    doc.line(x+2, dataLineY, x + CANHOTO_W - 2, dataLineY);
+    doc.setFontSize(5.3); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    doc.text('Data de pagamento: ___/___/______', x + 2, dataY);
+
+    doc.setDrawColor(150,150,150);
+    doc.line(x+2, sigLineY, x + CANHOTO_W - 2, sigLineY);
+    doc.setFontSize(4.8); doc.setTextColor(...cinzaEsc);
+    doc.text('Assinatura / Carimbo', x + CANHOTO_W/2, sigLabelY, { align:'center' });
+
+    doc.setFontSize(4.8); doc.setTextColor(...cinzaEsc);
+    doc.text(`Parcela ${idx+1} de ${qtd}`, x + CANHOTO_W/2, parcelaY, { align:'center' });
+
+    // linha pontilhada vertical (tesoura)
+    doc.setDrawColor(...preto);
+    doc.setLineDash([1.5, 1.5], 0);
+    doc.setLineWidth(0.4);
+    doc.line(x + CANHOTO_W + 2, offsetY + 1, x + CANHOTO_W + 2, offsetY + SLIP_H - 1);
+    doc.setLineDash([], 0);
 
     // ══════════════════════════════════════
-    // FICHA DE COMPENSAÇÃO (corpo principal, preto no cabeçalho)
+    // FICHA PRINCIPAL (lado direito — empresa guarda) — estilo boleto bancário
     // ══════════════════════════════════════
-    let fy = serrY + 1;
+    const mx = MAIN_X;
+    let y = offsetY;
+
+    if (slot > 0) {
+      doc.setDrawColor(180,180,180);
+      doc.setLineDash([2,2], 0);
+      doc.setLineWidth(0.3);
+      doc.line(MAR_H, offsetY - GAP/2, PW - MAR_H, offsetY - GAP/2);
+      doc.setLineDash([], 0);
+    }
+
+    // cabeçalho preto estilo ficha de compensação
+    const CAB_H = 8;
     doc.setFillColor(...preto);
-    doc.rect(x, fy, W, 6, 'F');
-    doc.setTextColor(...branco); doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.text(empresa.nome || 'E S M DE LIMA', x + 2, fy + 4);
-    doc.setFontSize(6.5);
-    doc.text(`Parcela ${idx+1}/${qtd}  —  ${mesNome.toUpperCase()}`, x + W - 2, fy + 4, { align:'right' });
-    fy += 6;
+    doc.rect(mx, y, MAIN_W, CAB_H, 'F');
+    doc.setTextColor(...branco);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', mx + 3, y + 4);
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+    doc.text(empresa.cnpj || '', mx + 3, y + 7);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text(`Parcela ${idx+1}/${qtd}`, mx + MAIN_W - 3, y + 5, { align:'right' });
+    y += CAB_H + 1;
 
-    // linha de campos estilo boleto (Beneficiário / CPF-CNPJ / Nosso número)
-    const campos1 = [
-      { l:'BENEFICIÁRIO', v: empresa.nome || '-' , w: 0.42},
-      { l:'CNPJ',          v: empresa.cnpj || '-', w: 0.30},
-      { l:'NOSSO NÚMERO',  v: nossoNumero,          w: 0.28},
+    doc.setFillColor(...cinzaClr);
+    doc.rect(mx, y, MAIN_W, 6, 'F');
+    doc.setTextColor(...preto);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(`FICHA DE COMPENSAÇÃO — ${mesNome.toUpperCase()}`, mx + TW/2, y + 4, { align: 'center' });
+    y += 8;
+
+    doc.setTextColor(...preto); doc.setFontSize(7);
+    const linhaF = (label, valor, yy) => {
+      doc.setFont('helvetica','bold'); doc.text(label, mx, yy);
+      doc.setFont('helvetica','normal'); doc.text(valor || '-', mx + 22, yy);
+    };
+    linhaF('Sacado:', c.nome, y); y += 4.5;
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    if (c.cpf) { doc.text('CPF: ' + _fmtCpfB(c.cpf), mx, y); y += 3.5; }
+    const partsEndB = [];
+    if (c.rua || c.endereco) partsEndB.push(c.rua || c.endereco);
+    if (c.bairro) partsEndB.push(c.bairro);
+    if (c.cidade) partsEndB.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
+    if (c.cep) partsEndB.push('CEP: ' + c.cep);
+    if (partsEndB.length) {
+      const endLinhasB = doc.splitTextToSize(partsEndB.join(' – '), TW - 2);
+      doc.text(endLinhasB, mx, y); y += endLinhasB.length * 3.5;
+    }
+    y += 1;
+
+    // boxes: Nosso Número / Vencimento / Valor Documento
+    const BOX_H = 10;
+    const bW    = (TW - 4) / 3;
+    const boxesB = [
+      { label:'NOSSO NÚMERO', value: nossoNumero },
+      { label:'VENCIMENTO',   value: vctoStr },
+      { label:'VALOR DOC.',   value: moeda(c.valor) },
     ];
-    let cxAcc = x;
-    const rowH1 = 8;
-    campos1.forEach(cp => {
-      const cw = W*cp.w;
-      doc.setDrawColor(...preto); doc.setLineWidth(0.2);
-      doc.rect(cxAcc, fy, cw, rowH1);
-      doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
-      doc.text(cp.l, cxAcc + 1.2, fy + 2.6);
-      doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
-      const vLinhas = doc.splitTextToSize(String(cp.v), cw - 2.4);
-      doc.text(vLinhas.slice(0,2), cxAcc + 1.2, fy + 6);
-      cxAcc += cw;
+    boxesB.forEach((b, i) => {
+      const bx = mx + i * (bW + 2);
+      doc.setDrawColor(...preto); doc.setLineWidth(0.3);
+      doc.rect(bx, y, bW, BOX_H);
+      doc.setFontSize(5); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+      doc.text(b.label, bx + bW/2, y + 4, { align: 'center' });
+      doc.setFontSize(b.label.startsWith('VALOR')?7.5:6.5); doc.setFont('helvetica','bold');
+      doc.setTextColor(...(b.label.startsWith('VALOR') ? verde : preto));
+      doc.text(String(b.value), bx + bW/2, y + 8.5, { align: 'center' });
     });
-    fy += rowH1;
+    y += BOX_H + 2;
 
-    // linha 2: Sacado / Vencimento / Valor
-    const campos2 = [
-      { l:'SACADO', v: c.nome + (c.cpf ? ' - CPF ' + _fmtCpfB(c.cpf) : ''), w:0.42 },
-      { l:'VENCIMENTO', v: vctoStr, w:0.28 },
-      { l:'VALOR DOCUMENTO', v: moeda(c.valor), w:0.30, destaque:true },
-    ];
-    cxAcc = x;
-    const rowH2 = 8;
-    campos2.forEach(cp => {
-      const cw = W*cp.w;
-      doc.setDrawColor(...preto); doc.setLineWidth(0.2);
-      doc.rect(cxAcc, fy, cw, rowH2);
-      doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
-      doc.text(cp.l, cxAcc + 1.2, fy + 2.6);
-      doc.setFontSize(cp.destaque?7:5.6); doc.setFont('helvetica','bold');
-      doc.setTextColor(...(cp.destaque? verde : preto));
-      const vLinhas = doc.splitTextToSize(String(cp.v), cw - 2.4);
-      doc.text(vLinhas.slice(0,2), cxAcc + 1.2, fy + (cp.destaque?7:6));
-      cxAcc += cw;
-    });
-    fy += rowH2;
+    doc.setFontSize(6.2);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('SERVIÇO:', mx, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    doc.text('Internet Banda Larga' + (pl ? ' — ' + pl.nome : ''), mx + 15, y);
+    y += 4;
+    if (obsExtra) {
+      doc.setFont('helvetica','italic'); doc.setTextColor(...cinzaEsc);
+      doc.text('Obs: ' + obsExtra, mx, y);
+    }
 
-    // linha 3: Serviço / Pix / Observações
-    const obsLinha = [
-      empresa.pix ? ('Pix: ' + empresa.pix) : null,
-      'Serviço: Internet Banda Larga' + (pl ? ' — ' + pl.nome : ''),
-      obsExtra ? ('Obs: ' + obsExtra) : null,
-    ].filter(Boolean).join('     |     ');
-    const rowH3 = 7;
+    // QR Code do Pix no lugar do código de barras
+    if (qrBase64 && QR_SIZE > 0) {
+      const qrX = mx + TW + QR_PAD - 1.5;
+      const qrY = offsetY + CAB_H + 1 + 6 + 2;
+      doc.setFillColor(...branco);
+      doc.setDrawColor(...preto); doc.setLineWidth(0.5);
+      doc.rect(qrX - 1.5, qrY - 1.5, QR_SIZE + 3, QR_SIZE + 3, 'FD');
+      try {
+        const fmt = qrBase64.includes('image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(qrBase64, fmt, qrX, qrY, QR_SIZE, QR_SIZE);
+      } catch(e) {
+        try { doc.addImage(qrBase64, 'JPEG', qrX, qrY, QR_SIZE, QR_SIZE); } catch(e2) {}
+      }
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+      doc.text('PAGUE COM PIX', qrX + QR_SIZE/2, qrY + QR_SIZE + 4, { align: 'center' });
+    }
+
     doc.setDrawColor(...preto); doc.setLineWidth(0.2);
-    doc.rect(x, fy, W, rowH3);
-    doc.setFontSize(4.6); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
-    doc.text('INSTRUÇÕES / OBSERVAÇÕES', x + 1.2, fy + 2.6);
-    doc.setFontSize(5.4); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
-    const obsLinhas = doc.splitTextToSize(obsLinha, W - 2.4);
-    doc.text(obsLinhas.slice(0,2), x + 1.2, fy + 6);
-    fy += rowH3;
-
-    // código de barras decorativo + linha digitável (identidade visual de boleto)
-    const barY = fy + 2;
-    const barH = Math.max(6, offsetY + SLIP_H - barY - 2);
-    desenharBarras(doc, x, barY, W*0.62, barH, `${c.id}-${nossoNumero}`);
-
-    doc.setFontSize(4.6); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
-    const linhaDig = `${String(c.id).padStart(3,'0')}.${String(mes.m+1).padStart(2,'0')}${mes.y} ${nossoNumero.replace('-','')}  ${vctoStr.replace(/\//g,'')}  ${Math.round(c.valor*100)}`;
-    doc.text('Autenticação mecânica / ficha de compensação', x + W*0.62 + 3, barY + barH*0.4);
-    doc.setFontSize(5); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
-    doc.text(linhaDig, x + W*0.62 + 3, barY + barH*0.4 + 4);
+    doc.line(x, offsetY + SLIP_H, x + W, offsetY + SLIP_H);
   });
 
   const primeiroMes = [..._carneMesesSel].sort()[0] || 'carne';
