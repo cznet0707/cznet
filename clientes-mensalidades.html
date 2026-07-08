@@ -16193,6 +16193,7 @@ function gerarCarneBranco() {
   const valorStr = document.getElementById('carne-branco-valor').value;
   const valor = parseFloat(valorStr);
   const dataStr = document.getElementById('carne-branco-data').value; // YYYY-MM-DD
+  const qrBase64 = localStorage.getItem('cm_qrcode') || null;
 
   if (isNaN(valor) || valor <= 0) { alert('Informe um valor válido para a parcela.'); return; }
   if (!dataStr) { alert('Informe a data do 1º vencimento.'); return; }
@@ -16213,6 +16214,10 @@ function gerarCarneBranco() {
   const CANHOTO_W = 52;
   const MAIN_X    = MAR_H + CANHOTO_W + 4;
   const MAIN_W    = W - CANHOTO_W - 4;
+
+  const QR_SIZE = qrBase64 ? Math.min(24, Math.floor(SLIP_H - 6)) : 0;
+  const QR_PAD  = qrBase64 ? 2  : 0;
+  const TW      = MAIN_W - QR_SIZE - QR_PAD;
 
   const azul   = [26, 115, 232];
   const azulEsc= [15, 80, 180];
@@ -16339,13 +16344,13 @@ function gerarCarneBranco() {
 
     // linhas em branco para nome e endereço (preencher à mão)
     doc.setFontSize(6.4); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
-    doc.text('Cliente: ________________________________________________', mx, y); y += 5;
+    doc.text('Cliente: ____________________________________', mx, y); y += 5;
     doc.setFontSize(6); doc.setTextColor(90,90,90);
-    doc.text('Endereço: ______________________________________________', mx, y); y += 5.5;
+    doc.text('Endereço: __________________________________', mx, y); y += 5.5;
 
     // boxes: Vencimento / Serviço / Valor
     const BOX_H = 10;
-    const bW    = (MAIN_W - 4) / 3;
+    const bW    = (TW - 4) / 3;
     const boxes = [
       { label:'VENCIMENTO', value: vctoStr },
       { label:'SERVIÇO',    value: 'Internet Banda Larga' },
@@ -16374,6 +16379,23 @@ function gerarCarneBranco() {
     if (obsExtra) {
       doc.setFont('helvetica','italic'); doc.setTextColor(130,130,130);
       doc.text('Obs: ' + obsExtra, mx, y);
+    }
+
+    // === QR CODE ===
+    if (qrBase64 && QR_SIZE > 0) {
+      const qrX = mx + TW + QR_PAD - 1.5;
+      const qrY = offsetY + CAB_H + 1 + 6 + 2;
+      doc.setFillColor(...brancoR);
+      doc.setDrawColor(...azul); doc.setLineWidth(0.5);
+      doc.roundedRect(qrX - 1.5, qrY - 1.5, QR_SIZE + 3, QR_SIZE + 3, 2, 2, 'FD');
+      try {
+        const fmt = qrBase64.includes('image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(qrBase64, fmt, qrX, qrY, QR_SIZE, QR_SIZE);
+      } catch(e) {
+        try { doc.addImage(qrBase64, 'JPEG', qrX, qrY, QR_SIZE, QR_SIZE); } catch(e2) {}
+      }
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+      doc.text('PIX', qrX + QR_SIZE/2, qrY + QR_SIZE + 4, { align: 'center' });
     }
 
     doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
