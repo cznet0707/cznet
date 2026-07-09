@@ -13606,17 +13606,86 @@ function getMsgCobrancaBoleto() { return localStorage.getItem('cm_msg_boleto') |
 function getMsgCobrancaProfissional() { return localStorage.getItem('cm_msg_profissional') || MSG_PADRAO_PROFISSIONAL; }
 function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimento') || MSG_AGRADECIMENTO_PADRAO; }
 
-function montarAgradecimento(clienteId, mesRef) {
-  const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
-  const pl = planos.find(x => x.id === c.planoId);
+// ===== Mensagem padrão ÚNICA de confirmação de pagamento (usada em todos os fluxos) =====
+// Verifica se um pagamento foi feito com atraso, retornando os dados prontos para uso
+function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return { atrasado: false };
   const mes = mesRef || fmtMes();
-  const [y,m] = mes.split('-');
-  const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long', year:'numeric'});
-  return getMsgAgradecimento()
-    .replace(/{nome}/g, c.nome)
-    .replace(/{valor}/g, moeda(c.valor))
-    .replace(/{mes}/g, mesNome)
-    .replace(/{plano}/g, pl ? pl.nome : 'Padrão');
+  const [y, m] = mes.split('-');
+  let pag = pagInformado;
+  if (!pag) {
+    const pags = pagamentos.filter(p => p.clienteId === clienteId && p.mes === mes);
+    pag = pags[pags.length - 1];
+  }
+  if (!(pag?.data && c.dia)) return { atrasado: false };
+  const dataVenc      = new Date(Number(y), Number(m) - 1, Number(c.dia));
+  const dataPagamento = new Date(pag.data + 'T00:00:00');
+  if (dataPagamento > dataVenc) {
+    const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+    return { atrasado: true, vctoStr };
+  }
+  return { atrasado: false };
+}
+
+function montarMsgPagamentoConfirmado(clienteId, mesRef, pagInformado, incluirAlerta) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return '';
+  const mes = mesRef || fmtMes();
+  const [y, m] = mes.split('-');
+  const mesNome = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  let pag = pagInformado;
+  if (!pag) {
+    const pags = pagamentos.filter(p => p.clienteId === clienteId && p.mes === mes);
+    pag = pags[pags.length - 1]; // último registrado
+  }
+
+  const formaLabel = pag?.formaPagamento
+    ? ({ pix: '🔵 Pix', cartao: '💳 Cartão', dinheiro: '💵 Dinheiro', boleto: '🧾 Boleto' }[pag.formaPagamento] || pag.formaPagamento)
+    : '—';
+  const dataPag  = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
+  const valorPag = pag ? moeda(pag.valor) : moeda(c.valor);
+  const empresa  = getCfgEmpresa();
+  const nomeEmpresa = empresa?.nome || 'nossa empresa';
+
+  // O alerta de atraso só entra se: foi detectado atraso E o usuário não recusou incluí-lo
+  let alertaAtraso = '';
+  if (incluirAlerta !== false) {
+    const info = verificarAtrasoPagamento(clienteId, mes, pag);
+    if (info.atrasado) {
+      alertaAtraso = `\n⚠️ *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_.\n`;
+    }
+  }
+
+  return `✅ *Pagamento Confirmado!*
+
+Olá, *${c.nome}*! 😊
+
+Seu pagamento foi registrado com sucesso:
+
+📅 *Mês de referência:* ${mesNome}
+💰 *Valor:* ${valorPag}
+📆 *Data do pagamento:* ${dataPag}
+${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
+${alertaAtraso}
+Obrigado por manter seu plano em dia! 🙏
+_${nomeEmpresa}_`;
+}
+
+// Pergunta ao usuário (se aplicável) se quer incluir o alerta de atraso, e retorna a mensagem pronta
+function montarMsgComPerguntaAtraso(clienteId, mesRef, pagInformado) {
+  const mes = mesRef || fmtMes();
+  const info = verificarAtrasoPagamento(clienteId, mes, pagInformado);
+  let incluirAlerta = true;
+  if (info.atrasado) {
+    incluirAlerta = confirm(`⚠️ Este pagamento foi feito com atraso (vencimento era dia ${info.vctoStr}).\n\nDeseja incluir o alerta de atraso na mensagem?\n\nOK = Sim, incluir\nCancelar = Não incluir`);
+  }
+  return montarMsgPagamentoConfirmado(clienteId, mes, pagInformado, incluirAlerta);
+}
+
+function montarAgradecimento(clienteId, mesRef) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return '';
+  const mes = mesRef || fmtMes();
+  return montarMsgComPerguntaAtraso(clienteId, mes);
 }
 
 function oferecerAgradecimento(clienteId, mesRef) {
@@ -14274,30 +14343,7 @@ function zapComComprovante() {
   const [y,m]   = _verPagMes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
-  const formaLabel = pag?.formaPagamento
-    ? ({pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro', boleto:'🧾 Boleto'}[pag.formaPagamento] || pag.formaPagamento)
-    : '—';
-  const dataPag = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
-  const valorPag = pag ? moeda(pag.valor) : '';
-
-  const empresa = getCfgEmpresa();
-  const nomeEmpresa = empresa?.nome || 'nossa empresa';
-
-  const msg = encodeURIComponent(
-`✅ *Pagamento Confirmado!*
-
-Olá, *${c.nome}*! 😊
-
-Seu pagamento foi registrado com sucesso:
-
-📅 *Mês de referência:* ${mesNome}
-💰 *Valor:* ${valorPag}
-📆 *Data do pagamento:* ${dataPag}
-${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
-
-Obrigado por manter seu plano em dia! 🙏
-_${nomeEmpresa}_`
-  );
+  const msg = encodeURIComponent(montarMsgComPerguntaAtraso(_verPagClienteId, _verPagMes, pag));
 
   if (pagPix) {
     downloadComprovante();
@@ -14406,28 +14452,7 @@ function _enviarZapConfirmacao() {
   const tel    = c.tel.replace(/\D/g,'');
   const [y,m]  = mes.split('-');
   const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  const formaLabel = pag?.formaPagamento
-    ? ({pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro', boleto:'🧾 Boleto'}[pag.formaPagamento] || pag.formaPagamento)
-    : '—';
-  const dataPag   = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
-  const valorPag  = pag ? moeda(pag.valor) : '';
-  const empresa   = getCfgEmpresa();
-  const nomeEmp   = empresa?.nome || 'nossa empresa';
-
-  const msg = encodeURIComponent(
-`✅ *Pagamento Confirmado!*
-
-Olá, *${c.nome}*! 😊
-
-Seu pagamento foi registrado com sucesso:
-
-📅 *Mês de referência:* ${mesNome}
-💰 *Valor:* ${valorPag}
-📆 *Data do pagamento:* ${dataPag}
-${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
-
-Obrigado por manter seu plano em dia! 🙏
-_${nomeEmp}_`);
+  const msg = encodeURIComponent(montarMsgComPerguntaAtraso(clienteId, mes, pag));
 
   if (pagPix) {
     // Baixar comprovante e abrir WhatsApp
