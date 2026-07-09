@@ -13263,6 +13263,18 @@ Qualquer dúvida, estamos à disposição!</div>
 </div>
 
 <!-- MODAL FORMA DE PAGAMENTO -->
+<div class="modal-overlay" id="modal-envio-agradecimento">
+  <div class="modal" style="max-width:420px">
+    <h3>📨 Enviar mensagem de agradecimento?</h3>
+    <p id="envio-agrad-desc" style="color:#555;font-size:0.88rem;margin-bottom:14px;line-height:1.5"></p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch">
+      <button id="btn-envio-com" class="btn btn-whatsapp" style="width:100%;margin-bottom:8px;justify-content:center" onclick="_resolverEnvioAgradecimento('com')">⚠️ Enviar com alerta de atraso</button>
+      <button id="btn-envio-sem" class="btn btn-outline" style="width:100%;margin-bottom:8px;justify-content:center" onclick="_resolverEnvioAgradecimento('sem')">✅ Enviar sem alerta</button>
+      <button id="btn-envio-nao" class="btn btn-outline" style="width:100%;justify-content:center" onclick="_resolverEnvioAgradecimento('nao')">✖ Não enviar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-forma-pagamento">
   <div class="modal" style="max-width:420px">
     <h3>💳 Forma de Pagamento</h3>
@@ -13617,13 +13629,29 @@ function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
     const pags = pagamentos.filter(p => p.clienteId === clienteId && p.mes === mes);
     pag = pags[pags.length - 1];
   }
-  if (!(pag?.data && c.dia)) return { atrasado: false };
-  const dataVenc      = new Date(Number(y), Number(m) - 1, Number(c.dia));
-  const dataPagamento = new Date(pag.data + 'T00:00:00');
-  if (dataPagamento > dataVenc) {
-    const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+  if (!pag?.data) return { atrasado: false };
+
+  const [py, pm] = pag.data.split('-');
+  const mesPagKey = `${py}-${pm}`;
+
+  // Caso 1: o pagamento foi feito em mês/ano posterior ao mês de referência
+  // (ex: mensalidade de junho paga em julho) → atrasado, mesmo sem dia de vencimento cadastrado
+  if (mesPagKey > mes) {
+    const diaRef = c.dia ? String(c.dia).padStart(2,'0') : '10';
+    const vctoStr = `${diaRef}/${String(m).padStart(2,'0')}/${y}`;
     return { atrasado: true, vctoStr };
   }
+
+  // Caso 2: pago dentro do mesmo mês de referência, mas depois do dia de vencimento cadastrado
+  if (mesPagKey === mes && c.dia) {
+    const dataVenc      = new Date(Number(y), Number(m) - 1, Number(c.dia));
+    const dataPagamento = new Date(pag.data + 'T00:00:00');
+    if (dataPagamento > dataVenc) {
+      const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+      return { atrasado: true, vctoStr };
+    }
+  }
+
   return { atrasado: false };
 }
 
@@ -13671,36 +13699,54 @@ Obrigado por manter seu plano em dia! 🙏
 _${nomeEmpresa}_`;
 }
 
-// Pergunta ao usuário (se aplicável) se quer incluir o alerta de atraso, e retorna a mensagem pronta
-function montarMsgComPerguntaAtraso(clienteId, mesRef, pagInformado) {
-  const mes = mesRef || fmtMes();
-  const info = verificarAtrasoPagamento(clienteId, mes, pagInformado);
-  let incluirAlerta = true;
-  if (info.atrasado) {
-    incluirAlerta = confirm(`⚠️ Este pagamento foi feito com atraso (vencimento era dia ${info.vctoStr}).\n\nDeseja incluir o alerta de atraso na mensagem?\n\nOK = Sim, incluir\nCancelar = Não incluir`);
+// ===== Modal de escolha: enviar com alerta / sem alerta / não enviar =====
+let _callbackEnvioAgradecimento = null;
+
+function perguntarEnvioAgradecimento(nomeCliente, atrasado, vctoStr, callback, permitirNaoEnviar) {
+  if (permitirNaoEnviar === undefined) permitirNaoEnviar = true;
+
+  // Sem atraso: fluxo simples, sem precisar escolher entre "com/sem alerta"
+  if (!atrasado) {
+    if (permitirNaoEnviar) {
+      if (!confirm(`Deseja enviar mensagem de agradecimento para ${nomeCliente} pelo WhatsApp?`)) { callback('nao'); return; }
+    }
+    callback('sem');
+    return;
   }
-  return montarMsgPagamentoConfirmado(clienteId, mes, pagInformado, incluirAlerta);
+
+  // Com atraso: abre o modal com as 3 opções
+  _callbackEnvioAgradecimento = callback;
+  const desc = document.getElementById('envio-agrad-desc');
+  const modal = document.getElementById('modal-envio-agradecimento');
+  desc.innerHTML = (permitirNaoEnviar ? `Deseja enviar mensagem de agradecimento para <b>${nomeCliente}</b> pelo WhatsApp?<br><br>` : '')
+    + `⚠️ Este pagamento foi feito com atraso${vctoStr ? ` (vencimento era dia ${vctoStr})` : ''}. Escolha como enviar:`;
+  document.getElementById('btn-envio-nao').style.display = permitirNaoEnviar ? 'inline-flex' : 'none';
+  modal.classList.add('open');
 }
 
-function montarAgradecimento(clienteId, mesRef) {
-  const c = clientes.find(x => x.id === clienteId); if (!c) return '';
-  const mes = mesRef || fmtMes();
-  return montarMsgComPerguntaAtraso(clienteId, mes);
+function _resolverEnvioAgradecimento(opcao) {
+  document.getElementById('modal-envio-agradecimento').classList.remove('open');
+  const cb = _callbackEnvioAgradecimento;
+  _callbackEnvioAgradecimento = null;
+  if (cb) cb(opcao); // 'com' | 'sem' | 'nao'
 }
 
 function oferecerAgradecimento(clienteId, mesRef) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
-  if (!confirm(`Deseja enviar mensagem de agradecimento para ${c.nome} pelo WhatsApp?`)) return;
-  const numero = telLimpo(c.tel);
-  if (!numero) {
-    pedirTelefone(clienteId, (n) => {
-      const msg = montarAgradecimento(clienteId, mesRef);
-      window.open(`https://wa.me/55${n}?text=${encodeURIComponent(msg)}`, '_blank');
-    });
-    return;
-  }
-  const msg = montarAgradecimento(clienteId, mesRef);
-  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  const mes = mesRef || fmtMes();
+  const info = verificarAtrasoPagamento(clienteId, mes);
+
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    if (opcao === 'nao') return;
+    const incluirAlerta = opcao === 'com';
+    const msg = montarMsgPagamentoConfirmado(clienteId, mes, null, incluirAlerta);
+    const numero = telLimpo(c.tel);
+    if (!numero) {
+      pedirTelefone(clienteId, (n) => window.open(`https://wa.me/55${n}?text=${encodeURIComponent(msg)}`, '_blank'));
+      return;
+    }
+    window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  });
 }
 function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
@@ -14338,22 +14384,21 @@ function zapComComprovante() {
   const pags   = pagamentos.filter(p => p.clienteId === _verPagClienteId && p.mes === _verPagMes);
   const pag    = pags[0];
   const pagPix = pags.find(p => p.formaPagamento === 'pix' && p.comprovante);
+  const tel    = c.tel.replace(/\D/g,'');
+  const info   = verificarAtrasoPagamento(_verPagClienteId, _verPagMes, pag);
 
-  const tel     = c.tel.replace(/\D/g,'');
-  const [y,m]   = _verPagMes.split('-');
-  const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-
-  const msg = encodeURIComponent(montarMsgComPerguntaAtraso(_verPagClienteId, _verPagMes, pag));
-
-  if (pagPix) {
-    downloadComprovante();
-    setTimeout(() => {
-      alert('📎 Comprovante baixado!\n\nO WhatsApp vai abrir agora. Anexe o arquivo na conversa com ' + c.nome + ' se quiser enviar o comprovante também.');
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    const msg = encodeURIComponent(montarMsgPagamentoConfirmado(_verPagClienteId, _verPagMes, pag, opcao === 'com'));
+    if (pagPix) {
+      downloadComprovante();
+      setTimeout(() => {
+        alert('📎 Comprovante baixado!\n\nO WhatsApp vai abrir agora. Anexe o arquivo na conversa com ' + c.nome + ' se quiser enviar o comprovante também.');
+        window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+      }, 600);
+    } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-    }, 600);
-  } else {
-    window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-  }
+    }
+  }, false);
 }
 
 function verComprovante(id) {
@@ -14450,22 +14495,23 @@ function _enviarZapConfirmacao() {
   const pag    = pags[pags.length - 1]; // último registrado
   const pagPix = pags.find(p => p.formaPagamento === 'pix' && p.comprovante);
   const tel    = c.tel.replace(/\D/g,'');
-  const [y,m]  = mes.split('-');
-  const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  const msg = encodeURIComponent(montarMsgComPerguntaAtraso(clienteId, mes, pag));
+  const info   = verificarAtrasoPagamento(clienteId, mes, pag);
 
-  if (pagPix) {
-    // Baixar comprovante e abrir WhatsApp
-    const a = document.createElement('a');
-    const ext = pagPix.comprovante.startsWith('data:image/png') ? 'png' : pagPix.comprovante.startsWith('data:image/') ? 'jpg' : 'pdf';
-    a.href = pagPix.comprovante; a.download = `comprovante_pix_${mes}.${ext}`; a.click();
-    setTimeout(() => {
-      alert('📎 Comprovante baixado! Anexe na conversa com ' + c.nome + ' no WhatsApp.');
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    const msg = encodeURIComponent(montarMsgPagamentoConfirmado(clienteId, mes, pag, opcao === 'com'));
+    if (pagPix) {
+      // Baixar comprovante e abrir WhatsApp
+      const a = document.createElement('a');
+      const ext = pagPix.comprovante.startsWith('data:image/png') ? 'png' : pagPix.comprovante.startsWith('data:image/') ? 'jpg' : 'pdf';
+      a.href = pagPix.comprovante; a.download = `comprovante_pix_${mes}.${ext}`; a.click();
+      setTimeout(() => {
+        alert('📎 Comprovante baixado! Anexe na conversa com ' + c.nome + ' no WhatsApp.');
+        window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+      }, 600);
+    } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-    }, 600);
-  } else {
-    window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-  }
+    }
+  }, false);
 }
 
 function baixarMesPill(clienteId, mes) {
