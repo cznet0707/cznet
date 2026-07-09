@@ -15172,6 +15172,7 @@ function abrirOS(clienteId, preSelecionar) {
     (c.cto ? `<br>📦 CTO: ${c.cto}` : '') +
     ((c.pppoe_usuario || c.pppoe_senha) ? `<br>🌐 PPPoE: ${c.pppoe_usuario || '-'} / ${c.pppoe_senha || '-'}` : '') +
     ((c.wifi_nome || c.wifi_senha) ? `<br>📶 WiFi: ${c.wifi_nome || '-'} / ${c.wifi_senha || '-'}` : '') +
+    ((c.roteador_usuario || c.roteador_senha) ? `<br>⚙️ Admin roteador: ${c.roteador_usuario || '-'} / ${c.roteador_senha || '-'}` : '') +
     (linkMapa ? `<br>🗺️ <a href="${linkMapa}" target="_blank">Ver localização no mapa</a> ${c.localizacao ? '(GPS exato)' : '(pelo endereço/CEP)'}` : '');
 
   // Reseta os checkboxes e observação
@@ -15216,6 +15217,10 @@ function enviarOS() {
   if (c.wifi_nome || c.wifi_senha) {
     msg += `📶 *Nome do WiFi:* ${c.wifi_nome || '(não informado)'}\n`;
     msg += `🔑 *Senha do WiFi:* ${c.wifi_senha || '(não informada)'}\n`;
+  }
+  if (c.roteador_usuario || c.roteador_senha) {
+    msg += `⚙️ *Usuário admin do roteador:* ${c.roteador_usuario || '(não informado)'}\n`;
+    msg += `🔐 *Senha admin do roteador:* ${c.roteador_senha || '(não informada)'}\n`;
   }
   const linkMapa = linkMapaCliente(c);
   if (linkMapa) msg += `🗺️ *Localização (toque para abrir no mapa):* ${linkMapa}\n`;
