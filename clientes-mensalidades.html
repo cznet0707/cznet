@@ -13506,7 +13506,7 @@ Passando para avisar que a sua mensalidade referente ao mês de *{mes}* no valor
 
 📞 Contato: *{telefone}*
 
-Por favor, efetue o pagamento para evitar a suspensão do serviço.
+Por favor, efetue o pagamento para evitar multa, juros e a suspensão do serviço.
 
 Qualquer dúvida, estamos à disposição! 😊`;
 
@@ -13522,7 +13522,7 @@ O boleto está anexado / segue o link para pagamento.
 
 📞 Contato: *{telefone}*
 
-Por favor, efetue o pagamento para evitar a suspensão do serviço.
+Por favor, efetue o pagamento para evitar multa, juros e a suspensão do serviço.
 
 Qualquer dúvida, estamos à disposição! 😊`;
 
@@ -13536,7 +13536,7 @@ Para regularização, disponibilizamos os seguintes dados:
 Chave Pix: {pix}
 Contato: {telefone}
 
-Solicitamos a gentileza de efetuar o pagamento o quanto antes, a fim de evitar a suspensão do serviço.
+Solicitamos a gentileza de efetuar o pagamento o quanto antes, a fim de evitar a cobrança de multa e juros, bem como a suspensão do serviço.
 
 Permanecemos à disposição para esclarecer quaisquer dúvidas.
 
@@ -13619,6 +13619,25 @@ function getMsgCobrancaProfissional() { return localStorage.getItem('cm_msg_prof
 function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimento') || MSG_AGRADECIMENTO_PADRAO; }
 
 // ===== Mensagem padrão ÚNICA de confirmação de pagamento (usada em todos os fluxos) =====
+// Conta quantos meses o cliente já pagou com atraso antes (excluindo o mês atual)
+function contarAtrasosAnteriores(clienteId, mesRefAtual) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return 0;
+  let count = 0;
+  pagamentos.filter(p => p.clienteId === clienteId && p.mes !== mesRefAtual).forEach(p => {
+    if (!p.data || !p.mes) return;
+    const [py, pm] = p.data.split('-');
+    const mesPagKey = `${py}-${pm}`;
+    if (mesPagKey > p.mes) { count++; return; }
+    if (mesPagKey === p.mes && c.dia) {
+      const [ry, rm] = p.mes.split('-');
+      const dataVenc = new Date(Number(ry), Number(rm) - 1, Number(c.dia));
+      const dataPag  = new Date(p.data + 'T00:00:00');
+      if (dataPag > dataVenc) count++;
+    }
+  });
+  return count;
+}
+
 // Verifica se um pagamento foi feito com atraso, retornando os dados prontos para uso
 function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return { atrasado: false };
@@ -13633,13 +13652,15 @@ function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
 
   const [py, pm] = pag.data.split('-');
   const mesPagKey = `${py}-${pm}`;
+  const atrasosAnteriores = contarAtrasosAnteriores(clienteId, mes);
+  const recorrente = atrasosAnteriores >= 1;
 
   // Caso 1: o pagamento foi feito em mês/ano posterior ao mês de referência
   // (ex: mensalidade de junho paga em julho) → atrasado, mesmo sem dia de vencimento cadastrado
   if (mesPagKey > mes) {
     const diaRef = c.dia ? String(c.dia).padStart(2,'0') : '10';
     const vctoStr = `${diaRef}/${String(m).padStart(2,'0')}/${y}`;
-    return { atrasado: true, vctoStr };
+    return { atrasado: true, vctoStr, recorrente, atrasosAnteriores };
   }
 
   // Caso 2: pago dentro do mesmo mês de referência, mas depois do dia de vencimento cadastrado
@@ -13648,7 +13669,7 @@ function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
     const dataPagamento = new Date(pag.data + 'T00:00:00');
     if (dataPagamento > dataVenc) {
       const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-      return { atrasado: true, vctoStr };
+      return { atrasado: true, vctoStr, recorrente, atrasosAnteriores };
     }
   }
 
@@ -13681,6 +13702,9 @@ function montarMsgPagamentoConfirmado(clienteId, mesRef, pagInformado, incluirAl
     const info = verificarAtrasoPagamento(clienteId, mes, pag);
     if (info.atrasado) {
       alertaAtraso = `\n⚠️ *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_.\n`;
+      if (info.recorrente) {
+        alertaAtraso += `\n🔁 *Aviso importante:* identificamos atrasos recorrentes no seu histórico de pagamentos. Caso essa recorrência continue, poderá haver cobrança de *multa e juros*, além da *suspensão do serviço* conforme o contrato. Pedimos atenção às datas de vencimento para evitar transtornos.\n`;
+      }
     }
   }
 
@@ -13702,7 +13726,7 @@ _${nomeEmpresa}_`;
 // ===== Modal de escolha: enviar com alerta / sem alerta / não enviar =====
 let _callbackEnvioAgradecimento = null;
 
-function perguntarEnvioAgradecimento(nomeCliente, atrasado, vctoStr, callback, permitirNaoEnviar) {
+function perguntarEnvioAgradecimento(nomeCliente, atrasado, vctoStr, callback, permitirNaoEnviar, recorrente) {
   if (permitirNaoEnviar === undefined) permitirNaoEnviar = true;
 
   // Sem atraso: fluxo simples, sem precisar escolher entre "com/sem alerta"
@@ -13719,7 +13743,9 @@ function perguntarEnvioAgradecimento(nomeCliente, atrasado, vctoStr, callback, p
   const desc = document.getElementById('envio-agrad-desc');
   const modal = document.getElementById('modal-envio-agradecimento');
   desc.innerHTML = (permitirNaoEnviar ? `Deseja enviar mensagem de agradecimento para <b>${nomeCliente}</b> pelo WhatsApp?<br><br>` : '')
-    + `⚠️ Este pagamento foi feito com atraso${vctoStr ? ` (vencimento era dia ${vctoStr})` : ''}. Escolha como enviar:`;
+    + `⚠️ Este pagamento foi feito com atraso${vctoStr ? ` (vencimento era dia ${vctoStr})` : ''}.`
+    + (recorrente ? `<br><br>🔁 <b>Atenção:</b> este cliente já tem histórico de atrasos. A mensagem "com alerta" incluirá um aviso sobre possível cobrança de multa e juros, e suspensão do serviço, em caso de reincidência.` : '')
+    + `<br><br>Escolha como enviar:`;
   document.getElementById('btn-envio-nao').style.display = permitirNaoEnviar ? 'inline-flex' : 'none';
   modal.classList.add('open');
 }
@@ -13746,7 +13772,7 @@ function oferecerAgradecimento(clienteId, mesRef) {
       return;
     }
     window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`, '_blank');
-  });
+  }, true, info.recorrente);
 }
 function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
@@ -14398,7 +14424,7 @@ function zapComComprovante() {
     } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
     }
-  }, false);
+  }, false, info.recorrente);
 }
 
 function verComprovante(id) {
@@ -14511,7 +14537,7 @@ function _enviarZapConfirmacao() {
     } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
     }
-  }, false);
+  }, false, info.recorrente);
 }
 
 function baixarMesPill(clienteId, mes) {
@@ -15136,14 +15162,14 @@ function _atualizarMsgMulti() {
 
     if (_zapFormaMsg === 'profissional') {
       const listaFormal = nomesMeses.map(n => `- ${n}: ${moeda(c.valor)}`).join('\n');
-      msg = `Prezado(a) ${c.nome},\n\nInformamos que constam em nosso sistema ${totalMeses} mensalidade(s) em aberto:\n\n${listaFormal}\n\nValor total: ${totalValor}\nPlano contratado: ${pl ? pl.nome : 'Padrão'}\nVencimento: dia ${c.dia}\n\nChave Pix: ${emp2.pix || '(não cadastrado)'}\nContato: ${emp2.tel || '(não cadastrado)'}\n\nSolicitamos a gentileza de regularizar o quanto antes, a fim de evitar a suspensão do serviço.\n\nAtenciosamente,\n${emp2.nome || ''}`;
+      msg = `Prezado(a) ${c.nome},\n\nInformamos que constam em nosso sistema ${totalMeses} mensalidade(s) em aberto:\n\n${listaFormal}\n\nValor total: ${totalValor}\nPlano contratado: ${pl ? pl.nome : 'Padrão'}\nVencimento: dia ${c.dia}\n\nChave Pix: ${emp2.pix || '(não cadastrado)'}\nContato: ${emp2.tel || '(não cadastrado)'}\n\nSolicitamos a gentileza de regularizar o quanto antes, a fim de evitar a cobrança de multa e juros, bem como a suspensão do serviço.\n\nAtenciosamente,\n${emp2.nome || ''}`;
     } else {
       const listaMeses  = nomesMeses.map((n,i) => `  • ${n} — ${moeda(c.valor)}`).join('\n');
       const pagLine = (_zapFormaMsg === 'boleto')
         ? `\n\n🧾 *Pague via Boleto:*\nO boleto está anexado / segue o link para pagamento.`
         : (emp2.pix ? `\n\n💳 *Pague via PIX:*\n🔑 Chave: *${emp2.pix}*` : '');
       const telLine = emp2.tel ? `\n📞 Contato: *${emp2.tel}*` : '';
-      msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pagLine}${telLine}\n\nPor favor, regularize para evitar a suspensão do serviço. 🙏`;
+      msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pagLine}${telLine}\n\nPor favor, regularize para evitar multa, juros e a suspensão do serviço. 🙏`;
     }
   }
   document.getElementById('zap-msg-edit').value = msg;
