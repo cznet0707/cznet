@@ -7266,6 +7266,13 @@
             <label>🔐 Senha admin do roteador</label>
             <input type="text" id="c-roteador-senha" placeholder="Ex: admin123">
           </div>
+          <div class="full">
+            <label>📍 Localização (GPS)</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="c-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
+              <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('c-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
+            </div>
+          </div>
           <div class="full" style="border-top:1px solid #eee;margin-top:8px;padding-top:14px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
               <input type="checkbox" id="c-registrar-inst" style="width:18px;height:18px;cursor:pointer" onchange="toggleCamposInstalacaoCadastro()">
@@ -13144,6 +13151,13 @@ Qualquer dúvida, estamos à disposição!</div>
       <div><label>📦 CTO</label><input type="text" id="edit-cto" placeholder="Ex: CTO-045 / Porta 7"></div>
       <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
       <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
+      <div class="full">
+        <label>📍 Localização (GPS)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="edit-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
+          <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('edit-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
+        </div>
+      </div>
       <div class="full" style="display:flex;align-items:center;gap:10px;padding:6px 0">
         <input type="checkbox" id="edit-inst-gratis" style="width:18px;height:18px;cursor:pointer">
         <label for="edit-inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis (não cobrar taxa de R$50)</label>
@@ -13968,6 +13982,26 @@ function moeda(v) {
 }
 function telLimpo(tel) { return tel.replace(/\D/g,''); }
 
+// Captura a localização atual do GPS e preenche o campo com um link do Google Maps
+function capturarLocalizacao(inputId) {
+  if (!navigator.geolocation) { alert('Seu navegador não suporta captura de localização.'); return; }
+  const input = document.getElementById(inputId);
+  const original = input.placeholder;
+  input.placeholder = '📡 Capturando localização...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      input.value = `https://maps.google.com/?q=${latitude},${longitude}`;
+      input.placeholder = original;
+    },
+    (err) => {
+      input.placeholder = original;
+      alert('Não foi possível capturar a localização. Verifique se a permissão de GPS está liberada para o navegador.');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 // Monta endereço completo como string
 function enderecoCompleto(c) {
   const partes = [];
@@ -14113,6 +14147,7 @@ function salvarCliente(e) {
     cto:               document.getElementById('c-cto').value.trim(),
     roteador_usuario:  document.getElementById('c-roteador-usuario').value.trim(),
     roteador_senha:    document.getElementById('c-roteador-senha').value.trim(),
+    localizacao:       document.getElementById('c-localizacao').value.trim(),
     instalacao_gratis: document.getElementById('c-inst-gratis').checked,
     instalacao_paga:   false,
   };
@@ -14907,6 +14942,7 @@ function abrirEditar(id) {
   document.getElementById('edit-cto').value            = c.cto || '';
   document.getElementById('edit-roteador-usuario').value = c.roteador_usuario || '';
   document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
+  document.getElementById('edit-localizacao').value      = c.localizacao || '';
   document.getElementById('edit-inst-gratis').checked  = c.instalacao_gratis || false;
   document.getElementById('modal-editar').classList.add('open');
 }
@@ -14935,6 +14971,7 @@ function confirmarEdicao() {
   c.cto               = document.getElementById('edit-cto').value.trim();
   c.roteador_usuario  = document.getElementById('edit-roteador-usuario').value.trim();
   c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
+  c.localizacao       = document.getElementById('edit-localizacao').value.trim();
   c.instalacao_gratis = document.getElementById('edit-inst-gratis').checked;
   salvarStorage(); fecharModal(); renderClientes(); renderSelectClientes();
 }
@@ -15066,7 +15103,10 @@ function renderInstalacoes() {
         <td>${dataFmt}</td>
         <td>${taxaLabel}</td>
         <td>${statusBadge}</td>
-        <td><div class="td-acoes">${acaoBtn}</div></td>
+        <td><div class="td-acoes">
+          <button class="btn btn-outline" style="font-size:0.75rem;padding:3px 8px;background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${inst.clienteId}, 'Instalação nova')" title="Enviar OS de instalação para o técnico">🛠️ OS</button>
+          ${acaoBtn}
+        </div></td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -15107,7 +15147,7 @@ function enviarWifiZap(clienteId) {
 // ===== Enviar OS (ordem de serviço) para o técnico via WhatsApp =====
 let _osClienteId = null;
 
-function abrirOS(clienteId) {
+function abrirOS(clienteId, preSelecionar) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   _osClienteId = clienteId;
 
@@ -15115,11 +15155,20 @@ function abrirOS(clienteId) {
   document.getElementById('os-cliente-info').innerHTML =
     `👤 <b>${c.nome}</b><br>📍 ${end || '(endereço não cadastrado)'}<br>📞 ${c.tel || '(sem telefone)'}` +
     (c.pon ? `<br>📡 PON: ${c.pon}` : '') +
-    (c.cto ? `<br>📦 CTO: ${c.cto}` : '');
+    (c.cto ? `<br>📦 CTO: ${c.cto}` : '') +
+    ((c.pppoe_usuario || c.pppoe_senha) ? `<br>🌐 PPPoE: ${c.pppoe_usuario || '-'} / ${c.pppoe_senha || '-'}` : '') +
+    ((c.wifi_nome || c.wifi_senha) ? `<br>📶 WiFi: ${c.wifi_nome || '-'} / ${c.wifi_senha || '-'}` : '') +
+    (c.localizacao ? `<br>🗺️ <a href="${c.localizacao}" target="_blank">Ver localização no mapa</a>` : '');
 
   // Reseta os checkboxes e observação
   document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
   document.getElementById('os-obs').value = '';
+
+  // Se veio de um contexto específico (ex: aba Instalações), já marca o problema certo
+  if (preSelecionar) {
+    const chk = Array.from(document.querySelectorAll('.os-problema')).find(x => x.value === preSelecionar);
+    if (chk) chk.checked = true;
+  }
 
   // Lembra o último número de técnico usado, pra não digitar toda vez
   document.getElementById('os-tel-tecnico').value = localStorage.getItem('os_tel_tecnico') || '';
@@ -15146,6 +15195,15 @@ function enviarOS() {
   if (c.tel) msg += `📞 *Telefone:* ${c.tel}\n`;
   if (c.pon) msg += `📡 *PON:* ${c.pon}\n`;
   if (c.cto) msg += `📦 *CTO:* ${c.cto}\n`;
+  if (c.pppoe_usuario || c.pppoe_senha) {
+    msg += `🌐 *Usuário PPPoE:* ${c.pppoe_usuario || '(não informado)'}\n`;
+    msg += `🔒 *Senha PPPoE:* ${c.pppoe_senha || '(não informada)'}\n`;
+  }
+  if (c.wifi_nome || c.wifi_senha) {
+    msg += `📶 *Nome do WiFi:* ${c.wifi_nome || '(não informado)'}\n`;
+    msg += `🔑 *Senha do WiFi:* ${c.wifi_senha || '(não informada)'}\n`;
+  }
+  if (c.localizacao) msg += `🗺️ *Localização:* ${c.localizacao}\n`;
 
   msg += `\n⚠️ *Problema(s) relatado(s):*\n`;
   if (problemas.length) {
