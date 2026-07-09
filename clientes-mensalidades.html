@@ -13701,9 +13701,12 @@ function montarMsgPagamentoConfirmado(clienteId, mesRef, pagInformado, incluirAl
   if (incluirAlerta !== false) {
     const info = verificarAtrasoPagamento(clienteId, mes, pag);
     if (info.atrasado) {
-      alertaAtraso = `\n⚠️ *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_.\n`;
       if (info.recorrente) {
-        alertaAtraso += `\n🔁 *Aviso importante:* identificamos atrasos recorrentes no seu histórico de pagamentos. Caso essa recorrência continue, poderá haver cobrança de *multa e juros*, além da *suspensão do serviço* conforme o contrato. Pedimos atenção às datas de vencimento para evitar transtornos.\n`;
+        // Recorrente: um único aviso completo (já cobre o atraso + multa/juros/suspensão)
+        alertaAtraso = `\n🔁 *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_. Identificamos atrasos recorrentes no seu histórico de pagamentos. Caso essa recorrência continue, poderá haver cobrança de *multa e juros*, além da *suspensão do serviço* conforme o contrato. Pedimos atenção às datas de vencimento para evitar transtornos.\n`;
+      } else {
+        // Primeira vez: aviso simples
+        alertaAtraso = `\n⚠️ *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_.\n`;
       }
     }
   }
@@ -15020,6 +15023,15 @@ function enviarWifiZap(clienteId) {
 // ============================================================
 // WHATSAPP
 // ============================================================
+// Garante que o aviso de multa/juros/suspensão sempre apareça na mensagem,
+// mesmo se o usuário tiver uma mensagem personalizada salva sem esse aviso.
+const AVISO_MULTA_JUROS = '\n\n⚠️ O não pagamento até o vencimento pode acarretar multa, juros e a suspensão do serviço.';
+function comAvisoMultaJuros(msg) {
+  if (!msg) return msg;
+  if (/multa/i.test(msg)) return msg; // já contém o aviso, evita duplicar
+  return msg + AVISO_MULTA_JUROS;
+}
+
 function montarMensagem(clienteId, mesRef, forma) {
   const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
   const pl = planos.find(x => x.id === c.planoId);
@@ -15028,10 +15040,16 @@ function montarMensagem(clienteId, mesRef, forma) {
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const emp = getCfgEmpresa();
-  const template = (forma === 'boleto') ? getMsgCobrancaBoleto()
-                  : (forma === 'profissional') ? getMsgCobrancaProfissional()
-                  : getMsgCobranca();
-  return template
+  let template = (forma === 'boleto') ? getMsgCobrancaBoleto()
+                : (forma === 'profissional') ? getMsgCobrancaProfissional()
+                : getMsgCobranca();
+  // Segurança: se a mensagem salva estiver vazia/corrompida, usa o padrão de fábrica
+  if (!template || !template.trim()) {
+    template = (forma === 'boleto') ? MSG_PADRAO_BOLETO
+             : (forma === 'profissional') ? MSG_PADRAO_PROFISSIONAL
+             : MSG_PADRAO;
+  }
+  const msg = template
     .replace(/{nome}/g, c.nome)
     .replace(/{valor}/g, moeda(c.valor))
     .replace(/{vencimento}/g, `dia ${c.dia}`)
@@ -15040,6 +15058,7 @@ function montarMensagem(clienteId, mesRef, forma) {
     .replace(/{pix}/g, emp.pix || '(não cadastrado)')
     .replace(/{telefone}/g, emp.tel || '(não cadastrado)')
     .replace(/{empresa}/g, emp.nome || '');
+  return comAvisoMultaJuros(msg);
 }
 let _zapMesRef = null;
 let _zapMesesSel = new Set(); // múltiplos meses selecionados
@@ -15172,7 +15191,7 @@ function _atualizarMsgMulti() {
       msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pagLine}${telLine}\n\nPor favor, regularize para evitar multa, juros e a suspensão do serviço. 🙏`;
     }
   }
-  document.getElementById('zap-msg-edit').value = msg;
+  document.getElementById('zap-msg-edit').value = comAvisoMultaJuros(msg);
   atualizarPreviewZap();
   // Total visível
   const _zapTotEl = document.getElementById('zap-total-resumo');
