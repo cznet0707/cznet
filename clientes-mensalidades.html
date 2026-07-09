@@ -7258,6 +7258,14 @@
             <label>📦 CTO</label>
             <input type="text" id="c-cto" placeholder="Ex: CTO-045 / Porta 7">
           </div>
+          <div>
+            <label>👤 Usuário admin do roteador</label>
+            <input type="text" id="c-roteador-usuario" placeholder="Ex: admin">
+          </div>
+          <div>
+            <label>🔐 Senha admin do roteador</label>
+            <input type="text" id="c-roteador-senha" placeholder="Ex: admin123">
+          </div>
           <div class="full" style="border-top:1px solid #eee;margin-top:8px;padding-top:14px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
               <input type="checkbox" id="c-registrar-inst" style="width:18px;height:18px;cursor:pointer" onchange="toggleCamposInstalacaoCadastro()">
@@ -13134,6 +13142,8 @@ Qualquer dúvida, estamos à disposição!</div>
       <div><label>🔒 Senha PPPoE</label><input type="text" id="edit-pppoe-senha" placeholder="Ex: minhasenha123"></div>
       <div><label>📡 PON</label><input type="text" id="edit-pon" placeholder="Ex: PON 1/1/3"></div>
       <div><label>📦 CTO</label><input type="text" id="edit-cto" placeholder="Ex: CTO-045 / Porta 7"></div>
+      <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
+      <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
       <div class="full" style="display:flex;align-items:center;gap:10px;padding:6px 0">
         <input type="checkbox" id="edit-inst-gratis" style="width:18px;height:18px;cursor:pointer">
         <label for="edit-inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis (não cobrar taxa de R$50)</label>
@@ -13283,6 +13293,41 @@ Qualquer dúvida, estamos à disposição!</div>
 </div>
 
 <!-- MODAL FORMA DE PAGAMENTO -->
+<div class="modal-overlay" id="modal-os-tecnico">
+  <div class="modal" style="max-width:480px">
+    <h3>🛠️ Enviar OS para o Técnico</h3>
+    <p id="os-cliente-info" style="color:#555;font-size:0.88rem;margin-bottom:14px;line-height:1.5;background:#f8f9fb;padding:10px 12px;border-radius:8px"></p>
+
+    <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:8px;display:block">⚠️ O que está acontecendo:</label>
+    <div id="os-problemas-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Sem sinal / sem conexão"> 📡 Sem sinal / sem conexão</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Conector queimado/quebrado"> 🔌 Conector queimado/quebrado</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Fonte queimada"> 🔋 Fonte queimada</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Roteador queimado/com defeito"> 📶 Roteador queimado/com defeito</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="ONU/ONT com defeito"> 📦 ONU/ONT com defeito</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Rompimento de fibra"> ✂️ Rompimento de fibra</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Sinal fraco / oscilando"> 📉 Sinal fraco / oscilando</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Mudança de endereço"> 🚚 Mudança de endereço</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Instalação nova"> 🔧 Instalação nova</label>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">✏️ Outro problema / observações (opcional)</label>
+      <input type="text" id="os-obs" placeholder="Ex: cliente relata que caiu à noite">
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📞 WhatsApp do técnico</label>
+      <input type="text" id="os-tel-tecnico" placeholder="Ex: 82988887777">
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-whatsapp" onclick="enviarOS()">📤 Enviar OS via WhatsApp</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-envio-agradecimento">
   <div class="modal" style="max-width:420px">
     <h3>📨 Enviar mensagem de agradecimento?</h3>
@@ -14066,6 +14111,8 @@ function salvarCliente(e) {
     pppoe_senha:       document.getElementById('c-pppoe-senha').value.trim(),
     pon:               document.getElementById('c-pon').value.trim(),
     cto:               document.getElementById('c-cto').value.trim(),
+    roteador_usuario:  document.getElementById('c-roteador-usuario').value.trim(),
+    roteador_senha:    document.getElementById('c-roteador-senha').value.trim(),
     instalacao_gratis: document.getElementById('c-inst-gratis').checked,
     instalacao_paga:   false,
   };
@@ -14823,6 +14870,7 @@ function renderClientes(filtro = '') {
             <button class="btn-whatsapp btn" onclick="abrirZap(${c.id})" title="Cobrar via WhatsApp">📱</button>
             ${(c.wifi_nome || c.wifi_senha) ? `<button class="btn btn-wifi" onclick="enviarWifiZap(${c.id})" title="Enviar WiFi via WhatsApp">📶</button>` : ''}
             <button class="btn-carne btn" onclick="abrirCarne(${c.id})" title="Gerar Carnê PDF">📋</button>
+            <button class="btn btn-outline" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
             <button class="btn-cal btn" onclick="abrirCalendario(${c.id})" title="Ver meses pagos/atrasados">📅</button>
             <button class="btn btn-danger" onclick="abrirExcluir(${c.id})">🗑️</button>
           </div></td>
@@ -14857,6 +14905,8 @@ function abrirEditar(id) {
   document.getElementById('edit-pppoe-senha').value    = c.pppoe_senha || '';
   document.getElementById('edit-pon').value            = c.pon || '';
   document.getElementById('edit-cto').value            = c.cto || '';
+  document.getElementById('edit-roteador-usuario').value = c.roteador_usuario || '';
+  document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
   document.getElementById('edit-inst-gratis').checked  = c.instalacao_gratis || false;
   document.getElementById('modal-editar').classList.add('open');
 }
@@ -14883,6 +14933,8 @@ function confirmarEdicao() {
   c.pppoe_senha       = document.getElementById('edit-pppoe-senha').value.trim();
   c.pon               = document.getElementById('edit-pon').value.trim();
   c.cto               = document.getElementById('edit-cto').value.trim();
+  c.roteador_usuario  = document.getElementById('edit-roteador-usuario').value.trim();
+  c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
   c.instalacao_gratis = document.getElementById('edit-inst-gratis').checked;
   salvarStorage(); fecharModal(); renderClientes(); renderSelectClientes();
 }
@@ -15050,6 +15102,62 @@ function enviarWifiZap(clienteId) {
     `— CZnET Telecom`;
   const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
+}
+
+// ===== Enviar OS (ordem de serviço) para o técnico via WhatsApp =====
+let _osClienteId = null;
+
+function abrirOS(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  _osClienteId = clienteId;
+
+  const end = enderecoCompleto(c);
+  document.getElementById('os-cliente-info').innerHTML =
+    `👤 <b>${c.nome}</b><br>📍 ${end || '(endereço não cadastrado)'}<br>📞 ${c.tel || '(sem telefone)'}` +
+    (c.pon ? `<br>📡 PON: ${c.pon}` : '') +
+    (c.cto ? `<br>📦 CTO: ${c.cto}` : '');
+
+  // Reseta os checkboxes e observação
+  document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
+  document.getElementById('os-obs').value = '';
+
+  // Lembra o último número de técnico usado, pra não digitar toda vez
+  document.getElementById('os-tel-tecnico').value = localStorage.getItem('os_tel_tecnico') || '';
+
+  document.getElementById('modal-os-tecnico').classList.add('open');
+}
+
+function enviarOS() {
+  const c = clientes.find(x => x.id === _osClienteId); if (!c) return;
+
+  const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
+  const obs = document.getElementById('os-obs').value.trim();
+  const telTecnico = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
+
+  if (!problemas.length && !obs) { alert('Selecione ao menos um problema ou descreva o que está acontecendo.'); return; }
+  if (!telTecnico || telTecnico.length < 10) { alert('Digite um número de WhatsApp válido para o técnico.'); return; }
+
+  localStorage.setItem('os_tel_tecnico', telTecnico); // lembra pra próxima vez
+
+  const end = enderecoCompleto(c);
+  let msg = `🛠️ *Ordem de Serviço*\n\n`;
+  msg += `👤 *Cliente:* ${c.nome}\n`;
+  if (end) msg += `📍 *Endereço:* ${end}\n`;
+  if (c.tel) msg += `📞 *Telefone:* ${c.tel}\n`;
+  if (c.pon) msg += `📡 *PON:* ${c.pon}\n`;
+  if (c.cto) msg += `📦 *CTO:* ${c.cto}\n`;
+
+  msg += `\n⚠️ *Problema(s) relatado(s):*\n`;
+  if (problemas.length) {
+    problemas.forEach(p => { msg += `• ${p}\n`; });
+  }
+  if (obs) msg += `• ${obs}\n`;
+
+  msg += `\nPor favor, verificar o quanto antes. 🙏`;
+
+  const url = `https://wa.me/55${telTecnico}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  fecharModal();
 }
 
 // ============================================================
@@ -16911,6 +17019,7 @@ function renderDashboard() {
             <button class="action-btn pay"   onclick="abrirBaixa(${c.id})"          title="Dar baixa / registrar pagamento">💰</button>
             <button class="action-btn wpp"   onclick="abrirZap(${c.id},'${mesSel}')" title="Enviar cobrança via WhatsApp">📱</button>
             <button class="action-btn carne" onclick="abrirCarne(${c.id})"          title="Gerar carnê PDF">📋</button>
+            <button class="action-btn" style="background:#fff3e0;color:#e65100" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
             <button class="action-btn cal"   onclick="abrirCalendario(${c.id})"     title="Ver histórico de pagamentos">📅</button>
             <button class="action-btn del"   onclick="abrirExcluir(${c.id})"        title="Excluir cliente">🗑️</button>
           </div></td>
