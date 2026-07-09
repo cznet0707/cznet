@@ -7267,7 +7267,7 @@
             <input type="text" id="c-roteador-senha" placeholder="Ex: admin123">
           </div>
           <div class="full">
-            <label>📍 Localização (GPS)</label>
+            <label>📍 Localização exata (GPS) — opcional, o sistema já usa o endereço/CEP automaticamente</label>
             <div style="display:flex;gap:8px">
               <input type="text" id="c-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
               <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('c-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
@@ -13152,7 +13152,7 @@ Qualquer dúvida, estamos à disposição!</div>
       <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
       <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
       <div class="full">
-        <label>📍 Localização (GPS)</label>
+        <label>📍 Localização exata (GPS) — opcional, o sistema já usa o endereço/CEP automaticamente</label>
         <div style="display:flex;gap:8px">
           <input type="text" id="edit-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
           <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('edit-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
@@ -14012,6 +14012,19 @@ function enderecoCompleto(c) {
   if (c.cep)    partes.push('CEP: ' + c.cep);
   if (!partes.length && c.endereco) return c.endereco; // retrocompatibilidade
   return partes.join(' | ');
+}
+
+// Gera um link de mapa pronto para o técnico tocar e ser guiado até o cliente.
+// Prioriza a localização exata (GPS capturado); se não tiver, usa o endereço/CEP cadastrado.
+function linkMapaCliente(c) {
+  if (c.localizacao) return c.localizacao; // GPS exato, já capturado
+  const partesEndereco = [];
+  if (c.rua)    partesEndereco.push(c.rua + (c.numero ? ', ' + c.numero : ''));
+  if (c.bairro) partesEndereco.push(c.bairro);
+  if (c.cidade) partesEndereco.push(c.cidade + (c.estado ? ' - ' + c.estado.toUpperCase() : ''));
+  if (c.cep)    partesEndereco.push(c.cep);
+  if (!partesEndereco.length) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partesEndereco.join(', '))}`;
 }
 
 // ============================================================
@@ -15152,13 +15165,14 @@ function abrirOS(clienteId, preSelecionar) {
   _osClienteId = clienteId;
 
   const end = enderecoCompleto(c);
+  const linkMapa = linkMapaCliente(c);
   document.getElementById('os-cliente-info').innerHTML =
     `👤 <b>${c.nome}</b><br>📍 ${end || '(endereço não cadastrado)'}<br>📞 ${c.tel || '(sem telefone)'}` +
     (c.pon ? `<br>📡 PON: ${c.pon}` : '') +
     (c.cto ? `<br>📦 CTO: ${c.cto}` : '') +
     ((c.pppoe_usuario || c.pppoe_senha) ? `<br>🌐 PPPoE: ${c.pppoe_usuario || '-'} / ${c.pppoe_senha || '-'}` : '') +
     ((c.wifi_nome || c.wifi_senha) ? `<br>📶 WiFi: ${c.wifi_nome || '-'} / ${c.wifi_senha || '-'}` : '') +
-    (c.localizacao ? `<br>🗺️ <a href="${c.localizacao}" target="_blank">Ver localização no mapa</a>` : '');
+    (linkMapa ? `<br>🗺️ <a href="${linkMapa}" target="_blank">Ver localização no mapa</a> ${c.localizacao ? '(GPS exato)' : '(pelo endereço/CEP)'}` : '');
 
   // Reseta os checkboxes e observação
   document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
@@ -15203,7 +15217,8 @@ function enviarOS() {
     msg += `📶 *Nome do WiFi:* ${c.wifi_nome || '(não informado)'}\n`;
     msg += `🔑 *Senha do WiFi:* ${c.wifi_senha || '(não informada)'}\n`;
   }
-  if (c.localizacao) msg += `🗺️ *Localização:* ${c.localizacao}\n`;
+  const linkMapa = linkMapaCliente(c);
+  if (linkMapa) msg += `🗺️ *Localização (toque para abrir no mapa):* ${linkMapa}\n`;
 
   msg += `\n⚠️ *Problema(s) relatado(s):*\n`;
   if (problemas.length) {
