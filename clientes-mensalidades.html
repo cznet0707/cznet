@@ -15387,21 +15387,45 @@ function excluirFotoServico(fotoId) {
   renderFotosClienteLista();
 }
 
-function enviarFotoCliente(fotoId) {
+// Converte uma imagem base64 (dataURL) em um objeto File, pra poder compartilhar direto
+function dataURLparaFile(dataUrl, nomeArquivo) {
+  const [cabecalho, base64] = dataUrl.split(',');
+  const mime = cabecalho.match(/:(.*?);/)[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], nomeArquivo, { type: mime });
+}
+
+async function enviarFotoCliente(fotoId) {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
   const tel = telLimpo(c.tel || '');
   if (!tel) { alert('Cliente sem telefone cadastrado.'); return; }
 
-  // Baixa a foto pro aparelho, pra poder anexar manualmente no WhatsApp
-  const a = document.createElement('a');
-  const dataArquivo = (f.data || fmtData()).replace(/-/g,'');
-  a.href = f.foto;
-  a.download = `${f.tipo.replace(/[^a-zA-Z0-9]/g,'_')}_${dataArquivo}.jpg`;
-  a.click();
-
   const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
   const msg = `Olá, ${c.nome}! 👋\n\nSegue o registro do serviço realizado:\n\n🛠️ *${f.tipo}*\n📅 *Data:* ${dataFmt}${f.descricao ? `\n📝 ${f.descricao}` : ''}\n\nQualquer dúvida, estamos à disposição! 😊`;
+  const dataArquivo = (f.data || fmtData()).replace(/-/g,'');
+  const nomeArquivo = `${f.tipo.replace(/[^a-zA-Z0-9]/g,'_')}_${dataArquivo}.jpg`;
+
+  // Tenta usar o compartilhamento nativo do celular: manda a foto + mensagem
+  // juntas, você só escolhe o WhatsApp e o contato — sem procurar na galeria.
+  try {
+    const arquivo = dataURLparaFile(f.foto, nomeArquivo);
+    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+      await navigator.share({ files: [arquivo], text: msg, title: 'Registro do serviço' });
+      return;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') return; // usuário cancelou o compartilhamento, tudo bem
+    // se der erro no compartilhamento nativo, cai no método de baixar + abrir WhatsApp abaixo
+  }
+
+  // Alternativa (computador ou navegador sem suporte): baixa a foto e abre o WhatsApp
+  const a = document.createElement('a');
+  a.href = f.foto;
+  a.download = nomeArquivo;
+  a.click();
 
   setTimeout(() => {
     alert('📎 Foto baixada! O WhatsApp vai abrir agora — anexe a foto na conversa com ' + c.nome + '.');
