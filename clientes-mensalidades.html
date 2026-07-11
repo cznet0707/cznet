@@ -13860,7 +13860,8 @@ function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
 }
 
-async function salvarStorage() {
+async function salvarStorage(_tentativa) {
+  const tentativa = _tentativa || 1;
   // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
   if (!dadosCarregados) return;
   try {
@@ -13901,11 +13902,21 @@ async function salvarStorage() {
       signal: AbortSignal.timeout(12000)
     });
     if (resp.status === 409) {
-      // Conflito: outro dispositivo salvou primeiro. Em vez de tentar de novo
-      // e apagar o que ele salvou, adotamos a versão mais recente do servidor
-      // e avisamos o usuário para refazer a última alteração se precisar.
+      // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
+      // leitura e este save. Em vez de descartar a mudança que o usuário
+      // acabou de fazer, tentamos automaticamente de novo: atualizamos só a
+      // "marca de tempo" base e reenviamos os MESMOS dados locais (que já
+      // incluem a mudança do usuário), até 3 tentativas.
       let j = {};
       try { j = await resp.json(); } catch(e) {}
+      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
+
+      if (tentativa < 3) {
+        await new Promise(r => setTimeout(r, 400 * tentativa)); // pequena pausa antes de tentar de novo
+        return salvarStorage(tentativa + 1);
+      }
+
+      // Esgotou as tentativas automáticas: agora sim adota a versão do servidor e avisa
       const d = j.data || {};
       try {
         if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
@@ -13916,12 +13927,11 @@ async function salvarStorage() {
         if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
         if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       } catch(e2) {}
-      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
       try {
         renderDashboard();
         renderClientes(document.getElementById('input-busca-clientes')?.value || '');
       } catch(e3) {}
-      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
+      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava, e não foi possível combinar automaticamente.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
       return false;
     }
     if (resp.ok) {
@@ -14133,12 +14143,38 @@ function preencherPlanoEdicao() {
 // ============================================================
 // CLIENTES
 // ============================================================
+function normalizarTexto(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
 function salvarCliente(e) {
   e.preventDefault();
+  const nomeDigitado = document.getElementById('c-nome').value.trim();
+  const telDigitado  = document.getElementById('c-tel').value.trim();
+  const telLimpoNovo = telLimpo(telDigitado);
+  const nomeNorm      = normalizarTexto(nomeDigitado);
+
+  // Checa se já existe cliente com o mesmo nome ou o mesmo telefone
+  const duplicadoNome = clientes.find(c => normalizarTexto(c.nome) === nomeNorm);
+  const duplicadoTel  = telLimpoNovo ? clientes.find(c => telLimpo(c.tel || '') === telLimpoNovo) : null;
+
+  if (duplicadoNome || duplicadoTel) {
+    const motivo = duplicadoNome && duplicadoTel && duplicadoNome.id === duplicadoTel.id
+      ? 'mesmo nome e mesmo telefone'
+      : duplicadoNome ? 'mesmo nome' : 'mesmo telefone';
+    const cRef = duplicadoNome || duplicadoTel;
+    const continuar = confirm(
+      `⚠️ Cliente já cadastrado!\n\n` +
+      `Já existe um cliente com ${motivo}:\n"${cRef.nome}" — ${cRef.tel || 'sem telefone'}\n\n` +
+      `Deseja cadastrar mesmo assim (pessoa diferente)?\n\nOK = Cadastrar mesmo assim\nCancelar = Não cadastrar`
+    );
+    if (!continuar) return;
+  }
+
   const cliente = {
     id:      Date.now(),
-    nome:    document.getElementById('c-nome').value.trim(),
-    tel:     document.getElementById('c-tel').value.trim(),
+    nome:    nomeDigitado,
+    tel:     telDigitado,
     cpf:     document.getElementById('c-cpf').value.trim(),
     planoId: parseInt(document.getElementById('c-plano').value) || null,
     valor:   parseFloat(document.getElementById('c-valor').value) || 0,
