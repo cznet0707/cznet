@@ -13331,8 +13331,15 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
 
     <div style="margin-bottom:16px">
-      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📞 WhatsApp do técnico</label>
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📞 Técnico</label>
+      <select id="os-tecnico-select" style="margin-bottom:8px" onchange="_osTecnicoSelecionado()">
+        <option value="">➕ Digitar número manualmente...</option>
+      </select>
       <input type="text" id="os-tel-tecnico" placeholder="Ex: 82988887777">
+      <div style="margin-top:6px">
+        <button type="button" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="salvarNovoTecnico()">💾 Salvar este número como técnico</button>
+        <button type="button" id="os-btn-remover-tecnico" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px;display:none;color:#c62828;border-color:#ef9a9a" onclick="removerTecnicoSelecionado()">🗑️ Remover técnico</button>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -15196,6 +15203,55 @@ function enviarWifiZap(clienteId) {
 // ===== Enviar OS (ordem de serviço) para o técnico via WhatsApp =====
 let _osClienteId = null;
 
+// ===== Gerenciamento de técnicos salvos (mais de um número) =====
+function listarTecnicosSalvos() {
+  try { return JSON.parse(localStorage.getItem('os_tecnicos') || '[]'); } catch(e) { return []; }
+}
+function salvarListaTecnicos(lista) {
+  localStorage.setItem('os_tecnicos', JSON.stringify(lista));
+}
+function _popularSelectTecnicos(telParaSelecionar) {
+  const sel = document.getElementById('os-tecnico-select');
+  const tecnicos = listarTecnicosSalvos();
+  sel.innerHTML = '<option value="">➕ Digitar número manualmente...</option>' +
+    tecnicos.map(t => `<option value="${t.tel}">${t.nome} — ${t.tel}</option>`).join('');
+  if (telParaSelecionar && tecnicos.some(t => t.tel === telParaSelecionar)) {
+    sel.value = telParaSelecionar;
+  } else {
+    sel.value = '';
+  }
+  document.getElementById('os-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function _osTecnicoSelecionado() {
+  const sel = document.getElementById('os-tecnico-select');
+  if (sel.value) document.getElementById('os-tel-tecnico').value = sel.value;
+  document.getElementById('os-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function salvarNovoTecnico() {
+  const tel = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
+  if (!tel || tel.length < 10) { alert('Digite um número de WhatsApp válido antes de salvar.'); return; }
+  const nome = prompt('Nome do técnico (ex: João, Suporte, Fibra):');
+  if (!nome || !nome.trim()) return;
+  const tecnicos = listarTecnicosSalvos();
+  const jaExiste = tecnicos.find(t => t.tel === tel);
+  if (jaExiste) {
+    jaExiste.nome = nome.trim();
+  } else {
+    tecnicos.push({ nome: nome.trim(), tel });
+  }
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicos(tel);
+  alert(`✅ Técnico "${nome.trim()}" salvo!`);
+}
+function removerTecnicoSelecionado() {
+  const sel = document.getElementById('os-tecnico-select');
+  if (!sel.value) return;
+  const tecnicos = listarTecnicosSalvos().filter(t => t.tel !== sel.value);
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicos(null);
+  document.getElementById('os-tel-tecnico').value = '';
+}
+
 function abrirOS(clienteId, preSelecionar) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   _osClienteId = clienteId;
@@ -15221,8 +15277,10 @@ function abrirOS(clienteId, preSelecionar) {
     if (chk) chk.checked = true;
   }
 
-  // Lembra o último número de técnico usado, pra não digitar toda vez
-  document.getElementById('os-tel-tecnico').value = localStorage.getItem('os_tel_tecnico') || '';
+  // Popula a lista de técnicos salvos e pré-seleciona o último usado
+  const ultimoTel = localStorage.getItem('os_tel_tecnico') || '';
+  _popularSelectTecnicos(ultimoTel);
+  document.getElementById('os-tel-tecnico').value = ultimoTel;
 
   document.getElementById('modal-os-tecnico').classList.add('open');
 }
@@ -15268,6 +15326,16 @@ function enviarOS() {
   if (obs) msg += `• ${obs}\n`;
 
   msg += `\nPor favor, verificar o quanto antes. 🙏`;
+
+  // Link de retorno: o técnico toca e já abre um WhatsApp de volta pra você,
+  // com a mensagem de conclusão pronta — só falta ele anexar a foto e enviar.
+  const empresa = getCfgEmpresa();
+  const telEmpresa = telLimpo(empresa?.tel || '');
+  if (telEmpresa && telEmpresa.length >= 10) {
+    const msgRetorno = `✅ Concluí a OS do cliente *${c.nome}*${end ? ` (${end})` : ''}.\nSegue foto/comprovante do serviço:`;
+    const urlRetorno = `https://wa.me/55${telEmpresa}?text=${encodeURIComponent(msgRetorno)}`;
+    msg += `\n\n📸 *Ao terminar, toque no link abaixo, anexe uma foto do serviço e envie:*\n${urlRetorno}`;
+  }
 
   const url = `https://wa.me/55${telTecnico}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
