@@ -13307,6 +13307,34 @@ Qualquer dúvida, estamos à disposição!</div>
 </div>
 
 <!-- MODAL FORMA DE PAGAMENTO -->
+<div class="modal-overlay" id="modal-fotos-cliente">
+  <div class="modal" style="max-width:520px;max-height:88vh;display:flex;flex-direction:column">
+    <h3>📸 Fotos de Serviços / Instalação</h3>
+    <p id="fotos-cliente-nome" style="color:#555;font-size:0.9rem;margin-bottom:12px;font-weight:600"></p>
+
+    <div id="fotos-cliente-lista" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+
+    <div style="border-top:1px solid #eee;padding-top:14px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:6px;display:block">➕ Adicionar nova foto</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <select id="foto-tipo" style="flex:1;min-width:140px">
+          <option value="Instalação">🔧 Instalação</option>
+          <option value="OS / Manutenção">🛠️ OS / Manutenção concluída</option>
+        </select>
+        <input type="date" id="foto-data" style="flex:1;min-width:140px">
+      </div>
+      <input type="text" id="foto-descricao" placeholder="Descrição (opcional)" style="margin-bottom:8px">
+      <input type="file" id="foto-arquivo" accept="image/*" capture="environment" style="margin-bottom:10px" onchange="lerFotoServico(this)">
+      <div id="foto-preview" style="margin-bottom:10px"></div>
+      <button type="button" class="btn btn-success" style="width:100%;justify-content:center" onclick="salvarFotoServico()">💾 Salvar Foto</button>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-os-tecnico">
   <div class="modal" style="max-width:480px">
     <h3>🛠️ Enviar OS para o Técnico</h3>
@@ -14962,6 +14990,7 @@ function renderClientes(filtro = '') {
             ${(c.wifi_nome || c.wifi_senha) ? `<button class="btn btn-wifi" onclick="enviarWifiZap(${c.id})" title="Enviar WiFi via WhatsApp">📶</button>` : ''}
             <button class="btn-carne btn" onclick="abrirCarne(${c.id})" title="Gerar Carnê PDF">📋</button>
             <button class="btn btn-outline" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
+            <button class="btn btn-outline" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
             <button class="btn-cal btn" onclick="abrirCalendario(${c.id})" title="Ver meses pagos/atrasados">📅</button>
             <button class="btn btn-danger" onclick="abrirExcluir(${c.id})">🗑️</button>
           </div></td>
@@ -15250,6 +15279,134 @@ function removerTecnicoSelecionado() {
   salvarListaTecnicos(tecnicos);
   _popularSelectTecnicos(null);
   document.getElementById('os-tel-tecnico').value = '';
+}
+
+// ===== Fotos de serviço/instalação do cliente =====
+let _fotosClienteId = null;
+let _fotoServicoBase64 = null;
+
+function abrirFotosCliente(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  _fotosClienteId = clienteId;
+  document.getElementById('fotos-cliente-nome').textContent = `Cliente: ${c.nome}`;
+
+  document.getElementById('foto-tipo').value = 'Instalação';
+  document.getElementById('foto-data').value = fmtData();
+  document.getElementById('foto-descricao').value = '';
+  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-preview').innerHTML = '';
+  _fotoServicoBase64 = null;
+
+  renderFotosClienteLista();
+  document.getElementById('modal-fotos-cliente').classList.add('open');
+}
+
+function renderFotosClienteLista() {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const lista = document.getElementById('fotos-cliente-lista');
+  const fotos = (c.fotosServico || []).slice().sort((a,b) => (b.data||'').localeCompare(a.data||''));
+
+  if (!fotos.length) {
+    lista.innerHTML = `<p style="color:#999;font-size:0.85rem;text-align:center;padding:20px 0">Nenhuma foto salva ainda para este cliente.</p>`;
+    return;
+  }
+
+  lista.innerHTML = fotos.map(f => {
+    const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+    return `
+    <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px">
+      <img src="${f.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}</div>
+        <div style="font-size:0.78rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 7px" onclick="enviarFotoCliente(${f.id})" title="Enviar ao cliente pelo WhatsApp">📤</button>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 7px;color:#c62828;border-color:#ef9a9a" onclick="excluirFotoServico(${f.id})" title="Excluir">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function lerFotoServico(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Redimensiona/comprime pra não pesar o armazenamento
+      const MAX = 1280;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      _fotoServicoBase64 = canvas.toDataURL('image/jpeg', 0.78);
+      document.getElementById('foto-preview').innerHTML = `<img src="${_fotoServicoBase64}" style="max-width:100%;max-height:160px;border-radius:8px">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarFotoServico() {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  if (!_fotoServicoBase64) { alert('Selecione uma foto primeiro.'); return; }
+  const tipo = document.getElementById('foto-tipo').value;
+  const data = document.getElementById('foto-data').value || fmtData();
+  const descricao = document.getElementById('foto-descricao').value.trim();
+
+  if (!c.fotosServico) c.fotosServico = [];
+  c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
+  salvarStorage();
+
+  document.getElementById('foto-descricao').value = '';
+  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-preview').innerHTML = '';
+  _fotoServicoBase64 = null;
+
+  renderFotosClienteLista();
+  alert('✅ Foto salva!');
+}
+
+function verFotoServico(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${f.foto}" style="max-width:100%;max-height:100vh"></body>`);
+}
+
+function excluirFotoServico(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  if (!confirm('Excluir esta foto? Essa ação não pode ser desfeita.')) return;
+  c.fotosServico = (c.fotosServico || []).filter(x => x.id !== fotoId);
+  salvarStorage();
+  renderFotosClienteLista();
+}
+
+function enviarFotoCliente(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
+  const tel = telLimpo(c.tel || '');
+  if (!tel) { alert('Cliente sem telefone cadastrado.'); return; }
+
+  // Baixa a foto pro aparelho, pra poder anexar manualmente no WhatsApp
+  const a = document.createElement('a');
+  const dataArquivo = (f.data || fmtData()).replace(/-/g,'');
+  a.href = f.foto;
+  a.download = `${f.tipo.replace(/[^a-zA-Z0-9]/g,'_')}_${dataArquivo}.jpg`;
+  a.click();
+
+  const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+  const msg = `Olá, ${c.nome}! 👋\n\nSegue o registro do serviço realizado:\n\n🛠️ *${f.tipo}*\n📅 *Data:* ${dataFmt}${f.descricao ? `\n📝 ${f.descricao}` : ''}\n\nQualquer dúvida, estamos à disposição! 😊`;
+
+  setTimeout(() => {
+    alert('📎 Foto baixada! O WhatsApp vai abrir agora — anexe a foto na conversa com ' + c.nome + '.');
+    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+  }, 500);
 }
 
 function abrirOS(clienteId, preSelecionar) {
@@ -17202,6 +17359,7 @@ function renderDashboard() {
             <button class="action-btn wpp"   onclick="abrirZap(${c.id},'${mesSel}')" title="Enviar cobrança via WhatsApp">📱</button>
             <button class="action-btn carne" onclick="abrirCarne(${c.id})"          title="Gerar carnê PDF">📋</button>
             <button class="action-btn" style="background:#fff3e0;color:#e65100" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
+            <button class="action-btn" style="background:#e8f5e9;color:#2e7d32" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
             <button class="action-btn cal"   onclick="abrirCalendario(${c.id})"     title="Ver histórico de pagamentos">📅</button>
             <button class="action-btn del"   onclick="abrirExcluir(${c.id})"        title="Excluir cliente">🗑️</button>
           </div></td>
