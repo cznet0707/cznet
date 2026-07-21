@@ -213,4 +213,14 @@ app.get('/api/seed-notificados', async (req, res) => {
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
     const os = require('os');
-    const ips =
+    const ips =Object.values(os.networkInterfaces()).flat()
+      .filter(i => i.family === 'IPv4' && !i.internal)
+      .map(i => i.address);
+    console.log('\n✅ Servidor CZnET rodando!');
+    console.log(`\n💻  Neste computador: http://localhost:${PORT}`);
+    ips.forEach(ip => console.log(`🖥️  Outro PC na rede:  http://${ip}:${PORT}`));
+    console.log('\nPressione Ctrl+C para parar.\n');
+  });
+}
+
+module.exports = app;
