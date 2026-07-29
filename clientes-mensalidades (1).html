@@ -7242,6 +7242,37 @@
             <label>🔑 Senha do WiFi</label>
             <input type="text" id="c-wifi-senha" placeholder="Ex: minhasenha123">
           </div>
+          <div>
+            <label>🌐 Usuário PPPoE</label>
+            <input type="text" id="c-pppoe-usuario" placeholder="Ex: 3216xxxxxx">
+          </div>
+          <div>
+            <label>🔒 Senha PPPoE</label>
+            <input type="text" id="c-pppoe-senha" placeholder="Ex: minhasenha123">
+          </div>
+          <div>
+            <label>📡 PON</label>
+            <input type="text" id="c-pon" placeholder="Ex: PON 1/1/3">
+          </div>
+          <div>
+            <label>📦 CTO</label>
+            <input type="text" id="c-cto" placeholder="Ex: CTO-045 / Porta 7">
+          </div>
+          <div>
+            <label>👤 Usuário admin do roteador</label>
+            <input type="text" id="c-roteador-usuario" placeholder="Ex: admin">
+          </div>
+          <div>
+            <label>🔐 Senha admin do roteador</label>
+            <input type="text" id="c-roteador-senha" placeholder="Ex: admin123">
+          </div>
+          <div class="full">
+            <label>📍 Localização exata (GPS) — opcional, o sistema já usa o endereço/CEP automaticamente</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="c-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
+              <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('c-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
+            </div>
+          </div>
           <div class="full" style="border-top:1px solid #eee;margin-top:8px;padding-top:14px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
               <input type="checkbox" id="c-registrar-inst" style="width:18px;height:18px;cursor:pointer" onchange="toggleCamposInstalacaoCadastro()">
@@ -12949,6 +12980,51 @@ Qualquer dúvida, estamos à disposição! 😊</div>
     </div>
 
     <div class="card">
+      <h2>🧾 Mensagem de Cobrança via Boleto</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Usada quando você escolhe "Boleto" ao enviar a cobrança pelo WhatsApp. Clique numa variável para inserir no cursor:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{nome}','config-msg-boleto')"><code>{nome}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{valor}','config-msg-boleto')"><code>{valor}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{vencimento}','config-msg-boleto')"><code>{vencimento}</code> Vencimento</span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{mes}','config-msg-boleto')"><code>{mes}</code></span>
+        <span class="badge" style="background:#fff3e0;color:#e65100;cursor:pointer" onclick="inserirVar('{plano}','config-msg-boleto')"><code>{plano}</code></span>
+      </div>
+      <textarea id="config-msg-boleto" rows="7" style="margin-bottom:10px"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarConfigBoleto()">💾 Salvar</button>
+        <button class="btn btn-outline" onclick="restaurarMsgBoletoPadrao()">↩️ Padrão</button>
+      </div>
+      <div style="margin-top:14px">
+        <label>Pré-visualização:</label>
+        <div class="zap-preview" id="config-preview-boleto"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎩 Mensagem de Cobrança Formal / Profissional</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Versão mais formal, sem emojis, ideal para clientes corporativos. Usada quando você escolhe "Formal" ao enviar a cobrança pelo WhatsApp. Clique numa variável para inserir no cursor:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{nome}','config-msg-profissional')"><code>{nome}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{valor}','config-msg-profissional')"><code>{valor}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{vencimento}','config-msg-profissional')"><code>{vencimento}</code> Vencimento</span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{mes}','config-msg-profissional')"><code>{mes}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{plano}','config-msg-profissional')"><code>{plano}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{pix}','config-msg-profissional')"><code>{pix}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{telefone}','config-msg-profissional')"><code>{telefone}</code></span>
+        <span class="badge" style="background:#eceff1;color:#37474f;cursor:pointer" onclick="inserirVar('{empresa}','config-msg-profissional')"><code>{empresa}</code></span>
+      </div>
+      <textarea id="config-msg-profissional" rows="9" style="margin-bottom:10px"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarConfigProfissional()">💾 Salvar</button>
+        <button class="btn btn-outline" onclick="restaurarMsgProfissionalPadrao()">↩️ Padrão</button>
+      </div>
+      <div style="margin-top:14px">
+        <label>Pré-visualização:</label>
+        <div class="zap-preview" id="config-preview-profissional"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>🙏 Mensagem de Agradecimento (após pagamento)</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Enviada ao cliente após confirmar o pagamento:</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -13069,6 +13145,19 @@ Qualquer dúvida, estamos à disposição!</div>
       <div class="full"><label>Observações</label><input type="text" id="edit-obs"></div>
       <div><label>📶 Nome do WiFi (SSID)</label><input type="text" id="edit-wifi-nome" placeholder="Ex: CZnET_Cliente"></div>
       <div><label>🔑 Senha do WiFi</label><input type="text" id="edit-wifi-senha" placeholder="Ex: minhasenha123"></div>
+      <div><label>🌐 Usuário PPPoE</label><input type="text" id="edit-pppoe-usuario" placeholder="Ex: 3216xxxxxx"></div>
+      <div><label>🔒 Senha PPPoE</label><input type="text" id="edit-pppoe-senha" placeholder="Ex: minhasenha123"></div>
+      <div><label>📡 PON</label><input type="text" id="edit-pon" placeholder="Ex: PON 1/1/3"></div>
+      <div><label>📦 CTO</label><input type="text" id="edit-cto" placeholder="Ex: CTO-045 / Porta 7"></div>
+      <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
+      <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
+      <div class="full">
+        <label>📍 Localização exata (GPS) — opcional, o sistema já usa o endereço/CEP automaticamente</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="edit-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
+          <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('edit-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
+        </div>
+      </div>
       <div class="full" style="display:flex;align-items:center;gap:10px;padding:6px 0">
         <input type="checkbox" id="edit-inst-gratis" style="width:18px;height:18px;cursor:pointer">
         <label for="edit-inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis (não cobrar taxa de R$50)</label>
@@ -13218,6 +13307,89 @@ Qualquer dúvida, estamos à disposição!</div>
 </div>
 
 <!-- MODAL FORMA DE PAGAMENTO -->
+<div class="modal-overlay" id="modal-fotos-cliente">
+  <div class="modal" style="max-width:520px;max-height:88vh;display:flex;flex-direction:column">
+    <h3>📸 Fotos de Serviços / Instalação</h3>
+    <p id="fotos-cliente-nome" style="color:#555;font-size:0.9rem;margin-bottom:12px;font-weight:600"></p>
+
+    <div id="fotos-cliente-lista" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+
+    <div style="border-top:1px solid #eee;padding-top:14px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:6px;display:block">➕ Adicionar nova foto</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <select id="foto-tipo" style="flex:1;min-width:140px" onchange="atualizarPlaceholderFoto()">
+          <option value="Instalação">🔧 Instalação</option>
+          <option value="Troca de Equipamento">🔄 Troca de Equipamento</option>
+          <option value="OS / Manutenção">🛠️ OS / Manutenção concluída</option>
+        </select>
+        <input type="date" id="foto-data" style="flex:1;min-width:140px">
+      </div>
+      <input type="text" id="foto-descricao" placeholder="Descrição (opcional)" style="margin-bottom:8px">
+      <input type="file" id="foto-arquivo" accept="image/*" capture="environment" style="margin-bottom:10px" onchange="lerFotoServico(this)">
+      <div id="foto-preview" style="margin-bottom:10px"></div>
+      <button type="button" class="btn btn-success" style="width:100%;justify-content:center" onclick="salvarFotoServico()">💾 Salvar Foto</button>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-os-tecnico">
+  <div class="modal" style="max-width:480px">
+    <h3>🛠️ Enviar OS para o Técnico</h3>
+    <p id="os-cliente-info" style="color:#555;font-size:0.88rem;margin-bottom:14px;line-height:1.5;background:#f8f9fb;padding:10px 12px;border-radius:8px"></p>
+
+    <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:8px;display:block">⚠️ O que está acontecendo:</label>
+    <div id="os-problemas-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Sem sinal / sem conexão"> 📡 Sem sinal / sem conexão</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Conector queimado/quebrado"> 🔌 Conector queimado/quebrado</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Fonte queimada"> 🔋 Fonte queimada</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Roteador queimado/com defeito"> 📶 Roteador queimado/com defeito</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="ONU/ONT com defeito"> 📦 ONU/ONT com defeito</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Rompimento de fibra"> ✂️ Rompimento de fibra</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Sinal fraco / oscilando"> 📉 Sinal fraco / oscilando</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Mudança de endereço"> 🚚 Mudança de endereço</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Instalação nova"> 🔧 Instalação nova</label>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">✏️ Outro problema / observações (opcional)</label>
+      <input type="text" id="os-obs" placeholder="Ex: cliente relata que caiu à noite">
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📞 Técnico</label>
+      <select id="os-tecnico-select" style="margin-bottom:8px" onchange="_osTecnicoSelecionado()">
+        <option value="">➕ Digitar número manualmente...</option>
+      </select>
+      <input type="text" id="os-tel-tecnico" placeholder="Ex: 82988887777">
+      <div style="margin-top:6px">
+        <button type="button" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="salvarNovoTecnico()">💾 Salvar este número como técnico</button>
+        <button type="button" id="os-btn-remover-tecnico" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px;display:none;color:#c62828;border-color:#ef9a9a" onclick="removerTecnicoSelecionado()">🗑️ Remover técnico</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-whatsapp" onclick="enviarOS()">📤 Enviar OS via WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-envio-agradecimento">
+  <div class="modal" style="max-width:420px">
+    <h3>📨 Enviar mensagem de agradecimento?</h3>
+    <p id="envio-agrad-desc" style="color:#555;font-size:0.88rem;margin-bottom:14px;line-height:1.5"></p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch">
+      <button id="btn-envio-com" class="btn btn-whatsapp" style="width:100%;margin-bottom:8px;justify-content:center" onclick="_resolverEnvioAgradecimento('com')">⚠️ Enviar com alerta de atraso</button>
+      <button id="btn-envio-sem" class="btn btn-outline" style="width:100%;margin-bottom:8px;justify-content:center" onclick="_resolverEnvioAgradecimento('sem')">✅ Enviar sem alerta</button>
+      <button id="btn-envio-nao" class="btn btn-outline" style="width:100%;justify-content:center" onclick="_resolverEnvioAgradecimento('nao')">✖ Não enviar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-forma-pagamento">
   <div class="modal" style="max-width:420px">
     <h3>💳 Forma de Pagamento</h3>
@@ -13286,6 +13458,16 @@ Qualquer dúvida, estamos à disposição!</div>
   <div class="modal">
     <h3>📱 Enviar Cobrança via WhatsApp</h3>
     <p style="color:#555;font-size:0.88rem;margin-bottom:12px">Para: <strong id="zap-nome-cliente"></strong></p>
+
+    <!-- Seletor de forma de pagamento da mensagem -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:6px;display:block">💳 Forma de pagamento da mensagem:</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="zap-forma-pix" onclick="zapEscolherForma('pix')">🔵 Pix</button>
+        <button type="button" id="zap-forma-boleto" onclick="zapEscolherForma('boleto')">🧾 Boleto</button>
+        <button type="button" id="zap-forma-profissional" onclick="zapEscolherForma('profissional')">🎩 Formal</button>
+      </div>
+    </div>
 
     <!-- Seletor de meses da cobrança -->
     <div style="background:#f0f4ff;border-radius:12px;padding:14px 16px;margin-bottom:14px">
@@ -13356,7 +13538,33 @@ Qualquer dúvida, estamos à disposição!</div>
       Selecione os meses que deseja incluir no carnê. Clique para marcar/desmarcar.
     </div>
 
+    <!-- Seletor de estilo do carnê -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.83rem;color:#6d28d9;font-weight:600;margin-bottom:6px;display:block">🎨 Modelo do carnê:</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" id="carne-estilo-classico" onclick="carneEscolherEstilo('classico')">📋 Clássico</button>
+        <button type="button" id="carne-estilo-boleto" onclick="carneEscolherEstilo('boleto')">🏦 Estilo Boleto Bancário</button>
+        <button type="button" id="carne-estilo-branco" onclick="carneEscolherEstilo('branco')">🗒️ Em Branco (12 vias)</button>
+      </div>
+    </div>
+
+    <!-- Campos exclusivos do modelo "Em Branco" -->
+    <div id="carne-branco-campos" style="display:none;margin-bottom:12px;background:#f5f0ff;border-left:4px solid #6d28d9;border-radius:8px;padding:12px 16px">
+      <div style="font-size:0.85rem;color:#6d28d9;font-weight:600;margin-bottom:8px">🗒️ Carnê genérico — sem nome nem endereço do cliente (para preencher à mão). Gera 12 vias.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px">
+          <label style="font-size:0.82rem;font-weight:600">Valor de cada parcela (R$):</label>
+          <input type="number" id="carne-branco-valor" step="0.01" style="margin-top:4px;width:100%">
+        </div>
+        <div style="flex:1;min-width:140px">
+          <label style="font-size:0.82rem;font-weight:600">Data do 1º vencimento:</label>
+          <input type="date" id="carne-branco-data" style="margin-top:4px;width:100%">
+        </div>
+      </div>
+    </div>
+
     <!-- Seletor de ano + botões rápidos -->
+    <div id="carne-normal-campos">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <label style="font-size:0.85rem;font-weight:600">Ano:</label>
       <select id="carne-ano" onchange="renderMesesCarne()" style="padding:5px 10px;border-radius:6px;border:1px solid #ddd;font-size:0.9rem"></select>
@@ -13368,6 +13576,7 @@ Qualquer dúvida, estamos à disposição!</div>
     <!-- Grid de meses -->
     <div id="carne-meses-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
     <div id="carne-total-resumo" style="display:none;background:#6d28d9;color:white;border-radius:8px;padding:8px 14px;font-weight:700;font-size:0.92rem;text-align:center;margin-bottom:10px"></div>
+    </div>
 
     <!-- Observação -->
     <div style="margin-bottom:14px">
@@ -13412,9 +13621,42 @@ Passando para avisar que a sua mensalidade referente ao mês de *{mes}* no valor
 
 📞 Contato: *{telefone}*
 
-Por favor, efetue o pagamento para evitar a suspensão do serviço.
+Por favor, efetue o pagamento para evitar multa, juros e a suspensão do serviço.
 
 Qualquer dúvida, estamos à disposição! 😊`;
+
+const MSG_PADRAO_BOLETO = `Olá, {nome}! 👋
+
+Passando para avisar que a sua mensalidade referente ao mês de *{mes}* no valor de *{valor}* está pendente.
+
+📅 Vencimento: dia *{vencimento}*
+📦 Plano: {plano}
+
+🧾 *Pague via Boleto:*
+O boleto está anexado / segue o link para pagamento.
+
+📞 Contato: *{telefone}*
+
+Por favor, efetue o pagamento para evitar multa, juros e a suspensão do serviço.
+
+Qualquer dúvida, estamos à disposição! 😊`;
+
+const MSG_PADRAO_PROFISSIONAL = `Prezado(a) {nome},
+
+Informamos que consta em nosso sistema um débito referente à mensalidade de {mes}, no valor de {valor}, com vencimento em {vencimento}.
+
+Plano contratado: {plano}
+
+Para regularização, disponibilizamos os seguintes dados:
+Chave Pix: {pix}
+Contato: {telefone}
+
+Solicitamos a gentileza de efetuar o pagamento o quanto antes, a fim de evitar a cobrança de multa e juros, bem como a suspensão do serviço.
+
+Permanecemos à disposição para esclarecer quaisquer dúvidas.
+
+Atenciosamente,
+{empresa}`;
 
 const MSG_AGRADECIMENTO_PADRAO = `Olá, {nome}! 😊
 
@@ -13453,6 +13695,8 @@ async function carregarDoServidor() {
       if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
+      if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
+      if (d.cm_msg_profissional) localStorage.setItem('cm_msg_profissional', d.cm_msg_profissional);
       if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
       if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
       if (d.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', d.cm_mes_inicio_sistema);
@@ -13485,40 +13729,175 @@ async function carregarDoServidor() {
 }
 
 function getMsgCobranca() { return localStorage.getItem('cm_msg') || MSG_PADRAO; }
+function getMsgCobrancaBoleto() { return localStorage.getItem('cm_msg_boleto') || MSG_PADRAO_BOLETO; }
+function getMsgCobrancaProfissional() { return localStorage.getItem('cm_msg_profissional') || MSG_PADRAO_PROFISSIONAL; }
 function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimento') || MSG_AGRADECIMENTO_PADRAO; }
 
-function montarAgradecimento(clienteId, mesRef) {
-  const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
-  const pl = planos.find(x => x.id === c.planoId);
+// ===== Mensagem padrão ÚNICA de confirmação de pagamento (usada em todos os fluxos) =====
+// Conta quantos meses o cliente já pagou com atraso antes (excluindo o mês atual)
+function contarAtrasosAnteriores(clienteId, mesRefAtual) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return 0;
+  let count = 0;
+  pagamentos.filter(p => p.clienteId === clienteId && p.mes !== mesRefAtual).forEach(p => {
+    if (!p.data || !p.mes) return;
+    const [py, pm] = p.data.split('-');
+    const mesPagKey = `${py}-${pm}`;
+    if (mesPagKey > p.mes) { count++; return; }
+    if (mesPagKey === p.mes && c.dia) {
+      const [ry, rm] = p.mes.split('-');
+      const dataVenc = new Date(Number(ry), Number(rm) - 1, Number(c.dia));
+      const dataPag  = new Date(p.data + 'T00:00:00');
+      if (dataPag > dataVenc) count++;
+    }
+  });
+  return count;
+}
+
+// Verifica se um pagamento foi feito com atraso, retornando os dados prontos para uso
+function verificarAtrasoPagamento(clienteId, mesRef, pagInformado) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return { atrasado: false };
   const mes = mesRef || fmtMes();
-  const [y,m] = mes.split('-');
-  const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long', year:'numeric'});
-  return getMsgAgradecimento()
-    .replace(/{nome}/g, c.nome)
-    .replace(/{valor}/g, moeda(c.valor))
-    .replace(/{mes}/g, mesNome)
-    .replace(/{plano}/g, pl ? pl.nome : 'Padrão');
+  const [y, m] = mes.split('-');
+  let pag = pagInformado;
+  if (!pag) {
+    const pags = pagamentos.filter(p => p.clienteId === clienteId && p.mes === mes);
+    pag = pags[pags.length - 1];
+  }
+  if (!pag?.data) return { atrasado: false };
+
+  const [py, pm] = pag.data.split('-');
+  const mesPagKey = `${py}-${pm}`;
+  const atrasosAnteriores = contarAtrasosAnteriores(clienteId, mes);
+  const recorrente = atrasosAnteriores >= 1;
+
+  // Caso 1: o pagamento foi feito em mês/ano posterior ao mês de referência
+  // (ex: mensalidade de junho paga em julho) → atrasado, mesmo sem dia de vencimento cadastrado
+  if (mesPagKey > mes) {
+    const diaRef = c.dia ? String(c.dia).padStart(2,'0') : '10';
+    const vctoStr = `${diaRef}/${String(m).padStart(2,'0')}/${y}`;
+    return { atrasado: true, vctoStr, recorrente, atrasosAnteriores };
+  }
+
+  // Caso 2: pago dentro do mesmo mês de referência, mas depois do dia de vencimento cadastrado
+  if (mesPagKey === mes && c.dia) {
+    const dataVenc      = new Date(Number(y), Number(m) - 1, Number(c.dia));
+    const dataPagamento = new Date(pag.data + 'T00:00:00');
+    if (dataPagamento > dataVenc) {
+      const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+      return { atrasado: true, vctoStr, recorrente, atrasosAnteriores };
+    }
+  }
+
+  return { atrasado: false };
+}
+
+function montarMsgPagamentoConfirmado(clienteId, mesRef, pagInformado, incluirAlerta) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return '';
+  const mes = mesRef || fmtMes();
+  const [y, m] = mes.split('-');
+  const mesNome = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  let pag = pagInformado;
+  if (!pag) {
+    const pags = pagamentos.filter(p => p.clienteId === clienteId && p.mes === mes);
+    pag = pags[pags.length - 1]; // último registrado
+  }
+
+  const formaLabel = pag?.formaPagamento
+    ? ({ pix: '🔵 Pix', cartao: '💳 Cartão', dinheiro: '💵 Dinheiro', boleto: '🧾 Boleto' }[pag.formaPagamento] || pag.formaPagamento)
+    : '—';
+  const dataPag  = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
+  const valorPag = pag ? moeda(pag.valor) : moeda(c.valor);
+  const empresa  = getCfgEmpresa();
+  const nomeEmpresa = empresa?.nome || 'nossa empresa';
+
+  // O alerta de atraso só entra se: foi detectado atraso E o usuário não recusou incluí-lo
+  let alertaAtraso = '';
+  if (incluirAlerta !== false) {
+    const info = verificarAtrasoPagamento(clienteId, mes, pag);
+    if (info.atrasado) {
+      if (info.recorrente) {
+        // Recorrente: um único aviso completo (já cobre o atraso + multa/juros/suspensão)
+        alertaAtraso = `\n🔁 *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_. Identificamos atrasos recorrentes no seu histórico de pagamentos. Caso essa recorrência continue, poderá haver cobrança de *multa e juros*, além da *suspensão do serviço* conforme o contrato. Pedimos atenção às datas de vencimento para evitar transtornos.\n`;
+      } else {
+        // Primeira vez: aviso simples
+        alertaAtraso = `\n⚠️ *Atenção:* pagamento realizado com atraso _(vencimento era dia ${info.vctoStr})_.\n`;
+      }
+    }
+  }
+
+  return `✅ *Pagamento Confirmado!*
+
+Olá, *${c.nome}*! 😊
+
+Seu pagamento foi registrado com sucesso:
+
+📅 *Mês de referência:* ${mesNome}
+💰 *Valor:* ${valorPag}
+📆 *Data do pagamento:* ${dataPag}
+${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
+${alertaAtraso}
+Obrigado por manter seu plano em dia! 🙏
+_${nomeEmpresa}_`;
+}
+
+// ===== Modal de escolha: enviar com alerta / sem alerta / não enviar =====
+let _callbackEnvioAgradecimento = null;
+
+function perguntarEnvioAgradecimento(nomeCliente, atrasado, vctoStr, callback, permitirNaoEnviar, recorrente) {
+  if (permitirNaoEnviar === undefined) permitirNaoEnviar = true;
+
+  // Sem atraso: fluxo simples, sem precisar escolher entre "com/sem alerta"
+  if (!atrasado) {
+    if (permitirNaoEnviar) {
+      if (!confirm(`Deseja enviar mensagem de agradecimento para ${nomeCliente} pelo WhatsApp?`)) { callback('nao'); return; }
+    }
+    callback('sem');
+    return;
+  }
+
+  // Com atraso: abre o modal com as 3 opções
+  _callbackEnvioAgradecimento = callback;
+  const desc = document.getElementById('envio-agrad-desc');
+  const modal = document.getElementById('modal-envio-agradecimento');
+  desc.innerHTML = (permitirNaoEnviar ? `Deseja enviar mensagem de agradecimento para <b>${nomeCliente}</b> pelo WhatsApp?<br><br>` : '')
+    + `⚠️ Este pagamento foi feito com atraso${vctoStr ? ` (vencimento era dia ${vctoStr})` : ''}.`
+    + (recorrente ? `<br><br>🔁 <b>Atenção:</b> este cliente já tem histórico de atrasos. A mensagem "com alerta" incluirá um aviso sobre possível cobrança de multa e juros, e suspensão do serviço, em caso de reincidência.` : '')
+    + `<br><br>Escolha como enviar:`;
+  document.getElementById('btn-envio-nao').style.display = permitirNaoEnviar ? 'inline-flex' : 'none';
+  modal.classList.add('open');
+}
+
+function _resolverEnvioAgradecimento(opcao) {
+  document.getElementById('modal-envio-agradecimento').classList.remove('open');
+  const cb = _callbackEnvioAgradecimento;
+  _callbackEnvioAgradecimento = null;
+  if (cb) cb(opcao); // 'com' | 'sem' | 'nao'
 }
 
 function oferecerAgradecimento(clienteId, mesRef) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
-  if (!confirm(`Deseja enviar mensagem de agradecimento para ${c.nome} pelo WhatsApp?`)) return;
-  const numero = telLimpo(c.tel);
-  if (!numero) {
-    pedirTelefone(clienteId, (n) => {
-      const msg = montarAgradecimento(clienteId, mesRef);
-      window.open(`https://wa.me/55${n}?text=${encodeURIComponent(msg)}`, '_blank');
-    });
-    return;
-  }
-  const msg = montarAgradecimento(clienteId, mesRef);
-  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  const mes = mesRef || fmtMes();
+  const info = verificarAtrasoPagamento(clienteId, mes);
+
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    if (opcao === 'nao') return;
+    const incluirAlerta = opcao === 'com';
+    const msg = montarMsgPagamentoConfirmado(clienteId, mes, null, incluirAlerta);
+    const numero = telLimpo(c.tel);
+    if (!numero) {
+      pedirTelefone(clienteId, (n) => window.open(`https://wa.me/55${n}?text=${encodeURIComponent(msg)}`, '_blank'));
+      return;
+    }
+    window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  }, true, info.recorrente);
 }
 function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
 }
 
-async function salvarStorage() {
+async function salvarStorage(_tentativa) {
+  const tentativa = _tentativa || 1;
   // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
   if (!dadosCarregados) return;
   try {
@@ -13541,6 +13920,8 @@ async function salvarStorage() {
     cm_categorias:         localStorage.getItem('cm_categorias')  || '[]',
     cm_empresa:            localStorage.getItem('cm_empresa')     || '{}',
     cm_msg:                localStorage.getItem('cm_msg')         || '',
+    cm_msg_boleto:         localStorage.getItem('cm_msg_boleto')  || '',
+    cm_msg_profissional:   localStorage.getItem('cm_msg_profissional') || '',
     cm_msg_agradecimento:  localStorage.getItem('cm_msg_agradecimento') || '',
     cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
     cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
@@ -13557,11 +13938,21 @@ async function salvarStorage() {
       signal: AbortSignal.timeout(12000)
     });
     if (resp.status === 409) {
-      // Conflito: outro dispositivo salvou primeiro. Em vez de tentar de novo
-      // e apagar o que ele salvou, adotamos a versão mais recente do servidor
-      // e avisamos o usuário para refazer a última alteração se precisar.
+      // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
+      // leitura e este save. Em vez de descartar a mudança que o usuário
+      // acabou de fazer, tentamos automaticamente de novo: atualizamos só a
+      // "marca de tempo" base e reenviamos os MESMOS dados locais (que já
+      // incluem a mudança do usuário), até 3 tentativas.
       let j = {};
       try { j = await resp.json(); } catch(e) {}
+      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
+
+      if (tentativa < 3) {
+        await new Promise(r => setTimeout(r, 400 * tentativa)); // pequena pausa antes de tentar de novo
+        return salvarStorage(tentativa + 1);
+      }
+
+      // Esgotou as tentativas automáticas: agora sim adota a versão do servidor e avisa
       const d = j.data || {};
       try {
         if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
@@ -13572,12 +13963,11 @@ async function salvarStorage() {
         if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
         if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       } catch(e2) {}
-      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
       try {
         renderDashboard();
         renderClientes(document.getElementById('input-busca-clientes')?.value || '');
       } catch(e3) {}
-      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
+      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava, e não foi possível combinar automaticamente.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
       return false;
     }
     if (resp.ok) {
@@ -13638,6 +14028,26 @@ function moeda(v) {
 }
 function telLimpo(tel) { return tel.replace(/\D/g,''); }
 
+// Captura a localização atual do GPS e preenche o campo com um link do Google Maps
+function capturarLocalizacao(inputId) {
+  if (!navigator.geolocation) { alert('Seu navegador não suporta captura de localização.'); return; }
+  const input = document.getElementById(inputId);
+  const original = input.placeholder;
+  input.placeholder = '📡 Capturando localização...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      input.value = `https://maps.google.com/?q=${latitude},${longitude}`;
+      input.placeholder = original;
+    },
+    (err) => {
+      input.placeholder = original;
+      alert('Não foi possível capturar a localização. Verifique se a permissão de GPS está liberada para o navegador.');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 // Monta endereço completo como string
 function enderecoCompleto(c) {
   const partes = [];
@@ -13648,6 +14058,19 @@ function enderecoCompleto(c) {
   if (c.cep)    partes.push('CEP: ' + c.cep);
   if (!partes.length && c.endereco) return c.endereco; // retrocompatibilidade
   return partes.join(' | ');
+}
+
+// Gera um link de mapa pronto para o técnico tocar e ser guiado até o cliente.
+// Prioriza a localização exata (GPS capturado); se não tiver, usa o endereço/CEP cadastrado.
+function linkMapaCliente(c) {
+  if (c.localizacao) return c.localizacao; // GPS exato, já capturado
+  const partesEndereco = [];
+  if (c.rua)    partesEndereco.push(c.rua + (c.numero ? ', ' + c.numero : ''));
+  if (c.bairro) partesEndereco.push(c.bairro);
+  if (c.cidade) partesEndereco.push(c.cidade + (c.estado ? ' - ' + c.estado.toUpperCase() : ''));
+  if (c.cep)    partesEndereco.push(c.cep);
+  if (!partesEndereco.length) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partesEndereco.join(', '))}`;
 }
 
 // ============================================================
@@ -13756,12 +14179,38 @@ function preencherPlanoEdicao() {
 // ============================================================
 // CLIENTES
 // ============================================================
+function normalizarTexto(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
 function salvarCliente(e) {
   e.preventDefault();
+  const nomeDigitado = document.getElementById('c-nome').value.trim();
+  const telDigitado  = document.getElementById('c-tel').value.trim();
+  const telLimpoNovo = telLimpo(telDigitado);
+  const nomeNorm      = normalizarTexto(nomeDigitado);
+
+  // Checa se já existe cliente com o mesmo nome ou o mesmo telefone
+  const duplicadoNome = clientes.find(c => normalizarTexto(c.nome) === nomeNorm);
+  const duplicadoTel  = telLimpoNovo ? clientes.find(c => telLimpo(c.tel || '') === telLimpoNovo) : null;
+
+  if (duplicadoNome || duplicadoTel) {
+    const motivo = duplicadoNome && duplicadoTel && duplicadoNome.id === duplicadoTel.id
+      ? 'mesmo nome e mesmo telefone'
+      : duplicadoNome ? 'mesmo nome' : 'mesmo telefone';
+    const cRef = duplicadoNome || duplicadoTel;
+    const continuar = confirm(
+      `⚠️ Cliente já cadastrado!\n\n` +
+      `Já existe um cliente com ${motivo}:\n"${cRef.nome}" — ${cRef.tel || 'sem telefone'}\n\n` +
+      `Deseja cadastrar mesmo assim (pessoa diferente)?\n\nOK = Cadastrar mesmo assim\nCancelar = Não cadastrar`
+    );
+    if (!continuar) return;
+  }
+
   const cliente = {
     id:      Date.now(),
-    nome:    document.getElementById('c-nome').value.trim(),
-    tel:     document.getElementById('c-tel').value.trim(),
+    nome:    nomeDigitado,
+    tel:     telDigitado,
     cpf:     document.getElementById('c-cpf').value.trim(),
     planoId: parseInt(document.getElementById('c-plano').value) || null,
     valor:   parseFloat(document.getElementById('c-valor').value) || 0,
@@ -13777,6 +14226,13 @@ function salvarCliente(e) {
     obs:        document.getElementById('c-obs').value.trim(),
     wifi_nome:         document.getElementById('c-wifi-nome').value.trim(),
     wifi_senha:        document.getElementById('c-wifi-senha').value.trim(),
+    pppoe_usuario:     document.getElementById('c-pppoe-usuario').value.trim(),
+    pppoe_senha:       document.getElementById('c-pppoe-senha').value.trim(),
+    pon:               document.getElementById('c-pon').value.trim(),
+    cto:               document.getElementById('c-cto').value.trim(),
+    roteador_usuario:  document.getElementById('c-roteador-usuario').value.trim(),
+    roteador_senha:    document.getElementById('c-roteador-senha').value.trim(),
+    localizacao:       document.getElementById('c-localizacao').value.trim(),
     instalacao_gratis: document.getElementById('c-inst-gratis').checked,
     instalacao_paga:   false,
   };
@@ -14148,45 +14604,21 @@ function zapComComprovante() {
   const pags   = pagamentos.filter(p => p.clienteId === _verPagClienteId && p.mes === _verPagMes);
   const pag    = pags[0];
   const pagPix = pags.find(p => p.formaPagamento === 'pix' && p.comprovante);
+  const tel    = c.tel.replace(/\D/g,'');
+  const info   = verificarAtrasoPagamento(_verPagClienteId, _verPagMes, pag);
 
-  const tel     = c.tel.replace(/\D/g,'');
-  const [y,m]   = _verPagMes.split('-');
-  const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-
-  const formaLabel = pag?.formaPagamento
-    ? ({pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro', boleto:'🧾 Boleto'}[pag.formaPagamento] || pag.formaPagamento)
-    : '—';
-  const dataPag = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
-  const valorPag = pag ? moeda(pag.valor) : '';
-
-  const empresa = getCfgEmpresa();
-  const nomeEmpresa = empresa?.nome || 'nossa empresa';
-
-  const msg = encodeURIComponent(
-`✅ *Pagamento Confirmado!*
-
-Olá, *${c.nome}*! 😊
-
-Seu pagamento foi registrado com sucesso:
-
-📅 *Mês de referência:* ${mesNome}
-💰 *Valor:* ${valorPag}
-📆 *Data do pagamento:* ${dataPag}
-${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
-
-Obrigado por manter seu plano em dia! 🙏
-_${nomeEmpresa}_`
-  );
-
-  if (pagPix) {
-    downloadComprovante();
-    setTimeout(() => {
-      alert('📎 Comprovante baixado!\n\nO WhatsApp vai abrir agora. Anexe o arquivo na conversa com ' + c.nome + ' se quiser enviar o comprovante também.');
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    const msg = encodeURIComponent(montarMsgPagamentoConfirmado(_verPagClienteId, _verPagMes, pag, opcao === 'com'));
+    if (pagPix) {
+      downloadComprovante();
+      setTimeout(() => {
+        alert('📎 Comprovante baixado!\n\nO WhatsApp vai abrir agora. Anexe o arquivo na conversa com ' + c.nome + ' se quiser enviar o comprovante também.');
+        window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+      }, 600);
+    } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-    }, 600);
-  } else {
-    window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-  }
+    }
+  }, false, info.recorrente);
 }
 
 function verComprovante(id) {
@@ -14283,43 +14715,23 @@ function _enviarZapConfirmacao() {
   const pag    = pags[pags.length - 1]; // último registrado
   const pagPix = pags.find(p => p.formaPagamento === 'pix' && p.comprovante);
   const tel    = c.tel.replace(/\D/g,'');
-  const [y,m]  = mes.split('-');
-  const mesNome = new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  const formaLabel = pag?.formaPagamento
-    ? ({pix:'🔵 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro', boleto:'🧾 Boleto'}[pag.formaPagamento] || pag.formaPagamento)
-    : '—';
-  const dataPag   = pag?.data ? pag.data.split('-').reverse().join('/') : '—';
-  const valorPag  = pag ? moeda(pag.valor) : '';
-  const empresa   = getCfgEmpresa();
-  const nomeEmp   = empresa?.nome || 'nossa empresa';
+  const info   = verificarAtrasoPagamento(clienteId, mes, pag);
 
-  const msg = encodeURIComponent(
-`✅ *Pagamento Confirmado!*
-
-Olá, *${c.nome}*! 😊
-
-Seu pagamento foi registrado com sucesso:
-
-📅 *Mês de referência:* ${mesNome}
-💰 *Valor:* ${valorPag}
-📆 *Data do pagamento:* ${dataPag}
-${pag?.formaPagamento ? `💳 *Forma:* ${formaLabel}` : ''}
-
-Obrigado por manter seu plano em dia! 🙏
-_${nomeEmp}_`);
-
-  if (pagPix) {
-    // Baixar comprovante e abrir WhatsApp
-    const a = document.createElement('a');
-    const ext = pagPix.comprovante.startsWith('data:image/png') ? 'png' : pagPix.comprovante.startsWith('data:image/') ? 'jpg' : 'pdf';
-    a.href = pagPix.comprovante; a.download = `comprovante_pix_${mes}.${ext}`; a.click();
-    setTimeout(() => {
-      alert('📎 Comprovante baixado! Anexe na conversa com ' + c.nome + ' no WhatsApp.');
+  perguntarEnvioAgradecimento(c.nome, info.atrasado, info.vctoStr, (opcao) => {
+    const msg = encodeURIComponent(montarMsgPagamentoConfirmado(clienteId, mes, pag, opcao === 'com'));
+    if (pagPix) {
+      // Baixar comprovante e abrir WhatsApp
+      const a = document.createElement('a');
+      const ext = pagPix.comprovante.startsWith('data:image/png') ? 'png' : pagPix.comprovante.startsWith('data:image/') ? 'jpg' : 'pdf';
+      a.href = pagPix.comprovante; a.download = `comprovante_pix_${mes}.${ext}`; a.click();
+      setTimeout(() => {
+        alert('📎 Comprovante baixado! Anexe na conversa com ' + c.nome + ' no WhatsApp.');
+        window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+      }, 600);
+    } else {
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-    }, 600);
-  } else {
-    window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
-  }
+    }
+  }, false, info.recorrente);
 }
 
 function baixarMesPill(clienteId, mes) {
@@ -14565,8 +14977,8 @@ function renderClientes(filtro = '') {
       <tbody>${lista.map(c => {
         const pl = planos.find(x => x.id === c.planoId);
         const end = enderecoCompleto(c);
-        return `<tr ondblclick="abrirEditar(${c.id})" title="Duplo clique para ver os dados completos do cliente" style="cursor:pointer">
-          <td><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
+        return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
+          <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
           <td>${c.tel}</td>
           <td>${c.cpf||'-'}</td>
           <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
@@ -14578,6 +14990,8 @@ function renderClientes(filtro = '') {
             <button class="btn-whatsapp btn" onclick="abrirZap(${c.id})" title="Cobrar via WhatsApp">📱</button>
             ${(c.wifi_nome || c.wifi_senha) ? `<button class="btn btn-wifi" onclick="enviarWifiZap(${c.id})" title="Enviar WiFi via WhatsApp">📶</button>` : ''}
             <button class="btn-carne btn" onclick="abrirCarne(${c.id})" title="Gerar Carnê PDF">📋</button>
+            <button class="btn btn-outline" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
+            <button class="btn btn-outline" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
             <button class="btn-cal btn" onclick="abrirCalendario(${c.id})" title="Ver meses pagos/atrasados">📅</button>
             <button class="btn btn-danger" onclick="abrirExcluir(${c.id})">🗑️</button>
           </div></td>
@@ -14608,6 +15022,13 @@ function abrirEditar(id) {
   document.getElementById('edit-obs').value        = c.obs || '';
   document.getElementById('edit-wifi-nome').value      = c.wifi_nome || '';
   document.getElementById('edit-wifi-senha').value     = c.wifi_senha || '';
+  document.getElementById('edit-pppoe-usuario').value  = c.pppoe_usuario || '';
+  document.getElementById('edit-pppoe-senha').value    = c.pppoe_senha || '';
+  document.getElementById('edit-pon').value            = c.pon || '';
+  document.getElementById('edit-cto').value            = c.cto || '';
+  document.getElementById('edit-roteador-usuario').value = c.roteador_usuario || '';
+  document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
+  document.getElementById('edit-localizacao').value      = c.localizacao || '';
   document.getElementById('edit-inst-gratis').checked  = c.instalacao_gratis || false;
   document.getElementById('modal-editar').classList.add('open');
 }
@@ -14630,6 +15051,13 @@ function confirmarEdicao() {
   c.obs        = document.getElementById('edit-obs').value.trim();
   c.wifi_nome         = document.getElementById('edit-wifi-nome').value.trim();
   c.wifi_senha        = document.getElementById('edit-wifi-senha').value.trim();
+  c.pppoe_usuario     = document.getElementById('edit-pppoe-usuario').value.trim();
+  c.pppoe_senha       = document.getElementById('edit-pppoe-senha').value.trim();
+  c.pon               = document.getElementById('edit-pon').value.trim();
+  c.cto               = document.getElementById('edit-cto').value.trim();
+  c.roteador_usuario  = document.getElementById('edit-roteador-usuario').value.trim();
+  c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
+  c.localizacao       = document.getElementById('edit-localizacao').value.trim();
   c.instalacao_gratis = document.getElementById('edit-inst-gratis').checked;
   salvarStorage(); fecharModal(); renderClientes(); renderSelectClientes();
 }
@@ -14761,7 +15189,10 @@ function renderInstalacoes() {
         <td>${dataFmt}</td>
         <td>${taxaLabel}</td>
         <td>${statusBadge}</td>
-        <td><div class="td-acoes">${acaoBtn}</div></td>
+        <td><div class="td-acoes">
+          <button class="btn btn-outline" style="font-size:0.75rem;padding:3px 8px;background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${inst.clienteId}, 'Instalação nova')" title="Enviar OS de instalação para o técnico">🛠️ OS</button>
+          ${acaoBtn}
+        </div></td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -14799,10 +15230,330 @@ function enviarWifiZap(clienteId) {
   window.open(url, '_blank');
 }
 
+// ===== Enviar OS (ordem de serviço) para o técnico via WhatsApp =====
+let _osClienteId = null;
+
+// ===== Gerenciamento de técnicos salvos (mais de um número) =====
+function listarTecnicosSalvos() {
+  try { return JSON.parse(localStorage.getItem('os_tecnicos') || '[]'); } catch(e) { return []; }
+}
+function salvarListaTecnicos(lista) {
+  localStorage.setItem('os_tecnicos', JSON.stringify(lista));
+}
+function _popularSelectTecnicos(telParaSelecionar) {
+  const sel = document.getElementById('os-tecnico-select');
+  const tecnicos = listarTecnicosSalvos();
+  sel.innerHTML = '<option value="">➕ Digitar número manualmente...</option>' +
+    tecnicos.map(t => `<option value="${t.tel}">${t.nome} — ${t.tel}</option>`).join('');
+  if (telParaSelecionar && tecnicos.some(t => t.tel === telParaSelecionar)) {
+    sel.value = telParaSelecionar;
+  } else {
+    sel.value = '';
+  }
+  document.getElementById('os-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function _osTecnicoSelecionado() {
+  const sel = document.getElementById('os-tecnico-select');
+  if (sel.value) document.getElementById('os-tel-tecnico').value = sel.value;
+  document.getElementById('os-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function salvarNovoTecnico() {
+  const tel = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
+  if (!tel || tel.length < 10) { alert('Digite um número de WhatsApp válido antes de salvar.'); return; }
+  const nome = prompt('Nome do técnico (ex: João, Suporte, Fibra):');
+  if (!nome || !nome.trim()) return;
+  const tecnicos = listarTecnicosSalvos();
+  const jaExiste = tecnicos.find(t => t.tel === tel);
+  if (jaExiste) {
+    jaExiste.nome = nome.trim();
+  } else {
+    tecnicos.push({ nome: nome.trim(), tel });
+  }
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicos(tel);
+  alert(`✅ Técnico "${nome.trim()}" salvo!`);
+}
+function removerTecnicoSelecionado() {
+  const sel = document.getElementById('os-tecnico-select');
+  if (!sel.value) return;
+  const tecnicos = listarTecnicosSalvos().filter(t => t.tel !== sel.value);
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicos(null);
+  document.getElementById('os-tel-tecnico').value = '';
+}
+
+// ===== Fotos de serviço/instalação do cliente =====
+let _fotosClienteId = null;
+let _fotoServicoBase64 = null;
+
+function abrirFotosCliente(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  _fotosClienteId = clienteId;
+  document.getElementById('fotos-cliente-nome').textContent = `Cliente: ${c.nome}`;
+
+  document.getElementById('foto-tipo').value = 'Instalação';
+  document.getElementById('foto-data').value = fmtData();
+  document.getElementById('foto-descricao').value = '';
+  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-preview').innerHTML = '';
+  _fotoServicoBase64 = null;
+  atualizarPlaceholderFoto();
+
+  renderFotosClienteLista();
+  document.getElementById('modal-fotos-cliente').classList.add('open');
+}
+
+// Deixa claro que o motivo é obrigatório quando o tipo é "Troca de Equipamento".
+function atualizarPlaceholderFoto() {
+  const tipo = document.getElementById('foto-tipo').value;
+  const campo = document.getElementById('foto-descricao');
+  if (tipo === 'Troca de Equipamento') {
+    campo.placeholder = 'Motivo da troca (obrigatório)';
+  } else {
+    campo.placeholder = 'Descrição (opcional)';
+  }
+}
+
+function renderFotosClienteLista() {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const lista = document.getElementById('fotos-cliente-lista');
+  const fotos = (c.fotosServico || []).slice().sort((a,b) => (b.data||'').localeCompare(a.data||''));
+
+  if (!fotos.length) {
+    lista.innerHTML = `<p style="color:#999;font-size:0.85rem;text-align:center;padding:20px 0">Nenhuma foto salva ainda para este cliente.</p>`;
+    return;
+  }
+
+  lista.innerHTML = fotos.map(f => {
+    const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+    return `
+    <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px">
+      <img src="${f.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}</div>
+        <div style="font-size:0.78rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 7px" onclick="enviarFotoCliente(${f.id})" title="Enviar ao cliente pelo WhatsApp">📤</button>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 7px;color:#c62828;border-color:#ef9a9a" onclick="excluirFotoServico(${f.id})" title="Excluir">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function lerFotoServico(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Redimensiona/comprime pra não pesar o armazenamento
+      const MAX = 1280;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      _fotoServicoBase64 = canvas.toDataURL('image/jpeg', 0.78);
+      document.getElementById('foto-preview').innerHTML = `<img src="${_fotoServicoBase64}" style="max-width:100%;max-height:160px;border-radius:8px">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarFotoServico() {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  if (!_fotoServicoBase64) { alert('Selecione uma foto primeiro.'); return; }
+  const tipo = document.getElementById('foto-tipo').value;
+  const data = document.getElementById('foto-data').value || fmtData();
+  const descricao = document.getElementById('foto-descricao').value.trim();
+
+  if (tipo === 'Troca de Equipamento' && !descricao) {
+    alert('Informe o motivo da troca de equipamento antes de salvar.');
+    return;
+  }
+
+  if (!c.fotosServico) c.fotosServico = [];
+  c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
+  salvarStorage();
+
+  document.getElementById('foto-descricao').value = '';
+  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-preview').innerHTML = '';
+  _fotoServicoBase64 = null;
+
+  renderFotosClienteLista();
+  alert('✅ Foto salva!');
+}
+
+function verFotoServico(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${f.foto}" style="max-width:100%;max-height:100vh"></body>`);
+}
+
+function excluirFotoServico(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  if (!confirm('Excluir esta foto? Essa ação não pode ser desfeita.')) return;
+  c.fotosServico = (c.fotosServico || []).filter(x => x.id !== fotoId);
+  salvarStorage();
+  renderFotosClienteLista();
+}
+
+// Converte uma imagem base64 (dataURL) em um objeto File, pra poder compartilhar direto
+function dataURLparaFile(dataUrl, nomeArquivo) {
+  const [cabecalho, base64] = dataUrl.split(',');
+  const mime = cabecalho.match(/:(.*?);/)[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], nomeArquivo, { type: mime });
+}
+
+async function enviarFotoCliente(fotoId) {
+  const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
+  const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
+  const tel = telLimpo(c.tel || '');
+  if (!tel) { alert('Cliente sem telefone cadastrado.'); return; }
+
+  const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+  const msg = `Olá, ${c.nome}! 👋\n\nSegue o registro do serviço realizado:\n\n🛠️ *${f.tipo}*\n📅 *Data:* ${dataFmt}${f.descricao ? `\n📝 ${f.descricao}` : ''}\n\nQualquer dúvida, estamos à disposição! 😊`;
+  const dataArquivo = (f.data || fmtData()).replace(/-/g,'');
+  const nomeArquivo = `${f.tipo.replace(/[^a-zA-Z0-9]/g,'_')}_${dataArquivo}.jpg`;
+
+  // Tenta usar o compartilhamento nativo do celular: manda a foto + mensagem
+  // juntas, você só escolhe o WhatsApp e o contato — sem procurar na galeria.
+  try {
+    const arquivo = dataURLparaFile(f.foto, nomeArquivo);
+    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+      await navigator.share({ files: [arquivo], text: msg, title: 'Registro do serviço' });
+      return;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') return; // usuário cancelou o compartilhamento, tudo bem
+    // se der erro no compartilhamento nativo, cai no método de baixar + abrir WhatsApp abaixo
+  }
+
+  // Alternativa (computador ou navegador sem suporte): baixa a foto e abre o WhatsApp
+  const a = document.createElement('a');
+  a.href = f.foto;
+  a.download = nomeArquivo;
+  a.click();
+
+  setTimeout(() => {
+    alert('📎 Foto baixada! O WhatsApp vai abrir agora — anexe a foto na conversa com ' + c.nome + '.');
+    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+  }, 500);
+}
+
+function abrirOS(clienteId, preSelecionar) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  _osClienteId = clienteId;
+
+  const end = enderecoCompleto(c);
+  const linkMapa = linkMapaCliente(c);
+  document.getElementById('os-cliente-info').innerHTML =
+    `👤 <b>${c.nome}</b><br>📍 ${end || '(endereço não cadastrado)'}<br>📞 ${c.tel || '(sem telefone)'}` +
+    (c.pon ? `<br>📡 PON: ${c.pon}` : '') +
+    (c.cto ? `<br>📦 CTO: ${c.cto}` : '') +
+    ((c.pppoe_usuario || c.pppoe_senha) ? `<br>🌐 PPPoE: ${c.pppoe_usuario || '-'} / ${c.pppoe_senha || '-'}` : '') +
+    ((c.wifi_nome || c.wifi_senha) ? `<br>📶 WiFi: ${c.wifi_nome || '-'} / ${c.wifi_senha || '-'}` : '') +
+    ((c.roteador_usuario || c.roteador_senha) ? `<br>⚙️ Admin roteador: ${c.roteador_usuario || '-'} / ${c.roteador_senha || '-'}` : '') +
+    (linkMapa ? `<br>🗺️ <a href="${linkMapa}" target="_blank">Ver localização no mapa</a> ${c.localizacao ? '(GPS exato)' : '(pelo endereço/CEP)'}` : '');
+
+  // Reseta os checkboxes e observação
+  document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
+  document.getElementById('os-obs').value = '';
+
+  // Se veio de um contexto específico (ex: aba Instalações), já marca o problema certo
+  if (preSelecionar) {
+    const chk = Array.from(document.querySelectorAll('.os-problema')).find(x => x.value === preSelecionar);
+    if (chk) chk.checked = true;
+  }
+
+  // Popula a lista de técnicos salvos e pré-seleciona o último usado
+  const ultimoTel = localStorage.getItem('os_tel_tecnico') || '';
+  _popularSelectTecnicos(ultimoTel);
+  document.getElementById('os-tel-tecnico').value = ultimoTel;
+
+  document.getElementById('modal-os-tecnico').classList.add('open');
+}
+
+function enviarOS() {
+  const c = clientes.find(x => x.id === _osClienteId); if (!c) return;
+
+  const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
+  const obs = document.getElementById('os-obs').value.trim();
+  const telTecnico = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
+
+  if (!problemas.length && !obs) { alert('Selecione ao menos um problema ou descreva o que está acontecendo.'); return; }
+  if (!telTecnico || telTecnico.length < 10) { alert('Digite um número de WhatsApp válido para o técnico.'); return; }
+
+  localStorage.setItem('os_tel_tecnico', telTecnico); // lembra pra próxima vez
+
+  const end = enderecoCompleto(c);
+  let msg = `🛠️ *Ordem de Serviço*\n\n`;
+  msg += `👤 *Cliente:* ${c.nome}\n`;
+  if (end) msg += `📍 *Endereço:* ${end}\n`;
+  if (c.tel) msg += `📞 *Telefone:* ${c.tel}\n`;
+  if (c.pon) msg += `📡 *PON:* ${c.pon}\n`;
+  if (c.cto) msg += `📦 *CTO:* ${c.cto}\n`;
+  if (c.pppoe_usuario || c.pppoe_senha) {
+    msg += `🌐 *Usuário PPPoE:* ${c.pppoe_usuario || '(não informado)'}\n`;
+    msg += `🔒 *Senha PPPoE:* ${c.pppoe_senha || '(não informada)'}\n`;
+  }
+  if (c.wifi_nome || c.wifi_senha) {
+    msg += `📶 *Nome do WiFi:* ${c.wifi_nome || '(não informado)'}\n`;
+    msg += `🔑 *Senha do WiFi:* ${c.wifi_senha || '(não informada)'}\n`;
+  }
+  if (c.roteador_usuario || c.roteador_senha) {
+    msg += `⚙️ *Usuário admin do roteador:* ${c.roteador_usuario || '(não informado)'}\n`;
+    msg += `🔐 *Senha admin do roteador:* ${c.roteador_senha || '(não informada)'}\n`;
+  }
+  const linkMapa = linkMapaCliente(c);
+  if (linkMapa) msg += `🗺️ *Localização (toque para abrir no mapa):* ${linkMapa}\n`;
+
+  msg += `\n⚠️ *Problema(s) relatado(s):*\n`;
+  if (problemas.length) {
+    problemas.forEach(p => { msg += `• ${p}\n`; });
+  }
+  if (obs) msg += `• ${obs}\n`;
+
+  msg += `\nPor favor, verificar o quanto antes. 🙏`;
+
+  // Link de retorno: o técnico toca e já abre um WhatsApp de volta pra você,
+  // com a mensagem de conclusão pronta — só falta ele anexar a foto e enviar.
+  const empresa = getCfgEmpresa();
+  const telEmpresa = telLimpo(empresa?.tel || '');
+  if (telEmpresa && telEmpresa.length >= 10) {
+    const msgRetorno = `✅ Concluí a OS do cliente *${c.nome}*${end ? ` (${end})` : ''}.\nSegue foto/comprovante do serviço:`;
+    const urlRetorno = `https://wa.me/55${telEmpresa}?text=${encodeURIComponent(msgRetorno)}`;
+    msg += `\n\n📸 *Ao terminar, toque no link abaixo, anexe uma foto do serviço e envie:*\n${urlRetorno}`;
+  }
+
+  const url = `https://wa.me/55${telTecnico}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  fecharModal();
+}
+
 // ============================================================
 // WHATSAPP
 // ============================================================
-function montarMensagem(clienteId, mesRef) {
+// Garante que o aviso de multa/juros/suspensão sempre apareça na mensagem,
+// mesmo se o usuário tiver uma mensagem personalizada salva sem esse aviso.
+const AVISO_MULTA_JUROS = '\n\n⚠️ O não pagamento até o vencimento pode acarretar multa, juros e a suspensão do serviço.';
+function comAvisoMultaJuros(msg) {
+  if (!msg) return msg;
+  if (/multa/i.test(msg)) return msg; // já contém o aviso, evita duplicar
+  return msg + AVISO_MULTA_JUROS;
+}
+
+function montarMensagem(clienteId, mesRef, forma) {
   const c  = clientes.find(x => x.id === clienteId); if (!c) return '';
   const pl = planos.find(x => x.id === c.planoId);
   const hoje = new Date();
@@ -14810,28 +15561,60 @@ function montarMensagem(clienteId, mesRef) {
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const emp = getCfgEmpresa();
-  return getMsgCobranca()
+  let template = (forma === 'boleto') ? getMsgCobrancaBoleto()
+                : (forma === 'profissional') ? getMsgCobrancaProfissional()
+                : getMsgCobranca();
+  // Segurança: se a mensagem salva estiver vazia/corrompida, usa o padrão de fábrica
+  if (!template || !template.trim()) {
+    template = (forma === 'boleto') ? MSG_PADRAO_BOLETO
+             : (forma === 'profissional') ? MSG_PADRAO_PROFISSIONAL
+             : MSG_PADRAO;
+  }
+  const msg = template
     .replace(/{nome}/g, c.nome)
     .replace(/{valor}/g, moeda(c.valor))
     .replace(/{vencimento}/g, `dia ${c.dia}`)
     .replace(/{mes}/g, mesNome)
     .replace(/{plano}/g, pl ? pl.nome : 'Padrão')
     .replace(/{pix}/g, emp.pix || '(não cadastrado)')
-    .replace(/{telefone}/g, emp.tel || '(não cadastrado)');
+    .replace(/{telefone}/g, emp.tel || '(não cadastrado)')
+    .replace(/{empresa}/g, emp.nome || '');
+  return comAvisoMultaJuros(msg);
 }
 let _zapMesRef = null;
 let _zapMesesSel = new Set(); // múltiplos meses selecionados
+let _zapFormaMsg = 'pix'; // 'pix' ou 'boleto' — define qual mensagem padrão é usada
 
 function abrirZap(clienteId, mesRef) {
   zapClienteId  = clienteId;
   _zapMesRef    = mesRef || fmtMes();
   _zapMesesSel  = new Set([_zapMesRef]);
+  _zapFormaMsg  = 'pix';
   const c = clientes.find(x => x.id === clienteId);
   document.getElementById('zap-nome-cliente').textContent = c?.nome || '';
   document.getElementById('zap-mes-sel').value = _zapMesRef;
+  _atualizarBotoesFormaZap();
   _renderMesesAbertos(clienteId);
   _atualizarMsgMulti();
   document.getElementById('modal-zap').classList.add('open');
+}
+
+function zapEscolherForma(forma) {
+  _zapFormaMsg = forma;
+  _atualizarBotoesFormaZap();
+  _atualizarMsgMulti();
+}
+
+function _atualizarBotoesFormaZap() {
+  const btnPix    = document.getElementById('zap-forma-pix');
+  const btnBoleto = document.getElementById('zap-forma-boleto');
+  const btnProf   = document.getElementById('zap-forma-profissional');
+  if (!btnPix || !btnBoleto || !btnProf) return;
+  const ativoStyle   = 'flex:1;padding:8px;border-radius:8px;border:2px solid #1a73e8;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer;font-size:0.85rem';
+  const inativoStyle = 'flex:1;padding:8px;border-radius:8px;border:2px solid #c5d5f5;background:#fff;color:#1a73e8;font-weight:600;cursor:pointer;font-size:0.85rem';
+  btnPix.style.cssText    = (_zapFormaMsg === 'pix')          ? ativoStyle : inativoStyle;
+  btnBoleto.style.cssText = (_zapFormaMsg === 'boleto')       ? ativoStyle : inativoStyle;
+  btnProf.style.cssText   = (_zapFormaMsg === 'profissional') ? ativoStyle : inativoStyle;
 }
 
 let _zapAnoSel = new Date().getFullYear();
@@ -14906,7 +15689,7 @@ function _atualizarMsgMulti() {
 
   let msg;
   if (mesesOrdenados.length === 1) {
-    msg = montarMensagem(zapClienteId, mesesOrdenados[0]);
+    msg = montarMensagem(zapClienteId, mesesOrdenados[0], _zapFormaMsg);
   } else {
     // Mensagem para múltiplos meses
     const nomesMeses = mesesOrdenados.map(k => {
@@ -14915,13 +15698,21 @@ function _atualizarMsgMulti() {
     });
     const totalMeses  = mesesOrdenados.length;
     const totalValor  = moeda(c.valor * totalMeses);
-    const listaMeses  = nomesMeses.map((n,i) => `  • ${n} — ${moeda(c.valor)}`).join('\n');
     const emp2 = getCfgEmpresa();
-    const pixLine = emp2.pix ? `\n\n💳 *Pague via PIX:*\n🔑 Chave: *${emp2.pix}*` : '';
-    const telLine = emp2.tel ? `\n📞 Contato: *${emp2.tel}*` : '';
-    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pixLine}${telLine}\n\nPor favor, regularize para evitar a suspensão do serviço. 🙏`;
+
+    if (_zapFormaMsg === 'profissional') {
+      const listaFormal = nomesMeses.map(n => `- ${n}: ${moeda(c.valor)}`).join('\n');
+      msg = `Prezado(a) ${c.nome},\n\nInformamos que constam em nosso sistema ${totalMeses} mensalidade(s) em aberto:\n\n${listaFormal}\n\nValor total: ${totalValor}\nPlano contratado: ${pl ? pl.nome : 'Padrão'}\nVencimento: dia ${c.dia}\n\nChave Pix: ${emp2.pix || '(não cadastrado)'}\nContato: ${emp2.tel || '(não cadastrado)'}\n\nSolicitamos a gentileza de regularizar o quanto antes, a fim de evitar a cobrança de multa e juros, bem como a suspensão do serviço.\n\nAtenciosamente,\n${emp2.nome || ''}`;
+    } else {
+      const listaMeses  = nomesMeses.map((n,i) => `  • ${n} — ${moeda(c.valor)}`).join('\n');
+      const pagLine = (_zapFormaMsg === 'boleto')
+        ? `\n\n🧾 *Pague via Boleto:*\nO boleto está anexado / segue o link para pagamento.`
+        : (emp2.pix ? `\n\n💳 *Pague via PIX:*\n🔑 Chave: *${emp2.pix}*` : '');
+      const telLine = emp2.tel ? `\n📞 Contato: *${emp2.tel}*` : '';
+      msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que existem *${totalMeses} mensalidades em aberto*:\n\n${listaMeses}\n\n💰 *Total: ${totalValor}*\n\n📦 Plano: ${pl ? pl.nome : 'Padrão'}\n📅 Vencimento: dia *${c.dia}*${pagLine}${telLine}\n\nPor favor, regularize para evitar multa, juros e a suspensão do serviço. 🙏`;
+    }
   }
-  document.getElementById('zap-msg-edit').value = msg;
+  document.getElementById('zap-msg-edit').value = comAvisoMultaJuros(msg);
   atualizarPreviewZap();
   // Total visível
   const _zapTotEl = document.getElementById('zap-total-resumo');
@@ -14982,6 +15773,26 @@ function confirmarEnvioZap() {
 // ============================================================
 // Conjunto de meses selecionados no carnê (Set de strings "YYYY-MM")
 let _carneMesesSel = new Set();
+let _carneEstilo = 'classico'; // 'classico' ou 'boleto'
+
+function carneEscolherEstilo(estilo) {
+  _carneEstilo = estilo;
+  _atualizarBotoesEstiloCarne();
+  const ehBranco = (estilo === 'branco');
+  document.getElementById('carne-branco-campos').style.display = ehBranco ? 'block' : 'none';
+  document.getElementById('carne-normal-campos').style.display = ehBranco ? 'none'  : 'block';
+}
+function _atualizarBotoesEstiloCarne() {
+  const btnClassico = document.getElementById('carne-estilo-classico');
+  const btnBoleto    = document.getElementById('carne-estilo-boleto');
+  const btnBranco    = document.getElementById('carne-estilo-branco');
+  if (!btnClassico || !btnBoleto || !btnBranco) return;
+  const ativoStyle   = 'flex:1;min-width:120px;padding:8px;border-radius:8px;border:2px solid #6d28d9;background:#6d28d9;color:#fff;font-weight:700;cursor:pointer;font-size:0.83rem';
+  const inativoStyle = 'flex:1;min-width:120px;padding:8px;border-radius:8px;border:2px solid #d8c8fa;background:#fff;color:#6d28d9;font-weight:600;cursor:pointer;font-size:0.83rem';
+  btnClassico.style.cssText = (_carneEstilo === 'classico') ? ativoStyle : inativoStyle;
+  btnBoleto.style.cssText   = (_carneEstilo === 'boleto')   ? ativoStyle : inativoStyle;
+  btnBranco.style.cssText   = (_carneEstilo === 'branco')   ? ativoStyle : inativoStyle;
+}
 
 function abrirCarne(clienteId) {
   carneClienteId = clienteId;
@@ -14990,6 +15801,12 @@ function abrirCarne(clienteId) {
   document.getElementById('carne-obs').value = '';
   document.getElementById('carne-zap-preview').style.display = 'none';
   _carneMesesSel = new Set();
+  _carneEstilo = 'classico';
+  document.getElementById('carne-branco-campos').style.display = 'none';
+  document.getElementById('carne-normal-campos').style.display = 'block';
+  document.getElementById('carne-branco-valor').value = c.valor || '';
+  const hojeISO = new Date().toISOString().slice(0,10);
+  document.getElementById('carne-branco-data').value = hojeISO;
 
   // Popular seletor de ano: ano atual e próximos 2
   const hoje = new Date();
@@ -15004,6 +15821,7 @@ function abrirCarne(clienteId) {
   }
 
   renderMesesCarne();
+  _atualizarBotoesEstiloCarne();
   document.getElementById('modal-carne').classList.add('open');
 }
 
@@ -15073,10 +15891,10 @@ function gerarCapasCarne() {
 
   // Dimensões baseadas no arquivo Word original
   const PW = 210, PH = 297;
-  const CARD_W = 199, CARD_H = 47.6;
+  const CARD_W = 204, CARD_H = 47.6; // largura aumentada (era 199) para ocupar mais a folha nas laterais
   const POR_PAG = 6;
   const margTop  = (PH - CARD_H * POR_PAG) / 2;   // ≈5.7mm
-  const margLeft = (PW - CARD_W) / 2;              // ≈5.5mm
+  const margLeft = (PW - CARD_W) / 2;              // ≈3mm
 
   // === PÁGINA 1 — 6 FRENTES ===
   doc.setFillColor(0,0,0);
@@ -15458,6 +16276,12 @@ function _gerarCapaCarne(doc, c, empresa, meses, qtd) {
 }
 
 function gerarCarne() {
+  if (_carneEstilo === 'boleto') { gerarCarneBoleto(); return; }
+  if (_carneEstilo === 'branco') { gerarCarneBranco(); return; }
+  gerarCarneClassico();
+}
+
+function gerarCarneClassico() {
   const c = clientes.find(x => x.id === carneClienteId); if (!c) return;
   const pl       = planos.find(x => x.id === c.planoId);
   const obsExtra = document.getElementById('carne-obs').value.trim();
@@ -15718,7 +16542,7 @@ function gerarCarne() {
 
     // === QR CODE ===
     if (qrBase64 && QR_SIZE > 0) {
-      const qrX = mx + TW + QR_PAD;
+      const qrX = mx + TW + QR_PAD - 1.5; // recuado 1.5mm para a caixinha (com borda) não ultrapassar a margem direita da folha
       const qrY = offsetY + CAB_H + 1 + 6 + 2;
       doc.setFillColor(...brancoR);
       doc.setDrawColor(...azul); doc.setLineWidth(0.5);
@@ -15744,7 +16568,484 @@ function gerarCarne() {
   fecharModal();
 }
 
+// ============================================================
+// CARNÊ ESTILO BOLETO BANCÁRIO (modelo alternativo)
+// ============================================================
+function gerarCarneBoleto() {
+  const c        = clientes.find(x => x.id === carneClienteId); if (!c) return;
+  const pl       = planos.find(x => x.id === c.planoId);
+  const obsExtra = document.getElementById('carne-obs').value.trim();
+  const empresa  = getCfgEmpresa();
+  const qrBase64 = localStorage.getItem('cm_qrcode') || null;
+
+  if (_carneMesesSel.size === 0) { alert('Selecione pelo menos um mês.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // A4 — mesmo layout de 6 por página do clássico, com canhoto à esquerda
+  const PW = 210, PH = 297;
+  const SLIPS_POR_PG = 6;
+  const MAR_H   = 6;
+  const MAR_TOP = 4;
+  const GAP     = 1;
+  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG;
+  const W       = PW - MAR_H * 2;
+
+  const CANHOTO_W = 52;
+  const MAIN_X    = MAR_H + CANHOTO_W + 4;
+  const MAIN_W    = W - CANHOTO_W - 4;
+
+  const preto   = [20, 20, 20];
+  const cinzaEsc= [90, 90, 90];
+  const cinzaClr= [235, 235, 235];
+  const branco  = [255, 255, 255];
+  const verde   = [30, 130, 76];
+  const linhaCz = [150, 150, 150];
+
+  const QR_SIZE = qrBase64 ? Math.min(22, Math.floor(SLIP_H - 8)) : 0;
+  const QR_PAD  = qrBase64 ? 2 : 0;
+  const TW      = MAIN_W - QR_SIZE - QR_PAD;
+
+  const meses = [..._carneMesesSel].sort().map(key => {
+    const [y, m] = key.split('-').map(Number);
+    return { y, m: m - 1 };
+  });
+  const qtd = meses.length;
+  const _fmtCpfB = v => v ? v.replace(/\D/g,'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v;
+
+  meses.forEach((mes, idx) => {
+    const slot = idx % SLIPS_POR_PG;
+    if (idx > 0 && slot === 0) doc.addPage();
+
+    const offsetY = MAR_TOP + slot * (SLIP_H + GAP);
+    const x = MAR_H;
+
+    const mesNome = new Date(mes.y, mes.m, 1)
+      .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      .replace(/^./, s => s.toUpperCase());
+    const vctoStr = `${String(c.dia).padStart(2,'0')}/${String(mes.m+1).padStart(2,'0')}/${mes.y}`;
+    const nossoNumero = `${String(c.id).padStart(6,'0')}-${String(mes.m+1).padStart(2,'0')}${mes.y}`;
+
+    // ══════════════════════════════════════
+    // CANHOTO (lado esquerdo — cliente leva) — estilo boleto, preto e branco
+    // ══════════════════════════════════════
+    doc.setFillColor(...cinzaClr);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H, 'F');
+    doc.setDrawColor(...preto);
+    doc.setLineWidth(0.4);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H);
+
+    doc.setFillColor(...preto);
+    doc.rect(x, offsetY, CANHOTO_W, 7, 'F');
+    doc.setTextColor(...branco);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text('RECIBO DO SACADO', x + CANHOTO_W / 2, offsetY + 4.8, { align: 'center' });
+
+    let cy = offsetY + 9;
+    doc.setTextColor(...preto);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', x + CANHOTO_W / 2, cy, { align: 'center' });
+    cy += 2.6;
+
+    doc.setDrawColor(...linhaCz); doc.setLineWidth(0.2);
+    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
+
+    doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    const nomeLinhas = doc.splitTextToSize('Sacado: ' + c.nome, CANHOTO_W - 4);
+    doc.text(nomeLinhas, x + 2, cy); cy += nomeLinhas.length * 2.6;
+
+    doc.setFontSize(5.2); doc.setTextColor(...cinzaEsc);
+    if (c.cpf) {
+      const cpfLinhas = doc.splitTextToSize('CPF: ' + _fmtCpfB(c.cpf), CANHOTO_W - 4);
+      doc.text(cpfLinhas, x + 2, cy); cy += cpfLinhas.length * 2.4;
+    }
+    const _partsC = [];
+    if (c.rua || c.endereco) _partsC.push(c.rua || c.endereco);
+    if (c.bairro) _partsC.push(c.bairro);
+    if (c.cidade) _partsC.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
+    if (c.cep) _partsC.push('CEP:' + c.cep);
+    if (_partsC.length) { const _eLs = doc.splitTextToSize(_partsC.join(', '), CANHOTO_W - 4); doc.text(_eLs, x + 2, cy); cy += _eLs.length * 2.4; }
+
+    doc.setDrawColor(...linhaCz); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.4;
+
+    doc.setFontSize(5.4); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('NOSSO NÚMERO:', x + 2, cy);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+    doc.text(nossoNumero, x + 2, cy + 2.6); cy += 5.2;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('VENCIMENTO:', x + 2, cy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    doc.text(vctoStr, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('VALOR:', x + 2, cy);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
+    doc.text(moeda(c.valor), x + 24, cy);
+
+    const parcelaY  = offsetY + SLIP_H - 1.8;
+    const sigLabelY = parcelaY - 3;
+    const sigLineY  = sigLabelY - 1.8;
+    const dataY     = sigLineY - 1.8;
+    const dataLineY = dataY - 2.2;
+
+    doc.setDrawColor(...linhaCz); doc.setLineWidth(0.2);
+    doc.line(x+2, dataLineY, x + CANHOTO_W - 2, dataLineY);
+    doc.setFontSize(5.3); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    doc.text('Data de pagamento: ___/___/______', x + 2, dataY);
+
+    doc.setDrawColor(150,150,150);
+    doc.line(x+2, sigLineY, x + CANHOTO_W - 2, sigLineY);
+    doc.setFontSize(4.8); doc.setTextColor(...cinzaEsc);
+    doc.text('Assinatura / Carimbo', x + CANHOTO_W/2, sigLabelY, { align:'center' });
+
+    doc.setFontSize(4.8); doc.setTextColor(...cinzaEsc);
+    doc.text(`Parcela ${idx+1} de ${qtd}`, x + CANHOTO_W/2, parcelaY, { align:'center' });
+
+    // linha pontilhada vertical (tesoura)
+    doc.setDrawColor(...preto);
+    doc.setLineDash([1.5, 1.5], 0);
+    doc.setLineWidth(0.4);
+    doc.line(x + CANHOTO_W + 2, offsetY + 1, x + CANHOTO_W + 2, offsetY + SLIP_H - 1);
+    doc.setLineDash([], 0);
+
+    // ══════════════════════════════════════
+    // FICHA PRINCIPAL (lado direito — empresa guarda) — estilo boleto bancário
+    // ══════════════════════════════════════
+    const mx = MAIN_X;
+    let y = offsetY;
+
+    if (slot > 0) {
+      doc.setDrawColor(180,180,180);
+      doc.setLineDash([2,2], 0);
+      doc.setLineWidth(0.3);
+      doc.line(MAR_H, offsetY - GAP/2, PW - MAR_H, offsetY - GAP/2);
+      doc.setLineDash([], 0);
+    }
+
+    // cabeçalho preto estilo ficha de compensação
+    const CAB_H = 8;
+    doc.setFillColor(...preto);
+    doc.rect(mx, y, MAIN_W, CAB_H, 'F');
+    doc.setTextColor(...branco);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', mx + 3, y + 4);
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+    doc.text(empresa.cnpj || '', mx + 3, y + 7);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text(`Parcela ${idx+1}/${qtd}`, mx + MAIN_W - 3, y + 5, { align:'right' });
+    y += CAB_H + 1;
+
+    doc.setFillColor(...cinzaClr);
+    doc.rect(mx, y, MAIN_W, 6, 'F');
+    doc.setTextColor(...preto);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(`FICHA DE COMPENSAÇÃO — ${mesNome.toUpperCase()}`, mx + TW/2, y + 4, { align: 'center' });
+    y += 8;
+
+    doc.setTextColor(...preto); doc.setFontSize(7);
+    const linhaF = (label, valor, yy) => {
+      doc.setFont('helvetica','bold'); doc.text(label, mx, yy);
+      doc.setFont('helvetica','normal'); doc.text(valor || '-', mx + 22, yy);
+    };
+    linhaF('Sacado:', c.nome, y); y += 4.5;
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(...cinzaEsc);
+    if (c.cpf) { doc.text('CPF: ' + _fmtCpfB(c.cpf), mx, y); y += 3.5; }
+    const partsEndB = [];
+    if (c.rua || c.endereco) partsEndB.push(c.rua || c.endereco);
+    if (c.bairro) partsEndB.push(c.bairro);
+    if (c.cidade) partsEndB.push(c.cidade + (c.estado ? '/' + c.estado.toUpperCase() : ''));
+    if (c.cep) partsEndB.push('CEP: ' + c.cep);
+    if (partsEndB.length) {
+      const endLinhasB = doc.splitTextToSize(partsEndB.join(' – '), TW - 2);
+      doc.text(endLinhasB, mx, y); y += endLinhasB.length * 3.5;
+    }
+    y += 1;
+
+    // boxes: Nosso Número / Vencimento / Valor Documento
+    const BOX_H = 10;
+    const bW    = (TW - 4) / 3;
+    const boxesB = [
+      { label:'NOSSO NÚMERO', value: nossoNumero },
+      { label:'VENCIMENTO',   value: vctoStr },
+      { label:'VALOR DOC.',   value: moeda(c.valor) },
+    ];
+    boxesB.forEach((b, i) => {
+      const bx = mx + i * (bW + 2);
+      doc.setDrawColor(...preto); doc.setLineWidth(0.3);
+      doc.rect(bx, y, bW, BOX_H);
+      doc.setFontSize(5); doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+      doc.text(b.label, bx + bW/2, y + 4, { align: 'center' });
+      doc.setFontSize(b.label.startsWith('VALOR')?7.5:6.5); doc.setFont('helvetica','bold');
+      doc.setTextColor(...(b.label.startsWith('VALOR') ? verde : preto));
+      doc.text(String(b.value), bx + bW/2, y + 8.5, { align: 'center' });
+    });
+    y += BOX_H + 2;
+
+    doc.setFontSize(6.2);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...cinzaEsc);
+    doc.text('SERVIÇO:', mx, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...preto);
+    doc.text('Internet Banda Larga', mx + 15, y);
+    y += 4;
+    if (obsExtra) {
+      doc.setFont('helvetica','italic'); doc.setTextColor(...cinzaEsc);
+      doc.text('Obs: ' + obsExtra, mx, y);
+    }
+
+    // QR Code do Pix no lugar do código de barras
+    if (qrBase64 && QR_SIZE > 0) {
+      const qrX = mx + TW + QR_PAD - 1.5;
+      const qrY = offsetY + CAB_H + 1 + 6 + 2;
+      doc.setFillColor(...branco);
+      doc.setDrawColor(...preto); doc.setLineWidth(0.5);
+      doc.rect(qrX - 1.5, qrY - 1.5, QR_SIZE + 3, QR_SIZE + 3, 'FD');
+      try {
+        const fmt = qrBase64.includes('image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(qrBase64, fmt, qrX, qrY, QR_SIZE, QR_SIZE);
+      } catch(e) {
+        try { doc.addImage(qrBase64, 'JPEG', qrX, qrY, QR_SIZE, QR_SIZE); } catch(e2) {}
+      }
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...preto);
+      doc.text('PAGUE COM PIX', qrX + QR_SIZE/2, qrY + QR_SIZE + 4, { align: 'center' });
+    }
+
+    doc.setDrawColor(...preto); doc.setLineWidth(0.2);
+    doc.line(x, offsetY + SLIP_H, x + W, offsetY + SLIP_H);
+  });
+
+  const primeiroMes = [..._carneMesesSel].sort()[0] || 'carne';
+  const nomeArquivo = `carne_boleto_${c.nome.replace(/\s+/g,'_')}_${primeiroMes}.pdf`;
+  doc.save(nomeArquivo);
+  fecharModal();
+}
+
+// ============================================================
+// CARNÊ EM BRANCO — 12 vias genéricas (sem nome/endereço do cliente)
+// ============================================================
+function gerarCarneBranco() {
+  const empresa = getCfgEmpresa();
+  const obsExtra = document.getElementById('carne-obs').value.trim();
+  const valorStr = document.getElementById('carne-branco-valor').value;
+  const valor = parseFloat(valorStr);
+  const dataStr = document.getElementById('carne-branco-data').value; // YYYY-MM-DD
+  const qrBase64 = localStorage.getItem('cm_qrcode') || null;
+
+  if (isNaN(valor) || valor <= 0) { alert('Informe um valor válido para a parcela.'); return; }
+  if (!dataStr) { alert('Informe a data do 1º vencimento.'); return; }
+
+  const [anoIni, mesIni, diaIni] = dataStr.split('-').map(Number);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const PW = 210, PH = 297;
+  const SLIPS_POR_PG = 6;
+  const MAR_H   = 6;
+  const MAR_TOP = 4;
+  const GAP     = 1;
+  const SLIP_H  = (PH - MAR_TOP * 2 - GAP * (SLIPS_POR_PG - 1)) / SLIPS_POR_PG;
+  const W       = PW - MAR_H * 2;
+
+  const CANHOTO_W = 52;
+  const MAIN_X    = MAR_H + CANHOTO_W + 4;
+  const MAIN_W    = W - CANHOTO_W - 4;
+
+  const QR_SIZE = qrBase64 ? Math.min(24, Math.floor(SLIP_H - 6)) : 0;
+  const QR_PAD  = qrBase64 ? 2  : 0;
+  const TW      = MAIN_W - QR_SIZE - QR_PAD;
+
+  const azul   = [26, 115, 232];
+  const azulEsc= [15, 80, 180];
+  const cinza  = [240, 244, 248];
+  const escuro = [30, 30, 30];
+  const verde  = [52, 168, 83];
+  const brancoR= [255, 255, 255];
+  const cinzaMd= [160, 160, 160];
+
+  const TOTAL_VIAS = 12;
+
+  for (let idx = 0; idx < TOTAL_VIAS; idx++) {
+    const slot = idx % SLIPS_POR_PG;
+    if (idx > 0 && slot === 0) doc.addPage();
+
+    const offsetY = MAR_TOP + slot * (SLIP_H + GAP);
+    const x = MAR_H;
+
+    // data de vencimento desta parcela = data inicial + idx meses
+    const dVenc = new Date(anoIni, (mesIni - 1) + idx, diaIni);
+    const mesNome = dVenc.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase());
+    const vctoStr = `${String(dVenc.getDate()).padStart(2,'0')}/${String(dVenc.getMonth()+1).padStart(2,'0')}/${dVenc.getFullYear()}`;
+
+    // ══════════════════════════════════════
+    // CANHOTO
+    // ══════════════════════════════════════
+    doc.setFillColor(235, 242, 255);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H, 'F');
+    doc.setDrawColor(...azul); doc.setLineWidth(0.4);
+    doc.rect(x, offsetY, CANHOTO_W, SLIP_H);
+
+    doc.setFillColor(...azul);
+    doc.rect(x, offsetY, CANHOTO_W, 7, 'F');
+    doc.setTextColor(...brancoR);
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text('CANHOTO — RECIBO DO CLIENTE', x + CANHOTO_W / 2, offsetY + 4.8, { align: 'center' });
+
+    let cy = offsetY + 9;
+    doc.setTextColor(...azulEsc);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', x + CANHOTO_W / 2, cy, { align: 'center' });
+    cy += 2.8;
+
+    doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
+    doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 3.2;
+
+    // linha em branco para o nome (preencher à mão)
+    doc.setFontSize(5.6); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text('Cliente: ______________________________', x + 2, cy); cy += 4.4;
+    doc.setFontSize(5.2); doc.setTextColor(90,90,90);
+    doc.text('Endereço: ____________________________', x + 2, cy); cy += 4.4;
+
+    doc.setDrawColor(...cinzaMd); doc.line(x+2, cy, x + CANHOTO_W - 2, cy); cy += 2.6;
+
+    doc.setFontSize(5.4); doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('COMPETÊNCIA:', x + 2, cy);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+    doc.text(mesNome, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VENCIMENTO:', x + 2, cy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text(vctoStr, x + 24, cy); cy += 2.8;
+
+    doc.setFont('helvetica','bold'); doc.setTextColor(90,90,90);
+    doc.text('VALOR:', x + 2, cy);
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...verde);
+    doc.text(moeda(valor), x + 24, cy);
+
+    const parcelaY  = offsetY + SLIP_H - 1.8;
+    const sigLabelY = parcelaY - 3;
+    const sigLineY  = sigLabelY - 1.8;
+    const dataY     = sigLineY - 1.8;
+    const dataLineY = dataY - 2.2;
+
+    doc.setDrawColor(...cinzaMd); doc.setLineWidth(0.2);
+    doc.line(x+2, dataLineY, x + CANHOTO_W - 2, dataLineY);
+    doc.setFontSize(5.3); doc.setFont('helvetica','normal'); doc.setTextColor(90,90,90);
+    doc.text('Data de pagamento: ___/___/______', x + 2, dataY);
+
+    doc.setDrawColor(180,180,180);
+    doc.line(x+2, sigLineY, x + CANHOTO_W - 2, sigLineY);
+    doc.setFontSize(4.8); doc.setTextColor(130,130,130);
+    doc.text('Assinatura / Carimbo', x + CANHOTO_W/2, sigLabelY, { align:'center' });
+
+    doc.setFontSize(4.8); doc.setTextColor(150,150,150);
+    doc.text(`Parcela ${idx+1} de ${TOTAL_VIAS}`, x + CANHOTO_W/2, parcelaY, { align:'center' });
+
+    doc.setDrawColor(...cinzaMd);
+    doc.setLineDash([1.5, 1.5], 0); doc.setLineWidth(0.4);
+    doc.line(x + CANHOTO_W + 2, offsetY + 1, x + CANHOTO_W + 2, offsetY + SLIP_H - 1);
+    doc.setLineDash([], 0);
+
+    // ══════════════════════════════════════
+    // SLIP PRINCIPAL
+    // ══════════════════════════════════════
+    const mx = MAIN_X;
+    let y = offsetY;
+
+    if (slot > 0) {
+      doc.setDrawColor(180,180,180);
+      doc.setLineDash([2,2], 0); doc.setLineWidth(0.3);
+      doc.line(MAR_H, offsetY - GAP/2, PW - MAR_H, offsetY - GAP/2);
+      doc.setLineDash([], 0);
+    }
+
+    const CAB_H = 8;
+    doc.setFillColor(...azul);
+    doc.rect(mx, y, MAIN_W, CAB_H, 'F');
+    doc.setTextColor(...brancoR);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(empresa.nome || 'E S M DE LIMA', mx + 3, y + 4);
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+    doc.text(empresa.cnpj || '', mx + 3, y + 7);
+    if (empresa.tel) { doc.setFontSize(6); doc.text('Tel: ' + empresa.tel, mx + MAIN_W - 3, y + 5, { align:'right' }); }
+    y += CAB_H + 1;
+
+    doc.setFillColor(...cinza);
+    doc.rect(mx, y, MAIN_W, 6, 'F');
+    doc.setTextColor(...azul);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(`CARNÊ EM BRANCO — ${mesNome.toUpperCase()}   Parcela ${idx+1} de ${TOTAL_VIAS}`, mx + MAIN_W/2, y + 4, { align: 'center' });
+    y += 9;
+
+    // linhas em branco para nome e endereço (preencher à mão)
+    doc.setFontSize(6.4); doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+    doc.text('Cliente: ____________________________________', mx, y); y += 5;
+    doc.setFontSize(6); doc.setTextColor(90,90,90);
+    doc.text('Endereço: __________________________________', mx, y); y += 5.5;
+
+    // boxes: Vencimento / Serviço / Valor
+    const BOX_H = 10;
+    const bW    = (TW - 4) / 3;
+    const boxes = [
+      { label:'VENCIMENTO', value: vctoStr },
+      { label:'SERVIÇO',    value: 'Internet Banda Larga' },
+      { label:'VALOR',      value: moeda(valor) },
+    ];
+    boxes.forEach((b, i) => {
+      const bx = mx + i * (bW + 2);
+      doc.setFillColor(...cinza);
+      doc.roundedRect(bx, y, bW, BOX_H, 1, 1, 'F');
+      doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(130,130,130);
+      doc.text(b.label, bx + bW/2, y + 4, { align: 'center' });
+      doc.setFontSize(b.label==='VALOR'?8:6.5); doc.setFont('helvetica','bold');
+      doc.setTextColor(...(b.label==='VALOR'? verde : escuro));
+      doc.text(b.value, bx + bW/2, y + 8.5, { align: 'center' });
+    });
+    y += BOX_H + 2;
+
+    doc.setFontSize(6.5);
+    if (empresa.pix) {
+      doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+      doc.text('Pix:', mx, y);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...escuro);
+      doc.text(empresa.pix, mx + 10, y);
+      y += 4;
+    }
+    if (obsExtra) {
+      doc.setFont('helvetica','italic'); doc.setTextColor(130,130,130);
+      doc.text('Obs: ' + obsExtra, mx, y);
+    }
+
+    // === QR CODE ===
+    if (qrBase64 && QR_SIZE > 0) {
+      const qrX = mx + TW + QR_PAD - 1.5;
+      const qrY = offsetY + CAB_H + 1 + 6 + 2;
+      doc.setFillColor(...brancoR);
+      doc.setDrawColor(...azul); doc.setLineWidth(0.5);
+      doc.roundedRect(qrX - 1.5, qrY - 1.5, QR_SIZE + 3, QR_SIZE + 3, 2, 2, 'FD');
+      try {
+        const fmt = qrBase64.includes('image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(qrBase64, fmt, qrX, qrY, QR_SIZE, QR_SIZE);
+      } catch(e) {
+        try { doc.addImage(qrBase64, 'JPEG', qrX, qrY, QR_SIZE, QR_SIZE); } catch(e2) {}
+      }
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...azul);
+      doc.text('PIX', qrX + QR_SIZE/2, qrY + QR_SIZE + 4, { align: 'center' });
+    }
+
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
+    doc.line(x, offsetY + SLIP_H, x + W, offsetY + SLIP_H);
+  }
+
+  const nomeArquivo = `carne_em_branco_${TOTAL_VIAS}vias_${dataStr}.pdf`;
+  doc.save(nomeArquivo);
+  fecharModal();
+}
+
 function gerarCarneEZap() {
+
   if (_carneMesesSel.size === 0) { alert('Selecione pelo menos um mês.'); return; }
   gerarCarne();
   const c   = clientes.find(x => x.id === carneClienteId); if (!c) return;
@@ -16087,8 +17388,8 @@ function renderDashboard() {
           </div>`;
         }
 
-        return `<tr ondblclick="abrirEditar(${c.id})" title="Duplo clique para ver os dados completos do cliente" style="cursor:pointer">
-          <td><strong>${c.nome}</strong></td>
+        return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
+          <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong></td>
           <td>${c.tel}</td>
           <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
           <td>${moeda(c.valor)}</td>
@@ -16099,6 +17400,8 @@ function renderDashboard() {
             <button class="action-btn pay"   onclick="abrirBaixa(${c.id})"          title="Dar baixa / registrar pagamento">💰</button>
             <button class="action-btn wpp"   onclick="abrirZap(${c.id},'${mesSel}')" title="Enviar cobrança via WhatsApp">📱</button>
             <button class="action-btn carne" onclick="abrirCarne(${c.id})"          title="Gerar carnê PDF">📋</button>
+            <button class="action-btn" style="background:#fff3e0;color:#e65100" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
+            <button class="action-btn" style="background:#e8f5e9;color:#2e7d32" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
             <button class="action-btn cal"   onclick="abrirCalendario(${c.id})"     title="Ver histórico de pagamentos">📅</button>
             <button class="action-btn del"   onclick="abrirExcluir(${c.id})"        title="Excluir cliente">🗑️</button>
           </div></td>
@@ -16296,8 +17599,12 @@ function carregarConfig() {
   document.getElementById('cfg-tel-empresa').value  = emp.tel      || '';
   document.getElementById('cfg-pix').value          = emp.pix      || '';
   document.getElementById('config-msg').value       = getMsgCobranca();
+  document.getElementById('config-msg-boleto').value = getMsgCobrancaBoleto();
+  document.getElementById('config-msg-profissional').value = getMsgCobrancaProfissional();
   document.getElementById('config-msg-agr').value  = getMsgAgradecimento();
   atualizarPreviewAgr();
+  atualizarPreviewBoleto();
+  atualizarPreviewProfissional();
   // QR Code
   const qr = localStorage.getItem('cm_qrcode');
   renderQRPreview(qr);
@@ -16407,12 +17714,16 @@ const PREVIEW_EXEMPLO = {
   mes: 'junho de 2026', plano: 'Plano Básico'
 };
 function aplicarExemplo(msg) {
+  const emp = getCfgEmpresa();
   return msg
     .replace(/{nome}/g, PREVIEW_EXEMPLO.nome)
     .replace(/{valor}/g, PREVIEW_EXEMPLO.valor)
     .replace(/{vencimento}/g, PREVIEW_EXEMPLO.vencimento)
     .replace(/{mes}/g, PREVIEW_EXEMPLO.mes)
-    .replace(/{plano}/g, PREVIEW_EXEMPLO.plano);
+    .replace(/{plano}/g, PREVIEW_EXEMPLO.plano)
+    .replace(/{pix}/g, emp.pix || '(não cadastrado)')
+    .replace(/{telefone}/g, emp.tel || '(não cadastrado)')
+    .replace(/{empresa}/g, emp.nome || '(não cadastrado)');
 }
 function atualizarPreview() {
   const el = document.getElementById('config-preview');
@@ -16422,10 +17733,28 @@ function atualizarPreviewAgr() {
   const el = document.getElementById('config-preview-agr');
   if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-agr').value);
 }
+function atualizarPreviewBoleto() {
+  const el = document.getElementById('config-preview-boleto');
+  if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-boleto').value);
+}
+function atualizarPreviewProfissional() {
+  const el = document.getElementById('config-preview-profissional');
+  if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-profissional').value);
+}
 function salvarConfig() {
   localStorage.setItem('cm_msg', document.getElementById('config-msg').value);
   salvarStorage();
   alert('✅ Mensagem de cobrança salva!');
+}
+function salvarConfigBoleto() {
+  localStorage.setItem('cm_msg_boleto', document.getElementById('config-msg-boleto').value);
+  salvarStorage();
+  alert('✅ Mensagem de cobrança via boleto salva!');
+}
+function salvarConfigProfissional() {
+  localStorage.setItem('cm_msg_profissional', document.getElementById('config-msg-profissional').value);
+  salvarStorage();
+  alert('✅ Mensagem formal/profissional salva!');
 }
 function salvarConfigAgr() {
   localStorage.setItem('cm_msg_agradecimento', document.getElementById('config-msg-agr').value);
@@ -16435,6 +17764,14 @@ function salvarConfigAgr() {
 function restaurarMsgPadrao() {
   document.getElementById('config-msg').value = MSG_PADRAO;
   atualizarPreview();
+}
+function restaurarMsgBoletoPadrao() {
+  document.getElementById('config-msg-boleto').value = MSG_PADRAO_BOLETO;
+  atualizarPreviewBoleto();
+}
+function restaurarMsgProfissionalPadrao() {
+  document.getElementById('config-msg-profissional').value = MSG_PADRAO_PROFISSIONAL;
+  atualizarPreviewProfissional();
 }
 function restaurarMsgAgr() {
   document.getElementById('config-msg-agr').value = MSG_AGRADECIMENTO_PADRAO;
@@ -16447,10 +17784,14 @@ function inserirVar(v, targetId = 'config-msg') {
   el.focus();
   el.selectionStart = el.selectionEnd = pos + v.length;
   if (targetId === 'config-msg') atualizarPreview();
+  else if (targetId === 'config-msg-boleto') atualizarPreviewBoleto();
+  else if (targetId === 'config-msg-profissional') atualizarPreviewProfissional();
   else atualizarPreviewAgr();
 }
 document.addEventListener('input', e => {
   if (e.target.id === 'config-msg')     atualizarPreview();
+  if (e.target.id === 'config-msg-boleto') atualizarPreviewBoleto();
+  if (e.target.id === 'config-msg-profissional') atualizarPreviewProfissional();
   if (e.target.id === 'config-msg-agr') atualizarPreviewAgr();
   if (e.target.id === 'zap-msg-edit')   document.getElementById('zap-preview').textContent = e.target.value;
 });
@@ -16971,6 +18312,8 @@ function exportarBackup() {
     cm_planos:     planos,
     cm_empresa:    getCfgEmpresa(),
     cm_msg:        localStorage.getItem('cm_msg')        || '',
+    cm_msg_boleto: localStorage.getItem('cm_msg_boleto') || '',
+    cm_msg_profissional: localStorage.getItem('cm_msg_profissional') || '',
     cm_msg_agradecimento: localStorage.getItem('cm_msg_agradecimento') || '',
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
