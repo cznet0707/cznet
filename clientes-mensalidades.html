@@ -13317,8 +13317,9 @@ Qualquer dúvida, estamos à disposição!</div>
     <div style="border-top:1px solid #eee;padding-top:14px">
       <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:6px;display:block">➕ Adicionar nova foto</label>
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <select id="foto-tipo" style="flex:1;min-width:140px">
+        <select id="foto-tipo" style="flex:1;min-width:140px" onchange="atualizarPlaceholderFoto()">
           <option value="Instalação">🔧 Instalação</option>
+          <option value="Troca de Equipamento">🔄 Troca de Equipamento</option>
           <option value="OS / Manutenção">🛠️ OS / Manutenção concluída</option>
         </select>
         <input type="date" id="foto-data" style="flex:1;min-width:140px">
@@ -15296,9 +15297,21 @@ function abrirFotosCliente(clienteId) {
   document.getElementById('foto-arquivo').value = '';
   document.getElementById('foto-preview').innerHTML = '';
   _fotoServicoBase64 = null;
+  atualizarPlaceholderFoto();
 
   renderFotosClienteLista();
   document.getElementById('modal-fotos-cliente').classList.add('open');
+}
+
+// Deixa claro que o motivo é obrigatório quando o tipo é "Troca de Equipamento".
+function atualizarPlaceholderFoto() {
+  const tipo = document.getElementById('foto-tipo').value;
+  const campo = document.getElementById('foto-descricao');
+  if (tipo === 'Troca de Equipamento') {
+    campo.placeholder = 'Motivo da troca (obrigatório)';
+  } else {
+    campo.placeholder = 'Descrição (opcional)';
+  }
 }
 
 function renderFotosClienteLista() {
@@ -15358,6 +15371,11 @@ function salvarFotoServico() {
   const tipo = document.getElementById('foto-tipo').value;
   const data = document.getElementById('foto-data').value || fmtData();
   const descricao = document.getElementById('foto-descricao').value.trim();
+
+  if (tipo === 'Troca de Equipamento' && !descricao) {
+    alert('Informe o motivo da troca de equipamento antes de salvar.');
+    return;
+  }
 
   if (!c.fotosServico) c.fotosServico = [];
   c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
