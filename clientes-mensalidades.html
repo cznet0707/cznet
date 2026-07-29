@@ -13325,7 +13325,12 @@ Qualquer dúvida, estamos à disposição!</div>
         <input type="date" id="foto-data" style="flex:1;min-width:140px">
       </div>
       <input type="text" id="foto-descricao" placeholder="Descrição (opcional)" style="margin-bottom:8px">
-      <input type="file" id="foto-arquivo" accept="image/*" style="margin-bottom:10px" onchange="lerFotoServico(this)">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-camera').click()">📷 Tirar Foto</button>
+        <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-galeria').click()">🖼️ Escolher da Galeria</button>
+      </div>
+      <input type="file" id="foto-arquivo-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this)">
+      <input type="file" id="foto-arquivo-galeria" accept="image/*" style="display:none" onchange="lerFotoServico(this)">
       <div id="foto-preview" style="margin-bottom:10px"></div>
       <button type="button" class="btn btn-success" style="width:100%;justify-content:center" onclick="salvarFotoServico()">💾 Salvar Foto</button>
     </div>
@@ -15294,7 +15299,8 @@ function abrirFotosCliente(clienteId) {
   document.getElementById('foto-tipo').value = 'Instalação';
   document.getElementById('foto-data').value = fmtData();
   document.getElementById('foto-descricao').value = '';
-  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-arquivo-camera').value = '';
+  document.getElementById('foto-arquivo-galeria').value = '';
   document.getElementById('foto-preview').innerHTML = '';
   _fotoServicoBase64 = null;
   atualizarPlaceholderFoto();
@@ -15382,7 +15388,8 @@ function salvarFotoServico() {
   salvarStorage();
 
   document.getElementById('foto-descricao').value = '';
-  document.getElementById('foto-arquivo').value = '';
+  document.getElementById('foto-arquivo-camera').value = '';
+  document.getElementById('foto-arquivo-galeria').value = '';
   document.getElementById('foto-preview').innerHTML = '';
   _fotoServicoBase64 = null;
 
