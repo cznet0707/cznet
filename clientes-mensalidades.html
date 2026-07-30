@@ -7259,6 +7259,18 @@
             <input type="text" id="c-cto" placeholder="Ex: CTO-045 / Porta 7">
           </div>
           <div>
+            <label>🏷️ Marca do Equipamento</label>
+            <input type="text" id="c-equip-marca" placeholder="Ex: Huawei, Fiberhome, TP-Link">
+          </div>
+          <div>
+            <label>📟 Modelo ONT/ONU</label>
+            <input type="text" id="c-equip-modelo" placeholder="Ex: HG8245Q2">
+          </div>
+          <div>
+            <label>🔢 MAC do Equipamento</label>
+            <input type="text" id="c-equip-mac" placeholder="Ex: AA:BB:CC:DD:EE:FF" oninput="mascaraMAC(this)">
+          </div>
+          <div>
             <label>👤 Usuário admin do roteador</label>
             <input type="text" id="c-roteador-usuario" placeholder="Ex: admin">
           </div>
@@ -13149,6 +13161,9 @@ Qualquer dúvida, estamos à disposição!</div>
       <div><label>🔒 Senha PPPoE</label><input type="text" id="edit-pppoe-senha" placeholder="Ex: minhasenha123"></div>
       <div><label>📡 PON</label><input type="text" id="edit-pon" placeholder="Ex: PON 1/1/3"></div>
       <div><label>📦 CTO</label><input type="text" id="edit-cto" placeholder="Ex: CTO-045 / Porta 7"></div>
+      <div><label>🏷️ Marca do Equipamento</label><input type="text" id="edit-equip-marca" placeholder="Ex: Huawei, Fiberhome, TP-Link"></div>
+      <div><label>📟 Modelo ONT/ONU</label><input type="text" id="edit-equip-modelo" placeholder="Ex: HG8245Q2"></div>
+      <div><label>🔢 MAC do Equipamento</label><input type="text" id="edit-equip-mac" placeholder="Ex: AA:BB:CC:DD:EE:FF" oninput="mascaraMAC(this)"></div>
       <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
       <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
       <div class="full">
@@ -14029,6 +14044,11 @@ function mascaraCPF(el) {
   else if (v.length > 3) v = v.replace(/(\d{3})(\d+)/,'$1.$2');
   el.value = v;
 }
+// Formata automaticamente o MAC address no padrão AA:BB:CC:DD:EE:FF enquanto digita.
+function mascaraMAC(el) {
+  let v = el.value.replace(/[^0-9a-fA-F]/g,'').slice(0,12).toUpperCase();
+  el.value = v.replace(/(.{2})(?=.)/g, '$1:');
+}
 function mascaraCEP(el, prefix) {
   let v = el.value.replace(/\D/g,'').slice(0,8);
   if (v.length > 5) v = v.replace(/(\d{5})(\d+)/,'$1-$2');
@@ -14242,6 +14262,9 @@ function salvarCliente(e) {
     pppoe_senha:       document.getElementById('c-pppoe-senha').value.trim(),
     pon:               document.getElementById('c-pon').value.trim(),
     cto:               document.getElementById('c-cto').value.trim(),
+    equip_marca:       document.getElementById('c-equip-marca').value.trim(),
+    equip_modelo:      document.getElementById('c-equip-modelo').value.trim(),
+    equip_mac:         document.getElementById('c-equip-mac').value.trim(),
     roteador_usuario:  document.getElementById('c-roteador-usuario').value.trim(),
     roteador_senha:    document.getElementById('c-roteador-senha').value.trim(),
     localizacao:       document.getElementById('c-localizacao').value.trim(),
@@ -15038,6 +15061,9 @@ function abrirEditar(id) {
   document.getElementById('edit-pppoe-senha').value    = c.pppoe_senha || '';
   document.getElementById('edit-pon').value            = c.pon || '';
   document.getElementById('edit-cto').value            = c.cto || '';
+  document.getElementById('edit-equip-marca').value    = c.equip_marca || '';
+  document.getElementById('edit-equip-modelo').value   = c.equip_modelo || '';
+  document.getElementById('edit-equip-mac').value      = c.equip_mac || '';
   document.getElementById('edit-roteador-usuario').value = c.roteador_usuario || '';
   document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
   document.getElementById('edit-localizacao').value      = c.localizacao || '';
@@ -15094,6 +15120,9 @@ function confirmarEdicao() {
   c.pppoe_senha       = document.getElementById('edit-pppoe-senha').value.trim();
   c.pon               = document.getElementById('edit-pon').value.trim();
   c.cto               = document.getElementById('edit-cto').value.trim();
+  c.equip_marca       = document.getElementById('edit-equip-marca').value.trim();
+  c.equip_modelo      = document.getElementById('edit-equip-modelo').value.trim();
+  c.equip_mac         = document.getElementById('edit-equip-mac').value.trim();
   c.roteador_usuario  = document.getElementById('edit-roteador-usuario').value.trim();
   c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
   c.localizacao       = document.getElementById('edit-localizacao').value.trim();
