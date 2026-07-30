@@ -13162,6 +13162,13 @@ Qualquer dúvida, estamos à disposição!</div>
         <input type="checkbox" id="edit-inst-gratis" style="width:18px;height:18px;cursor:pointer">
         <label for="edit-inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis (não cobrar taxa de R$50)</label>
       </div>
+      <div class="full" style="margin-top:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <label style="margin:0">🛠️ Histórico de Serviços (Instalação, Troca de Equipamento, OS)</label>
+          <button type="button" class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px;white-space:nowrap" onclick="abrirFotosCliente(editandoId)">📸 Ver tudo / Adicionar foto</button>
+        </div>
+        <div id="edit-historico-fotos" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
@@ -15035,7 +15042,34 @@ function abrirEditar(id) {
   document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
   document.getElementById('edit-localizacao').value      = c.localizacao || '';
   document.getElementById('edit-inst-gratis').checked  = c.instalacao_gratis || false;
+  _fotosClienteId = id;
+  renderHistoricoFotosEdicao(c);
   document.getElementById('modal-editar').classList.add('open');
+}
+
+// Mostra, dentro da própria ficha do cliente, um resumo dos serviços já
+// registrados (instalação, troca de equipamento, OS) com miniatura da foto.
+// Reaproveita os mesmos dados de fotosServico usados no modal de fotos (📸).
+function renderHistoricoFotosEdicao(c) {
+  const box = document.getElementById('edit-historico-fotos');
+  const fotos = (c.fotosServico || []).slice().sort((a,b) => (b.data||'').localeCompare(a.data||''));
+
+  if (!fotos.length) {
+    box.innerHTML = `<p style="color:#999;font-size:0.82rem;text-align:center;padding:10px 0;margin:0">Nenhum registro ainda. Use o botão acima para adicionar.</p>`;
+    return;
+  }
+
+  box.innerHTML = fotos.map(f => {
+    const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+    return `
+    <div style="display:flex;gap:10px;align-items:center;border:1px solid #f0f0f0;border-radius:8px;padding:6px">
+      <img src="${f.foto}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})" title="Clique para ampliar">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.82rem">${f.tipo || 'Foto'}</div>
+        <div style="font-size:0.75rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 function confirmarEdicao() {
   const c = clientes.find(x => x.id === editandoId); if (!c) return;
@@ -15394,6 +15428,7 @@ function salvarFotoServico() {
   _fotoServicoBase64 = null;
 
   renderFotosClienteLista();
+  atualizarHistoricoFotosSeAberto();
   alert('✅ Foto salva!');
 }
 
@@ -15410,6 +15445,16 @@ function excluirFotoServico(fotoId) {
   c.fotosServico = (c.fotosServico || []).filter(x => x.id !== fotoId);
   salvarStorage();
   renderFotosClienteLista();
+  atualizarHistoricoFotosSeAberto();
+}
+
+// Se a ficha de edição do mesmo cliente estiver aberta por trás do modal de
+// fotos, mantém a mini-lista de histórico sincronizada em tempo real.
+function atualizarHistoricoFotosSeAberto() {
+  if (editandoId === _fotosClienteId && document.getElementById('modal-editar').classList.contains('open')) {
+    const c = clientes.find(x => x.id === editandoId);
+    if (c) renderHistoricoFotosEdicao(c);
+  }
 }
 
 // Converte uma imagem base64 (dataURL) em um objeto File, pra poder compartilhar direto
