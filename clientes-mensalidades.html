@@ -12733,11 +12733,67 @@
   <div id="page-instalacoes" class="page">
     <div class="card">
       <h2>🔧 Registrar Instalação</h2>
-      <div class="form-grid" style="max-width:600px">
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;font-weight:600;color:#1a73e8;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="inst-cliente-novo-toggle" style="width:18px;height:18px;cursor:pointer" onchange="toggleClienteNovoInstalacao()">
+        🆕 É um cliente novo? (cadastra automaticamente)
+      </label>
+
+      <div class="form-grid" style="max-width:600px" id="inst-bloco-cliente-existente">
         <div class="full">
           <label>Cliente *</label>
           <select id="inst-cliente" style="width:100%;padding:8px 10px;font-size:0.9rem;border:1px solid #ddd;border-radius:8px"><option value="">Selecione o cliente...</option></select>
         </div>
+      </div>
+
+      <div class="form-grid" style="max-width:600px;display:none" id="inst-bloco-cliente-novo">
+        <div><label>Nome Completo *</label><input type="text" id="inst-novo-nome" placeholder="Ex: João Silva"></div>
+        <div><label>Telefone (WhatsApp) *</label><input type="tel" id="inst-novo-tel" placeholder="(11) 99999-9999" oninput="mascaraTel(this)"></div>
+        <div><label>CPF</label><input type="text" id="inst-novo-cpf" placeholder="000.000.000-00" oninput="mascaraCPF(this)"></div>
+        <div><label>Plano</label><select id="inst-novo-plano" onchange="preencherPlanoInstalacaoNovo()"><option value="">Nenhum / manual</option><option value="1781755570808">100 Megas — R$ 65,00</option><option value="900001">100 Megas — R$ 65,00</option><option value="900002">100 Megas — R$ 80,00</option><option value="900003">100 Megas — R$ 90,00</option><option value="900004">100 Megas — R$ 80,00</option><option value="900005">150 Megas — R$ 70,00</option><option value="900006">150 Megas — R$ 80,00</option><option value="900007">200 Megas — R$ 100,00</option><option value="900008">200 Megas — R$ 75,00</option><option value="900009">200 Megas — R$ 100,00</option><option value="900010">200 Megas — R$ 95,00</option><option value="900011">40 megas — R$ 40,00</option><option value="900012">50 Megas — R$ 50,00</option><option value="900013">50 Megas — R$ 55,00</option><option value="900014">50 Megas — R$ 60,00</option><option value="900015">50 Megas — R$ 75,00</option><option value="900016">50 Megas — R$ 85,00</option><option value="900017">70 Megas — R$ 60,00</option><option value="900018">Cortesia — R$ 0,00</option></select></div>
+        <div><label>Valor da Mensalidade (R$) *</label><input type="number" id="inst-novo-valor" min="0" step="0.01" placeholder="Ex: 90.00"></div>
+        <div>
+          <label>Dia de Vencimento *</label>
+          <select id="inst-novo-dia"><option value="">Selecione...</option><script>for(let i=1;i<=28;i++) document.write(`<option value="${i}">${i}</option>`);</script></select>
+        </div>
+        <div>
+          <label>CEP</label>
+          <div class="cep-row">
+            <input type="text" id="inst-novo-cep" maxlength="9" placeholder="00000-000" oninput="mascaraCEP(this,'inst-novo')">
+            <button type="button" class="btn btn-outline" onclick="buscarCEP('inst-novo')">🔍</button>
+          </div>
+          <div class="cep-loading" id="inst-novo-cep-msg"></div>
+        </div>
+        <div><label>Número</label><input type="text" id="inst-novo-numero" placeholder="Ex: 100"></div>
+        <div class="full"><label>Rua / Logradouro</label><input type="text" id="inst-novo-rua" placeholder="Ex: Rua das Flores"></div>
+        <div class="col3">
+          <div><label>Bairro</label><input type="text" id="inst-novo-bairro" placeholder="Bairro"></div>
+          <div><label>Cidade</label><input type="text" id="inst-novo-cidade" placeholder="Cidade"></div>
+          <div><label>Estado</label><input type="text" id="inst-novo-estado" maxlength="2" style="text-transform:uppercase" placeholder="UF"></div>
+        </div>
+        <div class="full"><label>Complemento</label><input type="text" id="inst-novo-comp" placeholder="Apto, bloco..."></div>
+        <div class="full"><label>Observações</label><input type="text" id="inst-novo-obs"></div>
+        <div><label>📶 Nome do WiFi (SSID)</label><input type="text" id="inst-novo-wifi-nome" placeholder="Ex: CZnET_Cliente"></div>
+        <div><label>🔑 Senha do WiFi</label><input type="text" id="inst-novo-wifi-senha" placeholder="Ex: minhasenha123"></div>
+        <div><label>🌐 Usuário PPPoE</label><input type="text" id="inst-novo-pppoe-usuario" placeholder="Ex: 3216xxxxxx"></div>
+        <div><label>🔒 Senha PPPoE</label><input type="text" id="inst-novo-pppoe-senha" placeholder="Ex: minhasenha123"></div>
+        <div><label>📡 PON</label><input type="text" id="inst-novo-pon" placeholder="Ex: PON 1/1/3"></div>
+        <div><label>📦 CTO</label><input type="text" id="inst-novo-cto" placeholder="Ex: CTO-045 / Porta 7"></div>
+        <div><label>🏷️ Marca do Equipamento</label><input type="text" id="inst-novo-equip-marca" placeholder="Ex: Huawei, Fiberhome, TP-Link"></div>
+        <div><label>📟 Modelo ONT/ONU</label><input type="text" id="inst-novo-equip-modelo" placeholder="Ex: HG8245Q2"></div>
+        <div><label>🔢 MAC do Equipamento</label><input type="text" id="inst-novo-equip-mac" placeholder="Ex: AA:BB:CC:DD:EE:FF" oninput="mascaraMAC(this)"></div>
+        <div><label>👤 Usuário admin do roteador</label><input type="text" id="inst-novo-roteador-usuario" placeholder="Ex: admin"></div>
+        <div><label>🔐 Senha admin do roteador</label><input type="text" id="inst-novo-roteador-senha" placeholder="Ex: admin123"></div>
+        <div class="full">
+          <label>📍 Localização exata (GPS) — opcional</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="inst-novo-localizacao" placeholder="Toque no botão para capturar a localização atual" style="flex:1" readonly>
+            <button type="button" class="btn btn-outline" onclick="capturarLocalizacao('inst-novo-localizacao')" title="Capturar localização atual do GPS">📍 Capturar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="max-width:600px">
         <div>
           <label>Data da Instalação *</label>
           <input type="date" id="inst-data" style="width:100%;padding:8px 10px;font-size:0.9rem;border:1px solid #ddd;border-radius:8px">
@@ -14214,6 +14270,11 @@ function preencherPlanoEdicao() {
   const pl = planos.find(x => x.id === id);
   if (pl) document.getElementById('edit-valor').value = pl.valor;
 }
+function preencherPlanoInstalacaoNovo() {
+  const id = parseInt(document.getElementById('inst-novo-plano').value);
+  const pl = planos.find(x => x.id === id);
+  if (pl) document.getElementById('inst-novo-valor').value = pl.valor;
+}
 
 // ============================================================
 // CLIENTES
@@ -15167,19 +15228,93 @@ function preencherSelectInstalacoes() {
   if (dataEl && !dataEl.value) dataEl.value = fmtData();
 }
 
+// Alterna entre escolher um cliente já cadastrado ou preencher os dados
+// básicos de um cliente novo direto na tela de Instalações.
+function toggleClienteNovoInstalacao() {
+  const ehNovo = document.getElementById('inst-cliente-novo-toggle').checked;
+  document.getElementById('inst-bloco-cliente-existente').style.display = ehNovo ? 'none' : '';
+  document.getElementById('inst-bloco-cliente-novo').style.display      = ehNovo ? '' : 'none';
+}
+
 function adicionarInstalacao() {
-  const clienteId = parseInt(document.getElementById('inst-cliente').value);
+  const ehNovo = document.getElementById('inst-cliente-novo-toggle').checked;
   const data      = document.getElementById('inst-data').value;
   const gratis    = document.getElementById('inst-gratis').checked;
-  if (!clienteId) { alert('Selecione um cliente.'); return; }
-  if (!data)      { alert('Informe a data da instalação.'); return; }
-  // Evita duplicata
-  if (instalacoes.find(i => i.clienteId === clienteId)) {
-    if (!confirm('Este cliente já tem uma instalação registrada. Deseja adicionar outra?')) return;
+  if (!data) { alert('Informe a data da instalação.'); return; }
+
+  let clienteId;
+
+  if (ehNovo) {
+    // Cadastra o cliente novo com todos os dados preenchidos aqui mesmo.
+    const nome  = document.getElementById('inst-novo-nome').value.trim();
+    const tel   = document.getElementById('inst-novo-tel').value.trim();
+    const valor = parseFloat(document.getElementById('inst-novo-valor').value) || 0;
+    const dia   = parseInt(document.getElementById('inst-novo-dia').value);
+    if (!nome)  { alert('Informe o nome do cliente.'); return; }
+    if (!tel)   { alert('Informe o telefone do cliente.'); return; }
+    if (!valor) { alert('Informe o valor da mensalidade.'); return; }
+    if (!dia)   { alert('Selecione o dia de vencimento.'); return; }
+
+    const nomeNorm = normalizarTexto(nome);
+    const telLimpoNovo = telLimpo(tel);
+    const duplicado = clientes.find(c => normalizarTexto(c.nome) === nomeNorm || (telLimpoNovo && telLimpo(c.tel || '') === telLimpoNovo));
+    if (duplicado) {
+      const continuar = confirm(`⚠️ Já existe um cliente parecido: "${duplicado.nome}" — ${duplicado.tel || 'sem telefone'}.\n\nDeseja cadastrar mesmo assim (pessoa diferente)?`);
+      if (!continuar) return;
+    }
+
+    const novoCliente = {
+      id: Date.now(),
+      nome, tel, valor, dia,
+      cpf:     document.getElementById('inst-novo-cpf').value.trim(),
+      planoId: parseInt(document.getElementById('inst-novo-plano').value) || null,
+      inicio:  data,
+      cep:     document.getElementById('inst-novo-cep').value.trim(),
+      rua:     document.getElementById('inst-novo-rua').value.trim(),
+      numero:  document.getElementById('inst-novo-numero').value.trim(),
+      bairro:  document.getElementById('inst-novo-bairro').value.trim(),
+      cidade:  document.getElementById('inst-novo-cidade').value.trim(),
+      estado:  document.getElementById('inst-novo-estado').value.trim().toUpperCase(),
+      comp:    document.getElementById('inst-novo-comp').value.trim(),
+      obs:     document.getElementById('inst-novo-obs').value.trim(),
+      wifi_nome:         document.getElementById('inst-novo-wifi-nome').value.trim(),
+      wifi_senha:        document.getElementById('inst-novo-wifi-senha').value.trim(),
+      pppoe_usuario:     document.getElementById('inst-novo-pppoe-usuario').value.trim(),
+      pppoe_senha:       document.getElementById('inst-novo-pppoe-senha').value.trim(),
+      pon:               document.getElementById('inst-novo-pon').value.trim(),
+      cto:               document.getElementById('inst-novo-cto').value.trim(),
+      equip_marca:       document.getElementById('inst-novo-equip-marca').value.trim(),
+      equip_modelo:      document.getElementById('inst-novo-equip-modelo').value.trim(),
+      equip_mac:         document.getElementById('inst-novo-equip-mac').value.trim(),
+      roteador_usuario:  document.getElementById('inst-novo-roteador-usuario').value.trim(),
+      roteador_senha:    document.getElementById('inst-novo-roteador-senha').value.trim(),
+      localizacao:       document.getElementById('inst-novo-localizacao').value.trim(),
+      instalacao_gratis: gratis, instalacao_paga: false,
+    };
+    clientes.push(novoCliente);
+    clienteId = novoCliente.id;
+
+    // Limpa os campos de cliente novo e volta pro modo padrão
+    ['inst-novo-nome','inst-novo-tel','inst-novo-cpf','inst-novo-plano','inst-novo-valor','inst-novo-dia',
+     'inst-novo-cep','inst-novo-rua','inst-novo-numero','inst-novo-bairro','inst-novo-cidade','inst-novo-estado','inst-novo-comp','inst-novo-obs',
+     'inst-novo-wifi-nome','inst-novo-wifi-senha','inst-novo-pppoe-usuario','inst-novo-pppoe-senha','inst-novo-pon','inst-novo-cto',
+     'inst-novo-equip-marca','inst-novo-equip-modelo','inst-novo-equip-mac','inst-novo-roteador-usuario','inst-novo-roteador-senha','inst-novo-localizacao']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('inst-cliente-novo-toggle').checked = false;
+    toggleClienteNovoInstalacao();
+  } else {
+    clienteId = parseInt(document.getElementById('inst-cliente').value);
+    if (!clienteId) { alert('Selecione um cliente.'); return; }
+    // Evita duplicata
+    if (instalacoes.find(i => i.clienteId === clienteId)) {
+      if (!confirm('Este cliente já tem uma instalação registrada. Deseja adicionar outra?')) return;
+    }
   }
+
   instalacoes.push({ id: Date.now(), clienteId, data, gratis, paga: false });
   salvarStorage();
   renderInstalacoes();
+  renderClientes();
   // Limpa form
   document.getElementById('inst-cliente').value = '';
   document.getElementById('inst-gratis').checked = false;
