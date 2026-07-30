@@ -15649,9 +15649,15 @@ function avisarClienteDataOS() {
 
   const dataFmt = dataAgendada.split('-').reverse().join('/');
   const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
-  const motivo = problemas.length ? problemas.join(', ') : 'atendimento técnico';
+  const ehInstalacao = problemas.includes('Instalação nova');
 
-  const msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+  let msg;
+  if (ehInstalacao) {
+    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que sua *instalação* está marcada para o dia *${dataFmt}*. Nosso técnico irá até você para realizar a instalação do seu link.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+  } else {
+    const motivo = problemas.length ? problemas.join(', ') : 'atendimento técnico';
+    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+  }
 
   const telCliente = telLimpo(c.tel);
   const url = `https://wa.me/55${telCliente}?text=${encodeURIComponent(msg)}`;
