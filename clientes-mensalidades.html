@@ -13382,6 +13382,12 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
 
     <div style="margin-bottom:14px">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📅 Data para realizar o serviço</label>
+      <input type="date" id="os-data-agendada">
+      <div style="font-size:0.76rem;color:#888;margin-top:3px">Deixe em branco se for para hoje / o quanto antes</div>
+    </div>
+
+    <div style="margin-bottom:14px">
       <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">✏️ Outro problema / observações (opcional)</label>
       <input type="text" id="os-obs" placeholder="Ex: cliente relata que caiu à noite">
     </div>
@@ -13400,6 +13406,7 @@ Qualquer dúvida, estamos à disposição!</div>
 
     <div class="modal-actions">
       <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-outline" style="color:#1a73e8;border-color:#90caf9" onclick="avisarClienteDataOS()">📲 Avisar Cliente</button>
       <button type="button" class="btn btn-whatsapp" onclick="enviarOS()">📤 Enviar OS via WhatsApp</button>
     </div>
   </div>
@@ -15547,9 +15554,10 @@ function abrirOS(clienteId, preSelecionar) {
     ((c.roteador_usuario || c.roteador_senha) ? `<br>⚙️ Admin roteador: ${c.roteador_usuario || '-'} / ${c.roteador_senha || '-'}` : '') +
     (linkMapa ? `<br>🗺️ <a href="${linkMapa}" target="_blank">Ver localização no mapa</a> ${c.localizacao ? '(GPS exato)' : '(pelo endereço/CEP)'}` : '');
 
-  // Reseta os checkboxes e observação
+  // Reseta os checkboxes, observação e data
   document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
   document.getElementById('os-obs').value = '';
+  document.getElementById('os-data-agendada').value = '';
 
   // Se veio de um contexto específico (ex: aba Instalações), já marca o problema certo
   if (preSelecionar) {
@@ -15570,6 +15578,7 @@ function enviarOS() {
 
   const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
   const obs = document.getElementById('os-obs').value.trim();
+  const dataAgendada = document.getElementById('os-data-agendada').value;
   const telTecnico = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
 
   if (!problemas.length && !obs) { alert('Selecione ao menos um problema ou descreva o que está acontecendo.'); return; }
@@ -15579,6 +15588,10 @@ function enviarOS() {
 
   const end = enderecoCompleto(c);
   let msg = `🛠️ *Ordem de Serviço*\n\n`;
+  if (dataAgendada) {
+    const dataFmt = dataAgendada.split('-').reverse().join('/');
+    msg += `📅 *Realizar em:* ${dataFmt}\n\n`;
+  }
   msg += `👤 *Cliente:* ${c.nome}\n`;
   if (end) msg += `📍 *Endereço:* ${end}\n`;
   if (c.tel) msg += `📞 *Telefone:* ${c.tel}\n`;
@@ -15622,6 +15635,27 @@ function enviarOS() {
   const url = `https://wa.me/55${telTecnico}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
   fecharModal();
+}
+
+// Manda uma mensagem simples pro WhatsApp do próprio cliente avisando quando
+// o técnico vai até ele. Usa a mesma data preenchida no campo da OS.
+function avisarClienteDataOS() {
+  const c = clientes.find(x => x.id === _osClienteId); if (!c) return;
+
+  if (!c.tel) { alert('Este cliente não tem telefone cadastrado.'); return; }
+
+  const dataAgendada = document.getElementById('os-data-agendada').value;
+  if (!dataAgendada) { alert('Preencha a data em que o técnico vai até o cliente antes de avisar.'); return; }
+
+  const dataFmt = dataAgendada.split('-').reverse().join('/');
+  const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
+  const motivo = problemas.length ? problemas.join(', ') : 'atendimento técnico';
+
+  const msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+
+  const telCliente = telLimpo(c.tel);
+  const url = `https://wa.me/55${telCliente}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
 }
 
 // ============================================================
