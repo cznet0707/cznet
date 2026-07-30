@@ -15584,6 +15584,8 @@ function enviarOS() {
   if (c.tel) msg += `📞 *Telefone:* ${c.tel}\n`;
   if (c.pon) msg += `📡 *PON:* ${c.pon}\n`;
   if (c.cto) msg += `📦 *CTO:* ${c.cto}\n`;
+  if (c.equip_marca || c.equip_modelo) msg += `📟 *Equipamento (ONT/ONU):* ${c.equip_marca || ''} ${c.equip_modelo || ''}\n`;
+  if (c.equip_mac) msg += `🔢 *MAC:* ${c.equip_mac}\n`;
   if (c.pppoe_usuario || c.pppoe_senha) {
     msg += `🌐 *Usuário PPPoE:* ${c.pppoe_usuario || '(não informado)'}\n`;
     msg += `🔒 *Senha PPPoE:* ${c.pppoe_senha || '(não informada)'}\n`;
