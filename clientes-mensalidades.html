@@ -12798,6 +12798,10 @@
           <label>Data da Instalação *</label>
           <input type="date" id="inst-data" style="width:100%;padding:8px 10px;font-size:0.9rem;border:1px solid #ddd;border-radius:8px">
         </div>
+        <div>
+          <label>Horário (opcional)</label>
+          <input type="time" id="inst-hora" style="width:100%;padding:8px 10px;font-size:0.9rem;border:1px solid #ddd;border-radius:8px">
+        </div>
         <div style="display:flex;align-items:center;gap:10px;padding-top:22px">
           <input type="checkbox" id="inst-gratis" style="width:18px;height:18px;cursor:pointer">
           <label for="inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis</label>
@@ -13438,8 +13442,11 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
 
     <div style="margin-bottom:14px">
-      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📅 Data para realizar o serviço</label>
-      <input type="date" id="os-data-agendada">
+      <label style="font-size:0.83rem;color:#1a73e8;font-weight:600;margin-bottom:4px;display:block">📅 Data e horário para realizar o serviço</label>
+      <div style="display:flex;gap:8px">
+        <input type="date" id="os-data-agendada" style="flex:1">
+        <input type="time" id="os-hora-agendada" style="flex:1" placeholder="Horário (opcional)">
+      </div>
       <div style="font-size:0.76rem;color:#888;margin-top:3px">Deixe em branco se for para hoje / o quanto antes</div>
     </div>
 
@@ -15239,6 +15246,7 @@ function toggleClienteNovoInstalacao() {
 function adicionarInstalacao() {
   const ehNovo = document.getElementById('inst-cliente-novo-toggle').checked;
   const data      = document.getElementById('inst-data').value;
+  const hora      = document.getElementById('inst-hora').value;
   const gratis    = document.getElementById('inst-gratis').checked;
   if (!data) { alert('Informe a data da instalação.'); return; }
 
@@ -15311,12 +15319,13 @@ function adicionarInstalacao() {
     }
   }
 
-  instalacoes.push({ id: Date.now(), clienteId, data, gratis, paga: false });
+  instalacoes.push({ id: Date.now(), clienteId, data, hora, gratis, paga: false });
   salvarStorage();
   renderInstalacoes();
   renderClientes();
   // Limpa form
   document.getElementById('inst-cliente').value = '';
+  document.getElementById('inst-hora').value = '';
   document.getElementById('inst-gratis').checked = false;
 }
 
@@ -15689,10 +15698,11 @@ function abrirOS(clienteId, preSelecionar) {
     ((c.roteador_usuario || c.roteador_senha) ? `<br>⚙️ Admin roteador: ${c.roteador_usuario || '-'} / ${c.roteador_senha || '-'}` : '') +
     (linkMapa ? `<br>🗺️ <a href="${linkMapa}" target="_blank">Ver localização no mapa</a> ${c.localizacao ? '(GPS exato)' : '(pelo endereço/CEP)'}` : '');
 
-  // Reseta os checkboxes, observação e data
+  // Reseta os checkboxes, observação, data e hora
   document.querySelectorAll('.os-problema').forEach(chk => chk.checked = false);
   document.getElementById('os-obs').value = '';
   document.getElementById('os-data-agendada').value = '';
+  document.getElementById('os-hora-agendada').value = '';
 
   // Se veio de um contexto específico (ex: aba Instalações), já marca o problema certo
   if (preSelecionar) {
@@ -15714,6 +15724,7 @@ function enviarOS() {
   const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
   const obs = document.getElementById('os-obs').value.trim();
   const dataAgendada = document.getElementById('os-data-agendada').value;
+  const horaAgendada = document.getElementById('os-hora-agendada').value;
   const telTecnico = document.getElementById('os-tel-tecnico').value.replace(/\D/g,'');
 
   if (!problemas.length && !obs) { alert('Selecione ao menos um problema ou descreva o que está acontecendo.'); return; }
@@ -15725,7 +15736,7 @@ function enviarOS() {
   let msg = `🛠️ *Ordem de Serviço*\n\n`;
   if (dataAgendada) {
     const dataFmt = dataAgendada.split('-').reverse().join('/');
-    msg += `📅 *Realizar em:* ${dataFmt}\n\n`;
+    msg += `📅 *Realizar em:* ${dataFmt}${horaAgendada ? ' às ' + horaAgendada : ''}\n\n`;
   }
   msg += `👤 *Cliente:* ${c.nome}\n`;
   if (end) msg += `📍 *Endereço:* ${end}\n`;
@@ -15780,18 +15791,20 @@ function avisarClienteDataOS() {
   if (!c.tel) { alert('Este cliente não tem telefone cadastrado.'); return; }
 
   const dataAgendada = document.getElementById('os-data-agendada').value;
+  const horaAgendada = document.getElementById('os-hora-agendada').value;
   if (!dataAgendada) { alert('Preencha a data em que o técnico vai até o cliente antes de avisar.'); return; }
 
   const dataFmt = dataAgendada.split('-').reverse().join('/');
+  const dataHoraFmt = dataFmt + (horaAgendada ? ` às ${horaAgendada}` : '');
   const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
   const ehInstalacao = problemas.includes('Instalação nova');
 
   let msg;
   if (ehInstalacao) {
-    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que sua *instalação* está marcada para o dia *${dataFmt}*. Nosso técnico irá até você para realizar a instalação do seu link.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que sua *instalação* está marcada para o dia *${dataHoraFmt}*. Nosso técnico irá até você para realizar a instalação do seu link.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
   } else {
     const motivo = problemas.length ? problemas.join(', ') : 'atendimento técnico';
-    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
+    msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataHoraFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
   }
 
   const telCliente = telLimpo(c.tel);
