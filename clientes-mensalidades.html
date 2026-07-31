@@ -13438,6 +13438,7 @@ Qualquer dúvida, estamos à disposição!</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Rompimento de fibra"> ✂️ Rompimento de fibra</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Sinal fraco / oscilando"> 📉 Sinal fraco / oscilando</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Mudança de endereço"> 🚚 Mudança de endereço</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Troca de Equipamento"> 🔄 Troca de Equipamento</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer"><input type="checkbox" class="os-problema" value="Instalação nova"> 🔧 Instalação nova</label>
     </div>
 
@@ -15797,13 +15798,14 @@ function avisarClienteDataOS() {
   const dataFmt = dataAgendada.split('-').reverse().join('/');
   const dataHoraFmt = dataFmt + (horaAgendada ? ` às ${horaAgendada}` : '');
   const problemas = Array.from(document.querySelectorAll('.os-problema:checked')).map(chk => chk.value);
+  const obsAviso = document.getElementById('os-obs').value.trim();
   const ehInstalacao = problemas.includes('Instalação nova');
 
   let msg;
   if (ehInstalacao) {
     msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que sua *instalação* está marcada para o dia *${dataHoraFmt}*. Nosso técnico irá até você para realizar a instalação do seu link.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
   } else {
-    const motivo = problemas.length ? problemas.join(', ') : 'atendimento técnico';
+    const motivo = problemas.length ? problemas.join(', ') : (obsAviso || 'atendimento técnico');
     msg = `Olá, ${c.nome}! 👋\n\nPassando para avisar que nosso técnico irá até você no dia *${dataHoraFmt}* para realizar: ${motivo}.\n\nQualquer imprevisto, entre em contato conosco. Obrigado! 🙏`;
   }
 
