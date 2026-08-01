@@ -13160,6 +13160,16 @@ Qualquer dúvida, estamos à disposição!</div>
       <div id="diag-ultimo-erro" style="background:#f8f9fa;border-radius:8px;padding:12px;font-size:0.85rem;color:#555;margin-bottom:10px"></div>
       <button class="btn btn-outline" onclick="atualizarDiagnosticoErro()">🔄 Atualizar</button>
       <button class="btn btn-outline" onclick="localStorage.removeItem('ultimo_erro_salvar'); atualizarDiagnosticoErro()">🗑️ Limpar</button>
+
+      <hr style="margin:18px 0;border:none;border-top:1px solid #eee">
+
+      <h3 style="font-size:1rem;margin-bottom:8px">🔍 Comparar celular x PC</h3>
+      <p style="color:#555;font-size:0.85rem;margin-bottom:10px">
+        Toque em "Verificar agora" neste aparelho e no outro, ao mesmo tempo. Se os números abaixo forem
+        <b>diferentes</b> entre os dois, é sinal de que não estão sincronizados de verdade.
+      </p>
+      <div id="diag-servidor" style="background:#f8f9fa;border-radius:8px;padding:12px;font-size:0.85rem;color:#555;margin-bottom:10px">Toque em "Verificar agora" pra conferir.</div>
+      <button class="btn btn-primary" onclick="verificarServidorAgora()">🌐 Verificar agora (direto no servidor)</button>
     </div>
 
     <div class="card">
@@ -14096,6 +14106,30 @@ function atualizarDiagnosticoErro() {
   box.innerHTML = erro
     ? `⚠️ <b>Último erro:</b><br>${erro}`
     : `✅ Nenhum erro de salvamento registrado neste aparelho até agora.`;
+}
+
+// Busca os dados DIRETO do servidor, sem passar pela lógica normal do app
+// (que pode manter uma cópia local se achar a resposta do servidor
+// "inválida"). Isso dá uma leitura 100% honesta do que está no banco agora,
+// pra comparar entre dois aparelhos ao vivo.
+async function verificarServidorAgora() {
+  const box = document.getElementById('diag-servidor');
+  box.innerHTML = '⏳ Consultando o servidor...';
+  try {
+    const resp = await fetch('/api/data?verificacao=' + Date.now(), { cache: 'no-store' });
+    const d = await resp.json();
+    const cli = d.cm_clientes ? JSON.parse(d.cm_clientes) : [];
+    const pag = d.cm_pagamentos ? JSON.parse(d.cm_pagamentos) : [];
+    const dataHora = d._updatedAt ? new Date(d._updatedAt).toLocaleString('pt-BR') : '(sem carimbo de data)';
+    box.innerHTML = `
+      <div><b>🕒 Última alteração salva às:</b> ${dataHora}</div>
+      <div><b>👥 Total de clientes no servidor:</b> ${cli.length}</div>
+      <div><b>💰 Total de pagamentos registrados:</b> ${pag.length}</div>
+      <div style="margin-top:6px;color:#888;font-size:0.75rem">Consultado agora: ${new Date().toLocaleTimeString('pt-BR')}</div>
+    `;
+  } catch(e) {
+    box.innerHTML = `⚠️ Erro ao consultar o servidor: ${e.message}`;
+  }
 }
 
 function mostrarToast(mensagem, tipo) {
