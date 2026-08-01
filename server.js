@@ -17,13 +17,33 @@ app.get('/', (req, res) => {
 // MongoDB helper
 let cachedDb = null;
 async function getDb() {
-  if (!cachedDb) {
-    const { MongoClient } = require('mongodb');
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    cachedDb = client.db('cznet');
+  if (cachedDb) return cachedDb;
+
+  const { MongoClient } = require('mongodb');
+  // Timeouts mais curtos + algumas tentativas: numa função serverless, uma
+  // falha passageira de DNS/rede ao conectar no MongoDB (ex: "ENOTFOUND") é
+  // comum e geralmente se resolve tentando de novo, em vez de desistir na
+  // primeira falha e devolver erro 500 pro usuário.
+  const opcoes = {
+    serverSelectionTimeoutMS: 8000,
+    connectTimeoutMS: 8000,
+    maxPoolSize: 5,
+  };
+
+  let ultimoErro;
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const client = new MongoClient(MONGODB_URI, opcoes);
+      await client.connect();
+      cachedDb = client.db('cznet');
+      return cachedDb;
+    } catch (e) {
+      ultimoErro = e;
+      console.error(`[mongo] Falha ao conectar (tentativa ${tentativa}/3):`, e.message);
+      if (tentativa < 3) await new Promise(r => setTimeout(r, 500 * tentativa));
+    }
   }
-  return cachedDb;
+  throw ultimoErro;
 }
 
 // Lê o estado atual salvo (Mongo ou arquivo), incluindo o carimbo _updatedAt.
