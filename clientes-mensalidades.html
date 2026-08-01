@@ -13153,6 +13153,16 @@ Qualquer dúvida, estamos à disposição!</div>
 
 
     <div class="card">
+      <h2>🩺 Diagnóstico de Sincronização</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
+        Se um salvamento falhar, o último erro fica registrado aqui — sem precisar mexer no Vercel.
+      </p>
+      <div id="diag-ultimo-erro" style="background:#f8f9fa;border-radius:8px;padding:12px;font-size:0.85rem;color:#555;margin-bottom:10px"></div>
+      <button class="btn btn-outline" onclick="atualizarDiagnosticoErro()">🔄 Atualizar</button>
+      <button class="btn btn-outline" onclick="localStorage.removeItem('ultimo_erro_salvar'); atualizarDiagnosticoErro()">🗑️ Limpar</button>
+    </div>
+
+    <div class="card">
       <h2>💾 Backup dos Dados</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
         Salve uma cópia de todos os seus clientes, pagamentos e planos no computador.
@@ -14075,6 +14085,28 @@ function getCfgEmpresa() {
   try { return JSON.parse(localStorage.getItem('cm_empresa') || '{}'); } catch(e) { return {}; }
 }
 
+// Aviso visual reutilizável (mais confiável que alert() em navegadores mobile,
+// que às vezes suprimem alert() disparado fora de um clique direto do usuário).
+// Mostra, na aba Configurações, o último erro de salvamento registrado (se
+// houver) — evita ter que caçar nos Logs do Vercel.
+function atualizarDiagnosticoErro() {
+  const box = document.getElementById('diag-ultimo-erro');
+  if (!box) return;
+  const erro = localStorage.getItem('ultimo_erro_salvar');
+  box.innerHTML = erro
+    ? `⚠️ <b>Último erro:</b><br>${erro}`
+    : `✅ Nenhum erro de salvamento registrado neste aparelho até agora.`;
+}
+
+function mostrarToast(mensagem, tipo) {
+  const cor = tipo === 'erro' ? '#c0392b' : (tipo === 'aviso' ? '#e65100' : '#1e7e34');
+  const toast = document.createElement('div');
+  toast.textContent = mensagem;
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${cor};color:#fff;padding:12px 22px;border-radius:12px;z-index:9999;font-size:0.9rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;text-align:center;line-height:1.4`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), tipo === 'ok' ? 2500 : 7000);
+}
+
 async function salvarStorage(_tentativa) {
   const tentativa = _tentativa || 1;
   // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
@@ -14158,19 +14190,22 @@ async function salvarStorage(_tentativa) {
       return j.ok === true;
     }
     // Erro do servidor (ex: 500) que não é conflito — antes isso falhava
-    // silenciosamente. Agora mostramos o motivo exato na tela.
+    // silenciosamente. Agora mostramos o motivo exato na tela (toast, mais
+    // confiável que alert() em celular) e guardamos pra conferir depois.
     let msgErro = `Erro ${resp.status} ao salvar.`;
     try {
       const j = await resp.json();
-      if (j.erro) msgErro += `\n\nDetalhe técnico: ${j.erro}`;
+      if (j.erro) msgErro += ` Detalhe: ${j.erro}`;
     } catch(e4) {}
-    alert(`⚠️ Não foi possível salvar no servidor.\n\n${msgErro}\n\nTire um print desta mensagem e envie para o suporte.`);
+    localStorage.setItem('ultimo_erro_salvar', `${new Date().toLocaleString('pt-BR')} — ${msgErro}`);
+    mostrarToast(`⚠️ Erro ao salvar no servidor: ${msgErro}`, 'erro');
     return false;
   } catch(e) {
     // Erro de rede/timeout (ex: sem internet) — também avisa, mas com
     // mensagem diferente, já que aqui nem chegou resposta do servidor.
     if (tentativa >= 3) {
-      alert('⚠️ Não foi possível conectar ao servidor para salvar (sem internet ou o servidor não respondeu). Suas alterações continuam salvas neste aparelho e serão sincronizadas quando a conexão voltar.');
+      localStorage.setItem('ultimo_erro_salvar', `${new Date().toLocaleString('pt-BR')} — Sem conexão com o servidor (timeout/offline)`);
+      mostrarToast('⚠️ Sem conexão com o servidor. Alterações salvas só neste aparelho por enquanto.', 'erro');
     }
     return false; // offline ou timeout
   }
@@ -14193,7 +14228,7 @@ function showPage(nome) {
   if (nome === 'olt')         renderOlt();
   if (nome === 'planos')      renderPlanos();
   if (nome === 'saidas')      renderSaidas();
-  if (nome === 'config')      carregarConfig();
+  if (nome === 'config')      { carregarConfig(); atualizarDiagnosticoErro(); }
 }
 
 // ============================================================
@@ -18214,14 +18249,28 @@ function lancarRapido(clienteId, mesRef) {
   const mes = mesRef || fmtMes();
   const [y,m] = mes.split('-');
   const mesNome = new Date(y, m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  abrirModalFormaPagamento(`${c.nome} — ${mesNome} — ${moeda(c.valor)}`, (forma, comprovante) => {
+  abrirModalFormaPagamento(`${c.nome} — ${mesNome} — ${moeda(c.valor)}`, async (forma, comprovante) => {
     pagamentos.push({
       id: Date.now(), clienteId, valor: c.valor, mes,
       data: fmtData(), obs: 'Dashboard',
       formaPagamento: forma, comprovante: comprovante||null
     });
     _ultimoPagClienteId = clienteId; _ultimoPagMes = mes;
-    salvarStorage(); renderDashboard();
+    renderDashboard();
+
+    let salvou = await salvarStorage();
+    if (!salvou) {
+      // Tenta uma vez mais após 2 segundos antes de desistir
+      await new Promise(r => setTimeout(r, 2000));
+      salvou = await salvarStorage();
+    }
+    // Toast de confirmação visível (mais confiável que alert() no celular)
+    const toast = document.createElement('div');
+    toast.textContent = salvou ? '✅ Pagamento salvo!' : '⚠️ Pagamento salvo só neste aparelho — sem conexão com o servidor. Abra o app novamente com internet para sincronizar.';
+    toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${salvou?'#1e7e34':'#c0392b'};color:#fff;padding:10px 22px;border-radius:20px;z-index:9999;font-size:0.95rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;text-align:center`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), salvou ? 2500 : 6000);
+
     oferecerAgradecimento(clienteId, mes);
   });
 }
