@@ -55,6 +55,11 @@ async function gravarDadosAtuais(data) {
 
 // Carregar dados
 app.get('/api/data', async (req, res) => {
+  // Garante que navegador, CDN ou qualquer camada intermediária NUNCA sirva
+  // uma versão antiga em cache — sempre busca os dados reais e mais recentes.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   try {
     const data = await lerDadosAtuais();
     res.json(data);
