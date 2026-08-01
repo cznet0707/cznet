@@ -15651,9 +15651,9 @@ function renderCtoHtml(olt, pon, cto) {
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
-          <div style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1">
+          <div style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">
             <input type="checkbox" class="cto-aviso-check" data-cto="${cto.id}" data-cliente="${c.id}" checked style="flex-shrink:0;cursor:pointer" title="Incluir no aviso ao técnico">
-            <div style="overflow:hidden">
+            <div style="overflow:hidden;min-width:0;flex:1">
               <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</div>
               <div style="color:#888;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="editarPppoeRapido(${c.id})" title="Clique para editar o PPPoE deste cliente">
                 🌐 PPPoE: ${c.pppoe_usuario || '<span style="color:#c62828">não cadastrado — toque para adicionar</span>'} ✏️
