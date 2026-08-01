@@ -12847,6 +12847,7 @@
         posição dele (OLT / PON / CTO) no cadastro ou na edição do cliente.
       </p>
       <div id="olt-conteudo"></div>
+      <datalist id="lista-clientes-sem-cto"></datalist>
     </div>
   </div>
 
@@ -15569,6 +15570,14 @@ function renderOlt() {
         ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
       </div>
     </div>`).join('');
+
+  // Lista de sugestão (autocompletar) com os clientes que ainda não têm
+  // posição na rede definida — facilita achar rápido quem falta organizar.
+  const datalist = document.getElementById('lista-clientes-sem-cto');
+  if (datalist) {
+    const semCto = clientes.filter(c => !c.ctoRedeId).sort((a,b) => a.nome.localeCompare(b.nome));
+    datalist.innerHTML = semCto.map(c => `<option value="${c.nome}">`).join('');
+  }
 }
 
 function renderPonHtml(olt, pon) {
@@ -15602,16 +15611,69 @@ function renderCtoHtml(olt, pon, cto) {
     </div>
     <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;max-height:150px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
-        <div style="display:flex;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:3px 6px;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</span>
-          <span style="color:#888;white-space:nowrap">${c.pppoe_usuario || '-'}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:3px 6px">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</span>
+          <span style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+            <span style="color:#888">${c.pppoe_usuario || '-'}</span>
+            <span style="cursor:pointer;color:#c62828" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
+          </span>
         </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:6px">
+      <input type="text" list="lista-clientes-sem-cto" id="add-cliente-${cto.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.72rem;padding:4px 6px;border:1px solid #ddd;border-radius:5px" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNaCtoPorNome('${cto.id}');}">
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 8px" onclick="adicionarClienteNaCtoPorNome('${cto.id}')" title="Vincular cliente a esta CTO">➕</button>
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeCto('${cto.id}')">⚙️ Capacidade</button>
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoCto('${olt.id}','${pon.id}','${cto.id}')">📲 Avisar Técnico</button>
     </div>
   </div>`;
+}
+
+// Vincula um cliente já cadastrado a uma CTO, buscando pelo nome digitado no
+// campo de busca (autocompletar). Pensado pra uso rápido: técnico no poste,
+// digita o nome, aperta Enter ou clica em ➕.
+function adicionarClienteNaCtoPorNome(ctoId) {
+  const input = document.getElementById(`add-cliente-${ctoId}`);
+  const nomeDigitado = input.value.trim();
+  if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
+
+  const nomeNorm = normalizarTexto(nomeDigitado);
+  const encontrados = clientes.filter(c => normalizarTexto(c.nome) === nomeNorm);
+
+  if (!encontrados.length) {
+    alert(`Nenhum cliente encontrado com o nome "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    return;
+  }
+  if (encontrados.length > 1) {
+    alert(`Encontrei ${encontrados.length} clientes com esse nome. Abra o cadastro de cada um e defina a posição na rede por lá, pra evitar engano.`);
+    return;
+  }
+
+  const cliente = encontrados[0];
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { cto } = achado;
+  const ocupacaoAtual = clientesDaCto(ctoId).length;
+
+  if (cliente.ctoRedeId === ctoId) { alert('Este cliente já está nesta CTO.'); return; }
+  if (ocupacaoAtual >= cto.capacidade) {
+    if (!confirm(`⚠️ Esta CTO já está com ${ocupacaoAtual}/${cto.capacidade} vagas ocupadas. Deseja adicionar mesmo assim?`)) return;
+  }
+
+  cliente.ctoRedeId = ctoId;
+  salvarStorage();
+  input.value = '';
+  renderOlt();
+}
+
+// Remove o vínculo do cliente com a CTO atual (não exclui o cliente, só
+// desmarca a posição dele na rede — útil pra corrigir engano).
+function removerClienteDaCto(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  if (!confirm(`Remover "${c.nome}" desta CTO? O cadastro do cliente continua normal, só a posição na rede é desmarcada.`)) return;
+  c.ctoRedeId = null;
+  salvarStorage();
+  renderOlt();
 }
 
 function editarCapacidadeCto(ctoId) {
