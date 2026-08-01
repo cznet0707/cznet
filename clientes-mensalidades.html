@@ -13213,6 +13213,27 @@ Qualquer dúvida, estamos à disposição!</div>
 
 </div>
 
+<!-- MODAL AVISAR TÉCNICO (OLT) -->
+<div class="modal-overlay" id="modal-avisar-tecnico">
+  <div class="modal" style="max-width:420px">
+    <h3>📲 Avisar Técnico</h3>
+    <p id="atc-resumo" style="font-size:0.85rem;color:#555;margin-bottom:14px"></p>
+    <label style="font-size:0.83rem;font-weight:600;display:block;margin-bottom:4px">Escolha o técnico</label>
+    <select id="atc-tecnico-select" style="margin-bottom:8px;width:100%" onchange="_atcTecnicoSelecionado()">
+      <option value="">➕ Digitar número manualmente...</option>
+    </select>
+    <input type="text" id="atc-tel-tecnico" placeholder="Ex: 82988887777" style="width:100%">
+    <div style="margin-top:8px;margin-bottom:6px">
+      <button type="button" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="salvarNovoTecnicoAtc()">💾 Salvar este número como técnico</button>
+      <button type="button" id="atc-btn-remover-tecnico" class="btn btn-outline" style="font-size:0.78rem;padding:5px 10px;display:none;color:#c62828;border-color:#ef9a9a" onclick="removerTecnicoAtc()">🗑️ Remover técnico</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-whatsapp" onclick="confirmarAvisoTecnico()">📤 Enviar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDITAR CLIENTE -->
 <div class="modal-overlay" id="modal-editar">
   <div class="modal">
@@ -15630,13 +15651,16 @@ function renderCtoHtml(olt, pon, cto) {
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
-          <div style="overflow:hidden">
-            <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</div>
-            <div style="color:#888;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="editarPppoeRapido(${c.id})" title="Clique para editar o PPPoE deste cliente">
-              🌐 PPPoE: ${c.pppoe_usuario || '<span style="color:#c62828">não cadastrado — toque para adicionar</span>'} ✏️
+          <div style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1">
+            <input type="checkbox" class="cto-aviso-check" data-cto="${cto.id}" data-cliente="${c.id}" checked style="flex-shrink:0;cursor:pointer" title="Incluir no aviso ao técnico">
+            <div style="overflow:hidden">
+              <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</div>
+              <div style="color:#888;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="editarPppoeRapido(${c.id})" title="Clique para editar o PPPoE deste cliente">
+                🌐 PPPoE: ${c.pppoe_usuario || '<span style="color:#c62828">não cadastrado — toque para adicionar</span>'} ✏️
+              </div>
             </div>
           </div>
-          <span style="cursor:pointer;color:#c62828;padding-left:4px" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
+          <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
         </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
     </div>
     <div style="display:flex;gap:5px;margin-bottom:6px">
@@ -15742,29 +15766,94 @@ function adicionarDerivacaoCto(oltId, ponId) {
 // Manda pro WhatsApp do técnico a lista de clientes que estão numa CTO
 // específica — útil quando ele está no poste e precisa saber quem cai se
 // desconectar aquela CTO.
+let _avisoTecnicoPendente = null;
+
 function avisarTecnicoCto(oltId, ponId, ctoId) {
   const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
   const { olt, pon, cto } = achado;
-  const ocupantes = clientesDaCto(cto.id);
   const label = cto.derivacao ? `CTO ${cto.numero} (${cto.derivacao})` : `CTO ${cto.numero}`;
 
-  const telSalvo = localStorage.getItem('os_tel_tecnico') || '';
-  const telTecnico = prompt('WhatsApp do técnico (com DDD):', telSalvo);
-  if (!telTecnico) return;
-  const telLimpoTec = telTecnico.replace(/\D/g,'');
-  if (telLimpoTec.length < 10) { alert('Número inválido.'); return; }
-  localStorage.setItem('os_tel_tecnico', telLimpoTec);
+  // Só entra na mensagem quem estiver com a caixinha marcada nesta CTO.
+  const checks = document.querySelectorAll(`.cto-aviso-check[data-cto="${ctoId}"]`);
+  const idsSelecionados = Array.from(checks).filter(chk => chk.checked).map(chk => parseInt(chk.dataset.cliente));
+  const ocupantes = clientesDaCto(cto.id).filter(c => idsSelecionados.includes(c.id));
+
+  if (checks.length && !idsSelecionados.length) {
+    alert('Nenhum cliente selecionado. Marque ao menos uma caixinha pra incluir no aviso.');
+    return;
+  }
+
+  _avisoTecnicoPendente = { olt, pon, cto, label, ocupantes };
+
+  document.getElementById('atc-resumo').textContent =
+    `${olt.nome} — PON ${pon.numero} — ${label} · ${ocupantes.length} cliente(s) selecionado(s)`;
+
+  const ultimoTel = localStorage.getItem('os_tel_tecnico') || '';
+  _popularSelectTecnicosAtc(ultimoTel);
+  document.getElementById('atc-tel-tecnico').value = ultimoTel;
+
+  document.getElementById('modal-avisar-tecnico').classList.add('open');
+}
+
+function confirmarAvisoTecnico() {
+  if (!_avisoTecnicoPendente) return;
+  const { olt, pon, label, ocupantes } = _avisoTecnicoPendente;
+
+  const telTecnico = document.getElementById('atc-tel-tecnico').value.replace(/\D/g,'');
+  if (!telTecnico || telTecnico.length < 10) { alert('Digite um número de WhatsApp válido para o técnico.'); return; }
+  localStorage.setItem('os_tel_tecnico', telTecnico);
 
   let msg = `🗼 *${olt.nome} — PON ${pon.numero} — ${label}*\n\n`;
   if (!ocupantes.length) {
     msg += `Nenhum cliente cadastrado nessa CTO no sistema ainda.`;
   } else {
-    msg += `👥 *${ocupantes.length} cliente(s) nessa CTO:*\n\n`;
+    msg += `👥 *${ocupantes.length} cliente(s) selecionado(s):*\n\n`;
     msg += ocupantes.map((c,i) => `${i+1}. ${c.nome}${c.pppoe_usuario ? ' — PPPoE: ' + c.pppoe_usuario : ''}`).join('\n');
   }
 
-  const url = `https://wa.me/55${telLimpoTec}?text=${encodeURIComponent(msg)}`;
+  const url = `https://wa.me/55${telTecnico}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
+  fecharModal();
+  _avisoTecnicoPendente = null;
+}
+
+// ===== Seleção de técnico salvo, reaproveitando a mesma lista da tela de OS =====
+function _popularSelectTecnicosAtc(telParaSelecionar) {
+  const sel = document.getElementById('atc-tecnico-select');
+  const tecnicos = listarTecnicosSalvos();
+  sel.innerHTML = '<option value="">➕ Digitar número manualmente...</option>' +
+    tecnicos.map(t => `<option value="${t.tel}">${t.nome} — ${t.tel}</option>`).join('');
+  if (telParaSelecionar && tecnicos.some(t => t.tel === telParaSelecionar)) {
+    sel.value = telParaSelecionar;
+  } else {
+    sel.value = '';
+  }
+  document.getElementById('atc-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function _atcTecnicoSelecionado() {
+  const sel = document.getElementById('atc-tecnico-select');
+  if (sel.value) document.getElementById('atc-tel-tecnico').value = sel.value;
+  document.getElementById('atc-btn-remover-tecnico').style.display = sel.value ? 'inline-flex' : 'none';
+}
+function salvarNovoTecnicoAtc() {
+  const tel = document.getElementById('atc-tel-tecnico').value.replace(/\D/g,'');
+  if (!tel || tel.length < 10) { alert('Digite um número de WhatsApp válido antes de salvar.'); return; }
+  const nome = prompt('Nome do técnico (ex: João, Suporte, Fibra):');
+  if (!nome || !nome.trim()) return;
+  const tecnicos = listarTecnicosSalvos();
+  const jaExiste = tecnicos.find(t => t.tel === tel);
+  if (jaExiste) { jaExiste.nome = nome.trim(); } else { tecnicos.push({ nome: nome.trim(), tel }); }
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicosAtc(tel);
+  alert(`✅ Técnico "${nome.trim()}" salvo!`);
+}
+function removerTecnicoAtc() {
+  const sel = document.getElementById('atc-tecnico-select');
+  if (!sel.value) return;
+  const tecnicos = listarTecnicosSalvos().filter(t => t.tel !== sel.value);
+  salvarListaTecnicos(tecnicos);
+  _popularSelectTecnicosAtc(null);
+  document.getElementById('atc-tel-tecnico').value = '';
 }
 
 function pagarInstalacao(instId, pago) {
