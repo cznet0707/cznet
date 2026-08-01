@@ -19511,10 +19511,10 @@ function verificarAvisoDezembroBackup() {
   }, 30000); // Sincroniza a cada 30 segundos
 })();
 
-// Auto-save ao fechar/recarregar o navegador
-window.addEventListener('beforeunload', function() {
-  salvarStorage();
-});
+// (Removido o auto-save no fechamento/recarregamento da página — ele podia
+// salvar uma versão desatualizada por cima de mudanças mais novas feitas em
+// outro aparelho, já que o dado local podia estar velho na hora do fechamento.
+// Os salvamentos já acontecem normalmente a cada ação do usuário.)
 
 </script>
 
