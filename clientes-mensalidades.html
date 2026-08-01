@@ -15627,14 +15627,16 @@ function renderCtoHtml(olt, pon, cto) {
       <strong style="font-size:0.86rem">📦 ${label}</strong>
       <span style="font-size:0.75rem;font-weight:700;color:${cor}">${ocupantes.length}/${vagas}</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;max-height:150px;overflow-y:auto">
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:3px 6px">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</span>
-          <span style="display:flex;align-items:center;gap:5px;white-space:nowrap">
-            <span style="color:#888">${c.pppoe_usuario || '-'}</span>
-            <span style="cursor:pointer;color:#c62828" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
-          </span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
+          <div style="overflow:hidden">
+            <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</div>
+            <div style="color:#888;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="editarPppoeRapido(${c.id})" title="Clique para editar o PPPoE deste cliente">
+              🌐 PPPoE: ${c.pppoe_usuario || '<span style="color:#c62828">não cadastrado — toque para adicionar</span>'} ✏️
+            </div>
+          </div>
+          <span style="cursor:pointer;color:#c62828;padding-left:4px" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
         </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
     </div>
     <div style="display:flex;gap:5px;margin-bottom:6px">
@@ -15690,6 +15692,19 @@ function removerClienteDaCto(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   if (!confirm(`Remover "${c.nome}" desta CTO? O cadastro do cliente continua normal, só a posição na rede é desmarcada.`)) return;
   c.ctoRedeId = null;
+  salvarStorage();
+  renderOlt();
+}
+
+// Edição rápida do PPPoE direto na tela da OLT — pensado exatamente pra
+// aquele momento: o técnico desconectou um cliente sem PPPoE cadastrado,
+// você viu o nome que caiu no roteador, e quer registrar na hora, sem abrir
+// o cadastro completo.
+function editarPppoeRapido(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  const novo = prompt(`PPPoE de "${c.nome}"\n\n(exatamente como aparece no roteador/OLT quando ele está conectado)`, c.pppoe_usuario || '');
+  if (novo === null) return; // cancelou
+  c.pppoe_usuario = novo.trim();
   salvarStorage();
   renderOlt();
 }
