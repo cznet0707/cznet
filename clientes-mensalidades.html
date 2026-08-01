@@ -403,6 +403,7 @@
   <button onclick="showPage(&#39;clientes&#39;)" class="">👤 Clientes</button>
   <button onclick="showPage(&#39;pagamentos&#39;)">💰 Mensalidades</button>
   <button onclick="showPage(&#39;instalacoes&#39;)">🔧 Instalações</button>
+  <button onclick="showPage(&#39;olt&#39;)">🗼 OLT</button>
   <button onclick="showPage(&#39;planos&#39;)">📦 Planos</button>
   <button onclick="showPage(&#39;saidas&#39;)">💳 Saídas</button>
   <button onclick="showPage(&#39;config&#39;)" class="">⚙️ Configurações</button>
@@ -7270,6 +7271,21 @@
             <label>🔢 MAC do Equipamento</label>
             <input type="text" id="c-equip-mac" placeholder="Ex: AA:BB:CC:DD:EE:FF" oninput="mascaraMAC(this)">
           </div>
+          <div class="full" style="border-top:1px dashed #ddd;padding-top:10px;margin-top:4px">
+            <label style="color:#0a4fa0;font-weight:600">🗼 Posição na Rede (Mapa OLT) — opcional</label>
+          </div>
+          <div>
+            <label>OLT</label>
+            <select id="c-net-olt" onchange="atualizarSelectPon('c')"><option value="">Selecione...</option></select>
+          </div>
+          <div>
+            <label>PON</label>
+            <select id="c-net-pon" onchange="atualizarSelectCto('c')"><option value="">Selecione a OLT primeiro</option></select>
+          </div>
+          <div>
+            <label>CTO</label>
+            <select id="c-net-cto"><option value="">Selecione a PON primeiro</option></select>
+          </div>
           <div>
             <label>👤 Usuário admin do roteador</label>
             <input type="text" id="c-roteador-usuario" placeholder="Ex: admin">
@@ -12822,6 +12838,18 @@
     </div>
   </div>
 
+  <!-- OLT -->
+  <div id="page-olt" class="page">
+    <div class="card">
+      <h2>🗼 Mapa de Rede (OLT / PON / CTO)</h2>
+      <p style="color:#777;font-size:0.85rem;margin-bottom:14px">
+        Veja quantos clientes estão instalados em cada CTO e onde estão. Para um cliente aparecer aqui, selecione a
+        posição dele (OLT / PON / CTO) no cadastro ou na edição do cliente.
+      </p>
+      <div id="olt-conteudo"></div>
+    </div>
+  </div>
+
   <!-- PLANOS -->
   <div id="page-planos" class="page">
     <div class="card">
@@ -13224,6 +13252,12 @@ Qualquer dúvida, estamos à disposição!</div>
       <div><label>🏷️ Marca do Equipamento</label><input type="text" id="edit-equip-marca" placeholder="Ex: Huawei, Fiberhome, TP-Link"></div>
       <div><label>📟 Modelo ONT/ONU</label><input type="text" id="edit-equip-modelo" placeholder="Ex: HG8245Q2"></div>
       <div><label>🔢 MAC do Equipamento</label><input type="text" id="edit-equip-mac" placeholder="Ex: AA:BB:CC:DD:EE:FF" oninput="mascaraMAC(this)"></div>
+      <div class="full" style="border-top:1px dashed #ddd;padding-top:10px;margin-top:4px">
+        <label style="color:#0a4fa0;font-weight:600">🗼 Posição na Rede (Mapa OLT) — opcional</label>
+      </div>
+      <div><label>OLT</label><select id="edit-net-olt" onchange="atualizarSelectPon('edit')"><option value="">Selecione...</option></select></div>
+      <div><label>PON</label><select id="edit-net-pon" onchange="atualizarSelectCto('edit')"><option value="">Selecione a OLT primeiro</option></select></div>
+      <div><label>CTO</label><select id="edit-net-cto"><option value="">Selecione a PON primeiro</option></select></div>
       <div><label>👤 Usuário admin do roteador</label><input type="text" id="edit-roteador-usuario" placeholder="Ex: admin"></div>
       <div><label>🔐 Senha admin do roteador</label><input type="text" id="edit-roteador-senha" placeholder="Ex: admin123"></div>
       <div class="full">
@@ -13703,7 +13737,7 @@ Qualquer dúvida, estamos à disposição!</div>
 // DADOS
 // ============================================================
 let clientes = [], pagamentos = [], planos = [], instalacoes = [];
-let cartoes = [], saidas = [], categorias = [];
+let cartoes = [], saidas = [], categorias = [], olts = [];
 let excluirId = null, editandoId = null, editandoPlanoId = null;
 let zapClienteId = null, carneClienteId = null;
 
@@ -13776,6 +13810,26 @@ function fmtData(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d
 function fmtMes(d)  { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 // Carrega do servidor se disponível, senão usa localStorage local
+// Gera a estrutura padrão da rede: 2 OLTs, cada uma com 8 PONs, cada PON com
+// 8 CTOs de 8 vagas cada. Só roda na primeira vez (se ainda não existir nada
+// salvo em cm_olts) — depois disso o que for editado (capacidade, derivações
+// etc.) fica salvo e não é sobrescrito.
+function gerarOltsPadrao() {
+  const lista = [];
+  for (let o = 1; o <= 2; o++) {
+    const pons = [];
+    for (let p = 1; p <= 8; p++) {
+      const ctos = [];
+      for (let c = 1; c <= 8; c++) {
+        ctos.push({ id: `olt${o}-pon${p}-cto${c}`, numero: c, capacidade: 8, derivacao: '' });
+      }
+      pons.push({ id: `olt${o}-pon${p}`, numero: p, ctos });
+    }
+    lista.push({ id: `olt${o}`, nome: `OLT ${o}`, pons });
+  }
+  return lista;
+}
+
 async function carregarDoServidor() {
   try {
     const resp = await fetch('/api/data', { signal: AbortSignal.timeout(15000) });
@@ -13791,6 +13845,7 @@ async function carregarDoServidor() {
       if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
       if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
       if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
+      if (d.cm_olts)         { olts         = JSON.parse(d.cm_olts);        localStorage.setItem('cm_olts', d.cm_olts); }
       if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
       if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
@@ -13802,6 +13857,7 @@ async function carregarDoServidor() {
       console.log('✅ Dados carregados do servidor');
     }
     if (d._updatedAt) ultimoUpdatedAt = d._updatedAt;
+    if (!olts.length) olts = gerarOltsPadrao();
     return true;
   } catch(e) {
     console.warn('⚠️ Servidor offline — usando dados locais');
@@ -13817,11 +13873,14 @@ async function carregarDoServidor() {
       const ct_ = localStorage.getItem('cm_cartoes');
       const sa_ = localStorage.getItem('cm_saidas');
       const ca_ = localStorage.getItem('cm_categorias');
+      const ol_ = localStorage.getItem('cm_olts');
       if (ct_) cartoes    = JSON.parse(ct_);
       if (sa_) saidas     = JSON.parse(sa_);
       if (ca_) categorias = JSON.parse(ca_);
+      if (ol_) olts       = JSON.parse(ol_);
       if (c || p || pl) dadosCarregados = true; // Tinha dados no localStorage
     } catch(e2) {}
+    if (!olts.length) olts = gerarOltsPadrao();
     return false;
   }
 }
@@ -14006,6 +14065,7 @@ async function salvarStorage(_tentativa) {
     localStorage.setItem('cm_cartoes',     JSON.stringify(cartoes));
     localStorage.setItem('cm_saidas',      JSON.stringify(saidas));
     localStorage.setItem('cm_categorias',  JSON.stringify(categorias));
+    localStorage.setItem('cm_olts',        JSON.stringify(olts));
   } catch(e) {}
   // Sincroniza com o servidor em rede
   const payload = {
@@ -14016,6 +14076,7 @@ async function salvarStorage(_tentativa) {
     cm_cartoes:            localStorage.getItem('cm_cartoes')     || '[]',
     cm_saidas:             localStorage.getItem('cm_saidas')      || '[]',
     cm_categorias:         localStorage.getItem('cm_categorias')  || '[]',
+    cm_olts:               localStorage.getItem('cm_olts')        || '[]',
     cm_empresa:            localStorage.getItem('cm_empresa')     || '{}',
     cm_msg:                localStorage.getItem('cm_msg')         || '',
     cm_msg_boleto:         localStorage.getItem('cm_msg_boleto')  || '',
@@ -14060,6 +14121,7 @@ async function salvarStorage(_tentativa) {
         if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
         if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
         if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
+        if (d.cm_olts)         { olts         = JSON.parse(d.cm_olts);        localStorage.setItem('cm_olts', d.cm_olts); }
       } catch(e2) {}
       try {
         renderDashboard();
@@ -14086,13 +14148,14 @@ function showPage(nome) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + nome).classList.add('active');
-  const idx = ['dashboard','clientes','pagamentos','instalacoes','planos','saidas','config'].indexOf(nome);
+  const idx = ['dashboard','clientes','pagamentos','instalacoes','olt','planos','saidas','config'].indexOf(nome);
   if (idx >= 0) document.querySelectorAll('nav button')[idx].classList.add('active');
 
   if (nome === 'dashboard')   renderDashboard();
-  if (nome === 'clientes')    { atualizarSelectPlanos(); renderClientes(); }
+  if (nome === 'clientes')    { atualizarSelectPlanos(); popularSelectOlt('c'); renderClientes(); }
   if (nome === 'pagamentos')  { renderSelectClientes(); renderHistorico(); }
   if (nome === 'instalacoes') renderInstalacoes();
+  if (nome === 'olt')         renderOlt();
   if (nome === 'planos')      renderPlanos();
   if (nome === 'saidas')      renderSaidas();
   if (nome === 'config')      carregarConfig();
@@ -14341,6 +14404,7 @@ function salvarCliente(e) {
     equip_marca:       document.getElementById('c-equip-marca').value.trim(),
     equip_modelo:      document.getElementById('c-equip-modelo').value.trim(),
     equip_mac:         document.getElementById('c-equip-mac').value.trim(),
+    ctoRedeId:         document.getElementById('c-net-cto').value || null,
     roteador_usuario:  document.getElementById('c-roteador-usuario').value.trim(),
     roteador_senha:    document.getElementById('c-roteador-senha').value.trim(),
     localizacao:       document.getElementById('c-localizacao').value.trim(),
@@ -15140,6 +15204,18 @@ function abrirEditar(id) {
   document.getElementById('edit-equip-marca').value    = c.equip_marca || '';
   document.getElementById('edit-equip-modelo').value   = c.equip_modelo || '';
   document.getElementById('edit-equip-mac').value      = c.equip_mac || '';
+  popularSelectOlt('edit');
+  document.getElementById('edit-net-olt').value = '';
+  document.getElementById('edit-net-pon').innerHTML = '<option value="">Selecione a OLT primeiro</option>';
+  document.getElementById('edit-net-cto').innerHTML = '<option value="">Selecione a PON primeiro</option>';
+  if (c.ctoRedeId) {
+    const achado = encontrarCtoNaRede(c.ctoRedeId);
+    if (achado) {
+      document.getElementById('edit-net-olt').value = achado.olt.id;
+      atualizarSelectPon('edit', achado.pon.id);
+      atualizarSelectCto('edit', achado.cto.id);
+    }
+  }
   document.getElementById('edit-roteador-usuario').value = c.roteador_usuario || '';
   document.getElementById('edit-roteador-senha').value   = c.roteador_senha || '';
   document.getElementById('edit-localizacao').value      = c.localizacao || '';
@@ -15199,6 +15275,7 @@ function confirmarEdicao() {
   c.equip_marca       = document.getElementById('edit-equip-marca').value.trim();
   c.equip_modelo      = document.getElementById('edit-equip-modelo').value.trim();
   c.equip_mac         = document.getElementById('edit-equip-mac').value.trim();
+  c.ctoRedeId         = document.getElementById('edit-net-cto').value || null;
   c.roteador_usuario  = document.getElementById('edit-roteador-usuario').value.trim();
   c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
   c.localizacao       = document.getElementById('edit-localizacao').value.trim();
@@ -15416,6 +15493,183 @@ function renderInstalacoes() {
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+}
+
+// ============================================================
+// OLT / PON / CTO — Mapa de rede
+// ============================================================
+
+// Preenche o select de OLT (chamado no início e sempre que a lista de OLTs mudar).
+function popularSelectOlt(prefix) {
+  const sel = document.getElementById(`${prefix}-net-olt`); if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Selecione...</option>' +
+    olts.map(o => `<option value="${o.id}">${o.nome}</option>`).join('');
+  if (atual) sel.value = atual;
+}
+
+// Preenche o select de PON com base na OLT escolhida.
+function atualizarSelectPon(prefix, ponIdPreSelecionado) {
+  const oltId = document.getElementById(`${prefix}-net-olt`).value;
+  const selPon = document.getElementById(`${prefix}-net-pon`);
+  const selCto = document.getElementById(`${prefix}-net-cto`);
+  const olt = olts.find(o => o.id === oltId);
+  if (!olt) {
+    selPon.innerHTML = '<option value="">Selecione a OLT primeiro</option>';
+    selCto.innerHTML = '<option value="">Selecione a PON primeiro</option>';
+    return;
+  }
+  selPon.innerHTML = '<option value="">Selecione...</option>' +
+    olt.pons.map(p => `<option value="${p.id}">PON ${p.numero}</option>`).join('');
+  if (ponIdPreSelecionado) selPon.value = ponIdPreSelecionado;
+  atualizarSelectCto(prefix);
+}
+
+// Preenche o select de CTO com base na PON escolhida, mostrando quantas vagas
+// já estão ocupadas em cada uma.
+function atualizarSelectCto(prefix, ctoIdPreSelecionado) {
+  const oltId = document.getElementById(`${prefix}-net-olt`).value;
+  const ponId = document.getElementById(`${prefix}-net-pon`).value;
+  const selCto = document.getElementById(`${prefix}-net-cto`);
+  const olt = olts.find(o => o.id === oltId);
+  const pon = olt ? olt.pons.find(p => p.id === ponId) : null;
+  if (!pon) {
+    selCto.innerHTML = '<option value="">Selecione a PON primeiro</option>';
+    return;
+  }
+  selCto.innerHTML = '<option value="">Selecione...</option>' +
+    pon.ctos.map(c => {
+      const label = c.derivacao ? `CTO ${c.numero} — ${c.derivacao}` : `CTO ${c.numero}`;
+      const ocupadas = clientesDaCto(c.id).length;
+      return `<option value="${c.id}">${label} (${ocupadas}/${c.capacidade} vagas)</option>`;
+    }).join('');
+  if (ctoIdPreSelecionado) selCto.value = ctoIdPreSelecionado;
+}
+
+function encontrarCtoNaRede(ctoId) {
+  for (const olt of olts) {
+    for (const pon of olt.pons) {
+      const cto = pon.ctos.find(c => c.id === ctoId);
+      if (cto) return { olt, pon, cto };
+    }
+  }
+  return null;
+}
+
+function clientesDaCto(ctoId) {
+  return clientes.filter(c => c.ctoRedeId === ctoId);
+}
+
+function renderOlt() {
+  const box = document.getElementById('olt-conteudo');
+  box.innerHTML = olts.map(olt => `
+    <div style="margin-bottom:22px">
+      <h3 style="color:#0a4fa0;margin-bottom:10px">🗼 ${olt.nome}</h3>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function renderPonHtml(olt, pon) {
+  const totalOcupadas = pon.ctos.reduce((s,c) => s + clientesDaCto(c.id).length, 0);
+  const totalVagas     = pon.ctos.reduce((s,c) => s + c.capacidade, 0);
+  return `
+  <div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <strong style="font-size:0.95rem">📡 PON ${pon.numero}</strong>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:0.78rem;color:#777">${totalOcupadas}/${totalVagas} vagas ocupadas</span>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarDerivacaoCto('${olt.id}','${pon.id}')">➕ Derivação</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+      ${pon.ctos.map(cto => renderCtoHtml(olt, pon, cto)).join('')}
+    </div>
+  </div>`;
+}
+
+function renderCtoHtml(olt, pon, cto) {
+  const ocupantes = clientesDaCto(cto.id);
+  const vagas = cto.capacidade;
+  const cor = ocupantes.length >= vagas ? '#c62828' : (ocupantes.length >= vagas*0.75 ? '#e65100' : '#1e8449');
+  const label = cto.derivacao ? `CTO ${cto.numero} — ${cto.derivacao}` : `CTO ${cto.numero}`;
+  return `
+  <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <strong style="font-size:0.86rem">📦 ${label}</strong>
+      <span style="font-size:0.75rem;font-weight:700;color:${cor}">${ocupantes.length}/${vagas}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;max-height:150px;overflow-y:auto">
+      ${ocupantes.length ? ocupantes.map(c => `
+        <div style="display:flex;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:3px 6px;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</span>
+          <span style="color:#888;white-space:nowrap">${c.pppoe_usuario || '-'}</span>
+        </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeCto('${cto.id}')">⚙️ Capacidade</button>
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoCto('${olt.id}','${pon.id}','${cto.id}')">📲 Avisar Técnico</button>
+    </div>
+  </div>`;
+}
+
+function editarCapacidadeCto(ctoId) {
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { cto } = achado;
+  const novaCap = prompt(`Capacidade atual: ${cto.capacidade} vagas.\n\nDigite a nova capacidade (ex: 8 ou 16):`, cto.capacidade);
+  if (novaCap === null) return;
+  const num = parseInt(novaCap);
+  if (!num || num < 1) { alert('Digite um número válido.'); return; }
+  cto.capacidade = num;
+  salvarStorage();
+  renderOlt();
+}
+
+// Adiciona uma CTO extra dentro de um PON, para representar uma derivação
+// (ex: quando um splitter 1x2 divide uma CTO física em duas lógicas).
+function adicionarDerivacaoCto(oltId, ponId) {
+  const olt = olts.find(o => o.id === oltId); if (!olt) return;
+  const pon = olt.pons.find(p => p.id === ponId); if (!pon) return;
+
+  const rotulo = prompt('Nome/rótulo desta derivação (ex: "CTO 3 Derivação B", "CTO 3B"):');
+  if (!rotulo) return;
+  const cap = parseInt(prompt('Capacidade desta CTO derivada (vagas):', '8'));
+  if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
+
+  const numero = pon.ctos.length + 1;
+  const novaCto = { id: `${pon.id}-deriv${Date.now()}`, numero, capacidade: cap, derivacao: rotulo };
+  pon.ctos.push(novaCto);
+  salvarStorage();
+  renderOlt();
+}
+
+// Manda pro WhatsApp do técnico a lista de clientes que estão numa CTO
+// específica — útil quando ele está no poste e precisa saber quem cai se
+// desconectar aquela CTO.
+function avisarTecnicoCto(oltId, ponId, ctoId) {
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { olt, pon, cto } = achado;
+  const ocupantes = clientesDaCto(cto.id);
+  const label = cto.derivacao ? `CTO ${cto.numero} (${cto.derivacao})` : `CTO ${cto.numero}`;
+
+  const telSalvo = localStorage.getItem('os_tel_tecnico') || '';
+  const telTecnico = prompt('WhatsApp do técnico (com DDD):', telSalvo);
+  if (!telTecnico) return;
+  const telLimpoTec = telTecnico.replace(/\D/g,'');
+  if (telLimpoTec.length < 10) { alert('Número inválido.'); return; }
+  localStorage.setItem('os_tel_tecnico', telLimpoTec);
+
+  let msg = `🗼 *${olt.nome} — PON ${pon.numero} — ${label}*\n\n`;
+  if (!ocupantes.length) {
+    msg += `Nenhum cliente cadastrado nessa CTO no sistema ainda.`;
+  } else {
+    msg += `👥 *${ocupantes.length} cliente(s) nessa CTO:*\n\n`;
+    msg += ocupantes.map((c,i) => `${i+1}. ${c.nome}${c.pppoe_usuario ? ' — PPPoE: ' + c.pppoe_usuario : ''}`).join('\n');
+  }
+
+  const url = `https://wa.me/55${telLimpoTec}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
 }
 
 function pagarInstalacao(instId, pago) {
@@ -18960,6 +19214,7 @@ function verificarAvisoDezembroBackup() {
   // 2. Sincronizar com servidor (fonte de verdade)
   await carregarDoServidor();
   atualizarSelectPlanos();
+  popularSelectOlt('c');
   renderDashboard();
   renderSelectClientes();
   renderClientes();
