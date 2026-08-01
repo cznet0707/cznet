@@ -14157,8 +14157,21 @@ async function salvarStorage(_tentativa) {
       if (j.updatedAt) ultimoUpdatedAt = j.updatedAt;
       return j.ok === true;
     }
+    // Erro do servidor (ex: 500) que não é conflito — antes isso falhava
+    // silenciosamente. Agora mostramos o motivo exato na tela.
+    let msgErro = `Erro ${resp.status} ao salvar.`;
+    try {
+      const j = await resp.json();
+      if (j.erro) msgErro += `\n\nDetalhe técnico: ${j.erro}`;
+    } catch(e4) {}
+    alert(`⚠️ Não foi possível salvar no servidor.\n\n${msgErro}\n\nTire um print desta mensagem e envie para o suporte.`);
     return false;
   } catch(e) {
+    // Erro de rede/timeout (ex: sem internet) — também avisa, mas com
+    // mensagem diferente, já que aqui nem chegou resposta do servidor.
+    if (tentativa >= 3) {
+      alert('⚠️ Não foi possível conectar ao servidor para salvar (sem internet ou o servidor não respondeu). Suas alterações continuam salvas neste aparelho e serão sincronizadas quando a conexão voltar.');
+    }
     return false; // offline ou timeout
   }
 }
