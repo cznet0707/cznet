@@ -15563,20 +15563,38 @@ function clientesDaCto(ctoId) {
 
 function renderOlt() {
   const box = document.getElementById('olt-conteudo');
-  box.innerHTML = olts.map(olt => `
-    <div style="margin-bottom:22px">
-      <h3 style="color:#0a4fa0;margin-bottom:10px">🗼 ${olt.nome}</h3>
-      <div style="display:flex;flex-direction:column;gap:14px">
-        ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
-      </div>
-    </div>`).join('');
+  if (!box) { console.error('renderOlt: elemento #olt-conteudo não encontrado na página.'); return; }
+  try {
+    // Auto-correção: se por algum motivo a estrutura estiver vazia ou
+    // corrompida (ex: veio "[]" salvo de um teste antigo), regenera o padrão
+    // na hora, em vez de mostrar a tela em branco.
+    if (!Array.isArray(olts) || olts.length === 0) {
+      olts = gerarOltsPadrao();
+      salvarStorage();
+    }
 
-  // Lista de sugestão (autocompletar) com os clientes que ainda não têm
-  // posição na rede definida — facilita achar rápido quem falta organizar.
-  const datalist = document.getElementById('lista-clientes-sem-cto');
-  if (datalist) {
-    const semCto = clientes.filter(c => !c.ctoRedeId).sort((a,b) => a.nome.localeCompare(b.nome));
-    datalist.innerHTML = semCto.map(c => `<option value="${c.nome}">`).join('');
+    box.innerHTML = olts.map(olt => `
+      <div style="margin-bottom:22px">
+        <h3 style="color:#0a4fa0;margin-bottom:10px">🗼 ${olt.nome}</h3>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
+        </div>
+      </div>`).join('');
+
+    // Lista de sugestão (autocompletar) com os clientes que ainda não têm
+    // posição na rede definida — facilita achar rápido quem falta organizar.
+    const datalist = document.getElementById('lista-clientes-sem-cto');
+    if (datalist) {
+      const semCto = clientes.filter(c => !c.ctoRedeId).sort((a,b) => a.nome.localeCompare(b.nome));
+      datalist.innerHTML = semCto.map(c => `<option value="${c.nome}">`).join('');
+    }
+  } catch (e) {
+    // Nunca mais deixa a tela em branco silenciosamente: mostra o erro real.
+    box.innerHTML = `<div style="background:#fce8e6;border:1px solid #f5b3ac;border-radius:8px;padding:14px;color:#c0392b;font-size:0.85rem">
+      ⚠️ Erro ao carregar o mapa de rede: ${(e && e.message) || e}<br>
+      <span style="color:#888">Tire um print desta mensagem e envie para o suporte.</span>
+    </div>`;
+    console.error('Erro em renderOlt:', e);
   }
 }
 
