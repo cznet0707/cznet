@@ -3928,7 +3928,7 @@ function renderCtoHtml(olt, pon, cto) {
 // Vincula um cliente já cadastrado a uma CTO, buscando pelo nome digitado no
 // campo de busca (autocompletar). Pensado pra uso rápido: técnico no poste,
 // digita o nome, aperta Enter ou clica em ➕.
-function adicionarClienteNaCtoPorNome(ctoId) {
+async function adicionarClienteNaCtoPorNome(ctoId) {
   const input = document.getElementById(`add-cliente-${ctoId}`);
   const nomeDigitado = input.value.trim();
   if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
@@ -3956,35 +3956,44 @@ function adicionarClienteNaCtoPorNome(ctoId) {
   }
 
   cliente.ctoRedeId = ctoId;
-  salvarStorage();
   input.value = '';
   renderOlt();
+  // Antes isso não esperava a resposta do servidor nem avisava se falhasse —
+  // no celular, uma rede mais lenta podia deixar essa mudança presa só no
+  // aparelho, sem avisar ninguém, e o PC nunca via a vinculação.
+  const salvou = await salvarStorage();
+  mostrarToast(
+    salvou ? `✅ ${cliente.nome} vinculado à CTO e salvo no servidor!` : `⚠️ Vínculo salvo só neste aparelho — não foi possível confirmar com o servidor. Verifique a conexão e tente de novo.`,
+    salvou ? 'ok' : 'erro'
+  );
 }
 
 // Remove o vínculo do cliente com a CTO atual (não exclui o cliente, só
 // desmarca a posição dele na rede — útil pra corrigir engano).
-function removerClienteDaCto(clienteId) {
+async function removerClienteDaCto(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   if (!confirm(`Remover "${c.nome}" desta CTO? O cadastro do cliente continua normal, só a posição na rede é desmarcada.`)) return;
   c.ctoRedeId = null;
-  salvarStorage();
   renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Alteração salva só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
 }
 
 // Edição rápida do PPPoE direto na tela da OLT — pensado exatamente pra
 // aquele momento: o técnico desconectou um cliente sem PPPoE cadastrado,
 // você viu o nome que caiu no roteador, e quer registrar na hora, sem abrir
 // o cadastro completo.
-function editarPppoeRapido(clienteId) {
+async function editarPppoeRapido(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   const novo = prompt(`PPPoE de "${c.nome}"\n\n(exatamente como aparece no roteador/OLT quando ele está conectado)`, c.pppoe_usuario || '');
   if (novo === null) return; // cancelou
   c.pppoe_usuario = novo.trim();
-  salvarStorage();
   renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ PPPoE salvo só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
 }
 
-function editarCapacidadeCto(ctoId) {
+async function editarCapacidadeCto(ctoId) {
   const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
   const { cto } = achado;
   const novaCap = prompt(`Capacidade atual: ${cto.capacidade} vagas.\n\nDigite a nova capacidade (ex: 8 ou 16):`, cto.capacidade);
@@ -3992,8 +4001,9 @@ function editarCapacidadeCto(ctoId) {
   const num = parseInt(novaCap);
   if (!num || num < 1) { alert('Digite um número válido.'); return; }
   cto.capacidade = num;
-  salvarStorage();
   renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Capacidade salva só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
 }
 
 // Adiciona uma CTO extra dentro de um PON, para representar uma derivação
