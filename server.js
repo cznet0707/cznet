@@ -73,6 +73,42 @@ async function gravarDadosAtuais(data) {
   }
 }
 
+// Grava só se ninguém mais escreveu por cima entre a hora que este
+// dispositivo leu os dados (baseUpdatedAt) e agora — tudo numa única
+// operação atômica do banco, sem "ler, checar, escrever" em passos
+// separados (que é onde duas escritas quase simultâneas conseguiam se
+// sobrepor mesmo com a checagem de conflito de antes).
+async function gravarComCheckAtomico(baseUpdatedAt, novoDado) {
+  if (!MONGODB_URI) {
+    // Sem Mongo (fallback em arquivo): não há como fazer isso atômico de
+    // verdade num ambiente serverless, então grava direto.
+    fs.writeFileSync(DATA_FILE, JSON.stringify(novoDado, null, 2));
+    return { ok: true };
+  }
+
+  const db = await getDb();
+  if (!baseUpdatedAt) {
+    // Primeiro salvamento (ou dispositivo sem carimbo de data ainda): não dá
+    // pra checar contra nada, grava direto.
+    await db.collection('dados').replaceOne({ _id: 'main' }, { _id: 'main', data: novoDado }, { upsert: true });
+    return { ok: true };
+  }
+
+  const resultado = await db.collection('dados').replaceOne(
+    { _id: 'main', 'data._updatedAt': baseUpdatedAt },
+    { _id: 'main', data: novoDado }
+  );
+
+  if (resultado.matchedCount === 0) {
+    // Ninguém batia com esse baseUpdatedAt: outra escrita já aconteceu no
+    // meio tempo (mesmo que só por milissegundos). Devolve o estado atual
+    // de verdade pro cliente decidir o que fazer (mesclar e tentar de novo).
+    const atualDoc = await db.collection('dados').findOne({ _id: 'main' });
+    return { ok: false, conflict: true, atual: (atualDoc && atualDoc.data) ? atualDoc.data : {} };
+  }
+  return { ok: true };
+}
+
 // Carregar dados
 app.get('/api/data', async (req, res) => {
   // Garante que navegador, CDN ou qualquer camada intermediária NUNCA sirva
@@ -96,25 +132,25 @@ app.get('/api/data', async (req, res) => {
 // recentes, em vez de deixar o dispositivo atrasado apagar as mudanças do outro.
 app.post('/api/data', async (req, res) => {
   try {
-    const atual = await lerDadosAtuais();
-    const atualUpdatedAt = atual._updatedAt || 0;
-    const baseUpdatedAt   = req.body._baseUpdatedAt || 0;
-
-    if (atualUpdatedAt && baseUpdatedAt && atualUpdatedAt !== baseUpdatedAt) {
-      // Alguém salvou depois que este dispositivo carregou os dados: conflito.
-      return res.status(409).json({
-        ok: false,
-        conflict: true,
-        data: atual,
-        updatedAt: atualUpdatedAt
-      });
-    }
-
+    const baseUpdatedAt = req.body._baseUpdatedAt || 0;
     const novoUpdatedAt = Date.now();
     const novoDado = { ...req.body, _updatedAt: novoUpdatedAt };
     delete novoDado._baseUpdatedAt;
 
-    await gravarDadosAtuais(novoDado);
+    const resultado = await gravarComCheckAtomico(baseUpdatedAt, novoDado);
+
+    if (!resultado.ok && resultado.conflict) {
+      // Alguém salvou entre a leitura deste dispositivo e agora — mesmo que
+      // por uma fração de segundo. Devolve o estado real atual pro cliente
+      // mesclar e tentar de novo, em vez de sobrescrever silenciosamente.
+      return res.status(409).json({
+        ok: false,
+        conflict: true,
+        data: resultado.atual,
+        updatedAt: resultado.atual._updatedAt || 0
+      });
+    }
+
     res.json({ ok: true, updatedAt: novoUpdatedAt });
   } catch(e) {
     res.status(500).json({ ok: false, erro: e.message });
