@@ -1948,10 +1948,11 @@ function gerarOltsPadrao() {
 
 async function carregarDoServidor() {
   try {
-    // 60s (era 15s): o banco às vezes demora mais que isso pra responder,
-    // mas responde certo — desistir cedo demais é o que fazia a tela mostrar
-    // "sem clientes" mesmo com os dados intactos no servidor.
-    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(60000), cache: 'no-store' });
+    // 100s (era 60s, e antes disso 15s): visto direto nos logs da Vercel que
+    // o banco (plano gratuito) vem levando 40-45s só na execução em dias mais
+    // ocupados — 60s tava perto demais desse limite. Desistir cedo demais é
+    // o que fazia a tela mostrar "sem clientes" mesmo com os dados intactos.
+    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(100000), cache: 'no-store' });
     if (!resp.ok) throw new Error('offline');
     const d = await resp.json();
     // Só aceita dados do servidor se houver conteúdo real (evita sobrescrever com vazio)
@@ -2320,9 +2321,11 @@ async function salvarStorage(_tentativa) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      // 60s (era 12s) — mesmo motivo do carregamento: dar tempo do
-      // salvamento terminar de verdade em vez de desistir cedo demais.
-      signal: AbortSignal.timeout(60000)
+      // 100s (era 60s, e antes 12s) — mesmo motivo do carregamento: nos logs
+      // da Vercel um salvamento levou 43s só de execução no servidor, perto
+      // demais do limite de 60s. Dando mais margem, dá tempo do salvamento
+      // terminar de verdade em vez de desistir cedo demais achando que falhou.
+      signal: AbortSignal.timeout(100000)
     });
     if (resp.status === 409) {
       // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
