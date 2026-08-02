@@ -1182,8 +1182,9 @@ Qualquer dúvida, estamos à disposição!</div>
     <div class="card">
       <h2>💾 Backup dos Dados</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
-        Salve uma cópia de todos os seus clientes, pagamentos e planos no computador.
-        Guarde este arquivo com segurança — ele pode ser reimportado a qualquer momento.
+        Salve uma cópia de todos os seus dados (clientes, pagamentos, planos, instalações, mapa de rede, etc).
+        Guarde este arquivo com segurança — ele pode ser reimportado a qualquer momento.<br>
+        <span style="color:#888;font-size:0.82rem">💡 Dica: na primeira vez, escolha a pasta do seu Google Drive. Nas próximas, ele já abre direto nela — faça isso em cada aparelho (PC e celular) uma vez só.</span>
       </p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="exportarBackup()">📥 Baixar Backup Agora</button>
@@ -7339,9 +7340,15 @@ async function exportarBackup() {
   // do Google Drive (Drive de Backup e Sincronização no PC, ou o provedor
   // "Drive" dentro do seletor de arquivos no Android). Em navegadores sem
   // suporte (ex: iPhone/Safari), cai no download normal de sempre.
+  //
+  // O "id" abaixo faz o navegador LEMBRAR qual pasta foi escolhida da
+  // última vez (nesse aparelho) e já abrir direto nela da próxima vez —
+  // então, depois de escolher a pasta do Drive uma vez em cada aparelho,
+  // os próximos backups já abrem direto lá, sem precisar navegar de novo.
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
+        id: 'cznet-pasta-backup',
         suggestedName: nomeArquivo,
         types: [{ description: 'Backup CZnET (JSON)', accept: { 'application/json': ['.json'] } }]
       });
