@@ -6636,23 +6636,25 @@ function importarDados(modo) {
     if (_dadosImport.cm_categorias)  categorias  = novasCategorias;
     if (novasOlts.length)            olts        = novasOlts;
   } else {
-    // Mesclar: adiciona apenas ids que não existem
-    const idsClientes    = new Set(clientes.map(x => x.id));
-    const idsPagamentos  = new Set(pagamentos.map(x => x.id));
-    const idsPlanos      = new Set(planos.map(x => x.id));
-    const idsInstalacoes = new Set(instalacoes.map(x => x.id));
-    const idsCartoes     = new Set(cartoes.map(x => x.id));
-    const idsSaidas      = new Set(saidas.map(x => x.id));
-    const idsCategorias  = new Set(categorias.map(x => x.id));
-    const idsOlts        = new Set(olts.map(x => x.id));
-    novosClientes.forEach(c    => { if (!idsClientes.has(c.id))    clientes.push(c); });
-    novosPagamentos.forEach(p  => { if (!idsPagamentos.has(p.id))  pagamentos.push(p); });
-    novosPlanos.forEach(pl     => { if (!idsPlanos.has(pl.id))     planos.push(pl); });
-    novasInstalacoes.forEach(i => { if (!idsInstalacoes.has(i.id)) instalacoes.push(i); });
-    novosCartoes.forEach(ct    => { if (!idsCartoes.has(ct.id))    cartoes.push(ct); });
-    novasSaidas.forEach(s      => { if (!idsSaidas.has(s.id))      saidas.push(s); });
-    novasCategorias.forEach(ca => { if (!idsCategorias.has(ca.id)) categorias.push(ca); });
-    novasOlts.forEach(o        => { if (!idsOlts.has(o.id))        olts.push(o); });
+    // Mesclar: adiciona o que for novo E ATUALIZA quem já existe (upsert por
+    // id). Antes, "mesclar" só adicionava — se um cliente já cadastrado
+    // fosse editado (ex: vinculado a uma CTO, telefone alterado) em outro
+    // aparelho, essa edição era ignorada silenciosamente na mesclagem porque
+    // o id já existia aqui. Agora a versão do arquivo importado sempre
+    // "vence" para quem já existe, trazendo a edição de verdade.
+    const upsertPorId = (destino, origem) => {
+      const mapa = new Map(destino.map(x => [x.id, x]));
+      origem.forEach(item => mapa.set(item.id, item));
+      return Array.from(mapa.values());
+    };
+    clientes    = upsertPorId(clientes, novosClientes);
+    pagamentos  = upsertPorId(pagamentos, novosPagamentos);
+    planos      = upsertPorId(planos, novosPlanos);
+    instalacoes = upsertPorId(instalacoes, novasInstalacoes);
+    cartoes     = upsertPorId(cartoes, novosCartoes);
+    saidas      = upsertPorId(saidas, novasSaidas);
+    categorias  = upsertPorId(categorias, novasCategorias);
+    olts        = upsertPorId(olts, novasOlts);
   }
 
   // Configurações de valor único: não fazem sentido "mesclar" (é um texto só),
