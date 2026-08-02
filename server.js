@@ -1,12 +1,17 @@
-const express = require('express');
-const fs      = require('fs');
-const path    = require('path');
+const express     = require('express');
+const compression = require('compression');
+const fs          = require('fs');
+const path        = require('path');
 
 const app          = express();
 const PORT         = process.env.PORT || 3000;
 const MONGODB_URI  = process.env.MONGODB_URI;
 const DATA_FILE    = path.join(__dirname, 'dados.json');
 
+// Comprime as respostas — o /api/data hoje passa de 4MB, e transferir isso
+// sem compressão (principalmente em dados móveis) era uma causa direta de
+// timeout/erro 503 ao carregar no celular.
+app.use(compression());
 app.use(express.json({ limit: '100mb' }));
 
 // Garante que a página principal (o app inteiro) nunca fique presa em cache
@@ -133,7 +138,12 @@ app.get('/api/data', async (req, res) => {
     const data = await lerDadosAtuais();
     res.json(data);
   } catch(e) {
-    res.json({});
+    // Antes isso devolvia 200 com {} — o app interpretava como "servidor
+    // respondeu, só que sem nenhum cliente" e mostrava a tela vazia, em vez
+    // de tratar como falha e manter os dados que já tinha na tela. Agora
+    // devolve um erro de verdade, pro app cair no modo "offline" corretamente.
+    console.error('[api/data] Erro ao ler dados:', e.message);
+    res.status(503).json({ ok: false, erro: 'Servidor temporariamente indisponível', detalhe: e.message });
   }
 });
 
