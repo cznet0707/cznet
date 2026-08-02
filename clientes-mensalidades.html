@@ -870,6 +870,9 @@
         Veja quantos clientes estão instalados em cada CTO e onde estão. Para um cliente aparecer aqui, selecione a
         posição dele (OLT / PON / CTO) no cadastro ou na edição do cliente.
       </p>
+      <div style="margin-bottom:14px">
+        <button class="btn btn-primary" onclick="adicionarNovaOlt()">➕ Nova OLT</button>
+      </div>
       <div id="olt-conteudo"></div>
       <datalist id="lista-clientes-sem-cto"></datalist>
     </div>
@@ -1175,26 +1178,6 @@ Qualquer dúvida, estamos à disposição!</div>
       </div>
     </div>
 
-
-    <div class="card">
-      <h2>🩺 Diagnóstico de Sincronização</h2>
-      <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
-        Se um salvamento falhar, o último erro fica registrado aqui — sem precisar mexer no Vercel.
-      </p>
-      <div id="diag-ultimo-erro" style="background:#f8f9fa;border-radius:8px;padding:12px;font-size:0.85rem;color:#555;margin-bottom:10px"></div>
-      <button class="btn btn-outline" onclick="atualizarDiagnosticoErro()">🔄 Atualizar</button>
-      <button class="btn btn-outline" onclick="localStorage.removeItem('ultimo_erro_salvar'); atualizarDiagnosticoErro()">🗑️ Limpar</button>
-
-      <hr style="margin:18px 0;border:none;border-top:1px solid #eee">
-
-      <h3 style="font-size:1rem;margin-bottom:8px">🔍 Comparar celular x PC</h3>
-      <p style="color:#555;font-size:0.85rem;margin-bottom:10px">
-        Toque em "Verificar agora" neste aparelho e no outro, ao mesmo tempo. Se os números abaixo forem
-        <b>diferentes</b> entre os dois, é sinal de que não estão sincronizados de verdade.
-      </p>
-      <div id="diag-servidor" style="background:#f8f9fa;border-radius:8px;padding:12px;font-size:0.85rem;color:#555;margin-bottom:10px">Toque em "Verificar agora" pra conferir.</div>
-      <button class="btn btn-primary" onclick="verificarServidorAgora()">🌐 Verificar agora (direto no servidor)</button>
-    </div>
 
     <div class="card">
       <h2>💾 Backup dos Dados</h2>
@@ -2280,10 +2263,12 @@ function mostrarToast(mensagem, tipo) {
   setTimeout(() => toast.remove(), tipo === 'ok' ? 2500 : 7000);
 }
 
-async function salvarStorage(_tentativa) {
-  const tentativa = _tentativa || 1;
-  // Nunca salvar no servidor se os dados ainda não foram carregados (evita apagar tudo)
-  if (!dadosCarregados) return;
+// Salva só neste aparelho (localStorage). Sincronização automática com
+// servidor foi desligada de propósito — o sistema agora funciona 100% local
+// por aparelho, e a forma de levar dados de um pra outro é o backup manual
+// (seção "Backup dos Dados" / "Importar Backup" em Configurações).
+async function salvarStorage() {
+  if (!dadosCarregados) return true;
   try {
     localStorage.setItem('cm_clientes',    JSON.stringify(clientes));
     localStorage.setItem('cm_pagamentos',  JSON.stringify(pagamentos));
@@ -2293,137 +2278,12 @@ async function salvarStorage(_tentativa) {
     localStorage.setItem('cm_saidas',      JSON.stringify(saidas));
     localStorage.setItem('cm_categorias',  JSON.stringify(categorias));
     localStorage.setItem('cm_olts',        JSON.stringify(olts));
-  } catch(e) {}
-  // Sincroniza com o servidor em rede
-  const payload = {
-    cm_clientes:           localStorage.getItem('cm_clientes')    || '[]',
-    cm_pagamentos:         localStorage.getItem('cm_pagamentos')  || '[]',
-    cm_planos:             localStorage.getItem('cm_planos')      || '[]',
-    cm_instalacoes:        localStorage.getItem('cm_instalacoes') || '[]',
-    cm_cartoes:            localStorage.getItem('cm_cartoes')     || '[]',
-    cm_saidas:             localStorage.getItem('cm_saidas')      || '[]',
-    cm_categorias:         localStorage.getItem('cm_categorias')  || '[]',
-    cm_olts:               localStorage.getItem('cm_olts')        || '[]',
-    cm_empresa:            localStorage.getItem('cm_empresa')     || '{}',
-    cm_msg:                localStorage.getItem('cm_msg')         || '',
-    cm_msg_boleto:         localStorage.getItem('cm_msg_boleto')  || '',
-    cm_msg_profissional:   localStorage.getItem('cm_msg_profissional') || '',
-    cm_msg_agradecimento:  localStorage.getItem('cm_msg_agradecimento') || '',
-    cm_qrcode:             localStorage.getItem('cm_qrcode')      || '',
-    cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
-    // Usado pelo servidor para detectar se outro dispositivo já salvou uma
-    // versão mais nova entre a nossa última leitura e este save (evita
-    // sobrescrever silenciosamente as mudanças de outro dispositivo).
-    _baseUpdatedAt: ultimoUpdatedAt
-  };
-  try {
-    const resp = await fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      // 100s (era 60s, e antes 12s) — mesmo motivo do carregamento: nos logs
-      // da Vercel um salvamento levou 43s só de execução no servidor, perto
-      // demais do limite de 60s. Dando mais margem, dá tempo do salvamento
-      // terminar de verdade em vez de desistir cedo demais achando que falhou.
-      signal: AbortSignal.timeout(100000)
-    });
-    if (resp.status === 409) {
-      // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
-      // leitura e este save. Antes, isso reenviava os MESMOS dados locais
-      // (que não tinham a mudança feita no outro aparelho), sobrescrevendo-a
-      // silenciosamente. Agora, mesclamos: pegamos a versão mais nova do
-      // servidor como base e só adicionamos por cima o que é realmente novo
-      // e ainda não salvo neste aparelho (ex: um cliente ou pagamento que
-      // acabamos de lançar), preservando as mudanças feitas em outro lugar.
-      let j = {};
-      try { j = await resp.json(); } catch(e) {}
-      const dServ = j.data || {};
-
-      try {
-        // Mesma proteção do carregarDoServidor: um cliente excluído há pouco
-        // aqui não pode ser trazido de volta pela mesclagem de conflito.
-        const idsExcluidos = idsClientesExcluidosRecentemente();
-        let clientesServ    = dServ.cm_clientes    ? JSON.parse(dServ.cm_clientes)    : clientes;
-        let pagamentosServ  = dServ.cm_pagamentos  ? JSON.parse(dServ.cm_pagamentos)  : pagamentos;
-        const instalacoesServ = dServ.cm_instalacoes ? JSON.parse(dServ.cm_instalacoes) : instalacoes;
-        if (idsExcluidos.size) {
-          clientesServ   = clientesServ.filter(c => !idsExcluidos.has(c.id));
-          pagamentosServ = pagamentosServ.filter(p => !idsExcluidos.has(p.clienteId));
-        }
-
-        // Pagamentos: união pelo id — mantém tudo que já estava no servidor
-        // e adiciona qualquer pagamento novo feito aqui que ainda não chegou lá.
-        const idsPagServ = new Set(pagamentosServ.map(p => p.id));
-        const pagamentosNovosLocais = pagamentos.filter(p => !idsPagServ.has(p.id));
-        pagamentos = [...pagamentosServ, ...pagamentosNovosLocais];
-
-        // Clientes: mesma lógica para clientes novos cadastrados aqui que
-        // ainda não estavam no servidor. Clientes já existentes usam a
-        // versão do servidor (mais recente) para não desfazer edições feitas
-        // em outro aparelho — EXCETO os que acabamos de editar agora mesmo
-        // neste aparelho (idsModificados), onde mantemos a nossa versão local
-        // pra não perder a edição que ainda não tinha sido confirmada.
-        const idsModificados = idsClientesModificadosRecentemente();
-        const clientesLocaisPorId = new Map(clientes.map(c => [c.id, c]));
-        if (idsModificados.size) {
-          clientesServ = clientesServ.map(c => idsModificados.has(c.id) && clientesLocaisPorId.has(c.id) ? clientesLocaisPorId.get(c.id) : c);
-        }
-        const idsCliServ = new Set(clientesServ.map(c => c.id));
-        const clientesNovosLocais = clientes.filter(c => !idsCliServ.has(c.id));
-        clientes = [...clientesServ, ...clientesNovosLocais];
-
-        // Instalações: mesma lógica de união pelo id.
-        const idsInstServ = new Set(instalacoesServ.map(i => i.id));
-        const instalacoesNovasLocais = instalacoes.filter(i => !idsInstServ.has(i.id));
-        instalacoes = [...instalacoesServ, ...instalacoesNovasLocais];
-
-        localStorage.setItem('cm_clientes', JSON.stringify(clientes));
-        localStorage.setItem('cm_pagamentos', JSON.stringify(pagamentos));
-        localStorage.setItem('cm_instalacoes', JSON.stringify(instalacoes));
-        try { renderDashboard(); renderClientes(document.getElementById('input-busca-clientes')?.value || ''); } catch(e2) {}
-      } catch(eMerge) {
-        console.error('Erro ao mesclar dados após conflito:', eMerge);
-      }
-
-      ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
-
-      if (tentativa < 3) {
-        await new Promise(r => setTimeout(r, 400 * tentativa)); // pequena pausa antes de tentar de novo
-        return salvarStorage(tentativa + 1);
-      }
-
-      // Esgotou as 3 tentativas automáticas de salvar (mesmo já mesclando os
-      // dados a cada vez). Mantém a versão já mesclada na tela — é a melhor
-      // candidata que temos — e avisa o usuário pra conferir e tentar salvar
-      // de novo manualmente se precisar.
-      mostrarToast('⚠️ Muitas mudanças acontecendo ao mesmo tempo em outro aparelho. Tentamos combinar tudo automaticamente, mas não deu tempo de confirmar com o servidor. Confira os dados na tela.', 'erro');
-      return false;
-    }
-    if (resp.ok) {
-      const j = await resp.json();
-      if (j.updatedAt) ultimoUpdatedAt = j.updatedAt;
-      return j.ok === true;
-    }
-    // Erro do servidor (ex: 500) que não é conflito — antes isso falhava
-    // silenciosamente. Agora mostramos o motivo exato na tela (toast, mais
-    // confiável que alert() em celular) e guardamos pra conferir depois.
-    let msgErro = `Erro ${resp.status} ao salvar.`;
-    try {
-      const j = await resp.json();
-      if (j.erro) msgErro += ` Detalhe: ${j.erro}`;
-    } catch(e4) {}
-    localStorage.setItem('ultimo_erro_salvar', `${new Date().toLocaleString('pt-BR')} — ${msgErro}`);
-    mostrarToast(`⚠️ Erro ao salvar no servidor: ${msgErro}`, 'erro');
-    return false;
   } catch(e) {
-    // Erro de rede/timeout (ex: sem internet) — também avisa, mas com
-    // mensagem diferente, já que aqui nem chegou resposta do servidor.
-    if (tentativa >= 3) {
-      localStorage.setItem('ultimo_erro_salvar', `${new Date().toLocaleString('pt-BR')} — Sem conexão com o servidor (timeout/offline)`);
-      mostrarToast('⚠️ Sem conexão com o servidor. Alterações salvas só neste aparelho por enquanto.', 'erro');
-    }
-    return false; // offline ou timeout
+    console.error('Erro ao salvar no localStorage:', e);
+    mostrarToast('⚠️ Erro ao salvar neste aparelho: ' + e.message, 'erro');
+    return false;
   }
+  return true;
 }
 
 // ============================================================
@@ -2708,9 +2568,9 @@ async function salvarCliente(e) {
 
   const salvou = await salvarStorage();
   if (salvou) {
-    mostrarToast('✅ Cliente cadastrado e salvo no servidor!', 'ok');
+    mostrarToast('✅ Cliente cadastrado!', 'ok');
   } else {
-    mostrarToast('⚠️ Cliente salvo só neste aparelho — não foi possível confirmar com o servidor. Confira a conexão e tente sincronizar de novo.', 'erro');
+    mostrarToast('⚠️ Erro ao salvar o cliente neste aparelho.', 'erro');
   }
 }
 function toggleCamposInstalacaoCadastro() {
@@ -2959,7 +2819,7 @@ function salvarMesInicioSistema() {
   ok.style.display = 'inline';
   setTimeout(() => ok.style.display = 'none', 2000);
   renderDashboard();
-  salvarStorage(); // Salva no servidor também
+  salvarStorage();
 }
 
 // ============================================================
@@ -3595,7 +3455,7 @@ async function confirmarEdicao() {
   fecharModal(); renderClientes(); renderSelectClientes();
   const salvou = await salvarStorage();
   mostrarToast(
-    salvou ? '✅ Alterações salvas no servidor!' : '⚠️ Alterações salvas só neste aparelho — não foi possível confirmar com o servidor. Verifique a conexão.',
+    salvou ? '✅ Alterações salvas!' : '⚠️ Erro ao salvar as alterações neste aparelho.',
     salvou ? 'ok' : 'erro'
   );
 }
@@ -3616,7 +3476,7 @@ async function confirmarExclusao() {
   fecharModal(); renderClientes(); renderDashboard();
   const salvou = await salvarStorage();
   mostrarToast(
-    salvou ? '✅ Cliente excluído e salvo no servidor!' : '⚠️ Cliente excluído neste aparelho — ainda tentando confirmar com o servidor. Verifique a conexão.',
+    salvou ? '✅ Cliente excluído!' : '⚠️ Erro ao excluir neste aparelho.',
     salvou ? 'ok' : 'erro'
   );
 }
@@ -3901,7 +3761,13 @@ function renderOlt() {
 
     box.innerHTML = olts.map(olt => `
       <div style="margin-bottom:22px">
-        <h3 style="color:#0a4fa0;margin-bottom:10px">🗼 ${olt.nome}</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <h3 style="color:#0a4fa0;margin:0">🗼 ${olt.nome}</h3>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarNovaPon('${olt.id}')">➕ Nova PON</button>
+            <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerOlt('${olt.id}')">🗑️ Remover OLT</button>
+          </div>
+        </div>
         <div style="display:flex;flex-direction:column;gap:14px">
           ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
         </div>
@@ -3934,6 +3800,7 @@ function renderPonHtml(olt, pon) {
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:0.78rem;color:#777">${totalOcupadas}/${totalVagas} vagas ocupadas</span>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarDerivacaoCto('${olt.id}','${pon.id}')">➕ Derivação</button>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerPon('${olt.id}','${pon.id}')">🗑️ Remover PON</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
@@ -4018,7 +3885,7 @@ async function adicionarClienteNaCtoPorNome(ctoId) {
   // aparelho, sem avisar ninguém, e o PC nunca via a vinculação.
   const salvou = await salvarStorage();
   mostrarToast(
-    salvou ? `✅ ${cliente.nome} vinculado à CTO e salvo no servidor!` : `⚠️ Vínculo salvo só neste aparelho — não foi possível confirmar com o servidor. Verifique a conexão e tente de novo.`,
+    salvou ? `✅ ${cliente.nome} vinculado à CTO!` : `⚠️ Erro ao salvar o vínculo neste aparelho.`,
     salvou ? 'ok' : 'erro'
   );
 }
@@ -4032,7 +3899,7 @@ async function removerClienteDaCto(clienteId) {
   marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
-  if (!salvou) mostrarToast('⚠️ Alteração salva só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a alteração neste aparelho.', 'erro');
 }
 
 // Edição rápida do PPPoE direto na tela da OLT — pensado exatamente pra
@@ -4047,7 +3914,7 @@ async function editarPppoeRapido(clienteId) {
   marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
-  if (!salvou) mostrarToast('⚠️ PPPoE salvo só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar o PPPoE neste aparelho.', 'erro');
 }
 
 async function editarCapacidadeCto(ctoId) {
@@ -4060,7 +3927,74 @@ async function editarCapacidadeCto(ctoId) {
   cto.capacidade = num;
   renderOlt();
   const salvou = await salvarStorage();
-  if (!salvou) mostrarToast('⚠️ Capacidade salva só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a capacidade neste aparelho.', 'erro');
+}
+
+// Cria uma OLT nova (equipamento físico novo), com o número de PONs que o
+// usuário informar. Cada PON já vem com 8 CTOs padrão (igual às OLTs iniciais).
+function adicionarNovaOlt() {
+  const nome = prompt('Nome da nova OLT (ex: "OLT 3", "OLT Bairro Novo"):');
+  if (!nome || !nome.trim()) return;
+  const qtdPons = parseInt(prompt('Quantas PONs essa OLT tem? (ex: 8)', '8'));
+  if (!qtdPons || qtdPons < 1) { alert('Quantidade de PONs inválida.'); return; }
+
+  const oltId = `olt-${Date.now()}`;
+  const pons = [];
+  for (let p = 1; p <= qtdPons; p++) {
+    const ctos = [];
+    for (let c = 1; c <= 8; c++) {
+      ctos.push({ id: `${oltId}-pon${p}-cto${c}`, numero: c, capacidade: 8, derivacao: '' });
+    }
+    pons.push({ id: `${oltId}-pon${p}`, numero: p, ctos });
+  }
+  olts.push({ id: oltId, nome: nome.trim(), pons });
+  salvarStorage();
+  renderOlt();
+  mostrarToast('✅ OLT criada!', 'ok');
+}
+
+// Adiciona uma PON nova dentro de uma OLT já existente (ex: expandiu a rede
+// e precisa de mais uma porta PON nessa OLT). Já vem com 8 CTOs padrão.
+function adicionarNovaPon(oltId) {
+  const olt = olts.find(o => o.id === oltId); if (!olt) return;
+  const proximoNumero = olt.pons.length ? Math.max(...olt.pons.map(p => p.numero)) + 1 : 1;
+  const numero = parseInt(prompt('Número da nova PON:', String(proximoNumero))) || proximoNumero;
+
+  const ponId = `${oltId}-pon-${Date.now()}`;
+  const ctos = [];
+  for (let c = 1; c <= 8; c++) {
+    ctos.push({ id: `${ponId}-cto${c}`, numero: c, capacidade: 8, derivacao: '' });
+  }
+  olt.pons.push({ id: ponId, numero, ctos });
+  salvarStorage();
+  renderOlt();
+  mostrarToast('✅ PON criada!', 'ok');
+}
+
+// Remove uma OLT inteira — só permite se não houver nenhum cliente vinculado
+// a ela (evita apagar posição de clientes por engano).
+function removerOlt(oltId) {
+  const olt = olts.find(o => o.id === oltId); if (!olt) return;
+  const ctoIds = new Set(olt.pons.flatMap(p => p.ctos.map(c => c.id)));
+  const temCliente = clientes.some(c => c.ctoRedeId && ctoIds.has(c.ctoRedeId));
+  if (temCliente) { alert('Não é possível remover: existem clientes vinculados a CTOs desta OLT. Mova-os antes de remover.'); return; }
+  if (!confirm(`Remover "${olt.nome}" e todas as suas PONs/CTOs?`)) return;
+  olts = olts.filter(o => o.id !== oltId);
+  salvarStorage();
+  renderOlt();
+}
+
+// Remove uma PON — mesma proteção: só se não houver cliente vinculado.
+function removerPon(oltId, ponId) {
+  const olt = olts.find(o => o.id === oltId); if (!olt) return;
+  const pon = olt.pons.find(p => p.id === ponId); if (!pon) return;
+  const ctoIds = new Set(pon.ctos.map(c => c.id));
+  const temCliente = clientes.some(c => c.ctoRedeId && ctoIds.has(c.ctoRedeId));
+  if (temCliente) { alert('Não é possível remover: existem clientes vinculados a CTOs desta PON. Mova-os antes de remover.'); return; }
+  if (!confirm(`Remover PON ${pon.numero} e todas as suas CTOs?`)) return;
+  olt.pons = olt.pons.filter(p => p.id !== ponId);
+  salvarStorage();
+  renderOlt();
 }
 
 // Adiciona uma CTO extra dentro de um PON, para representar uma derivação
@@ -6500,15 +6434,10 @@ async function desfazerPagamento(clienteId, mes) {
   if (!confirm(`Desfazer pagamento de ${c.nome} referente a ${mesNome}?`)) return;
   pagamentos = pagamentos.filter(p => !(p.clienteId === clienteId && p.mes === mes));
   try { renderDashboard(); renderHistorico(); renderClientes(); } catch(e) { console.error('Render error:', e); }
-  let salvou = await salvarStorage();
-  if (!salvou) {
-    // Tenta uma vez mais após 2 segundos
-    await new Promise(r => setTimeout(r, 2000));
-    salvou = await salvarStorage();
-  }
+  const salvou = await salvarStorage();
   // Toast de confirmação
   const toast = document.createElement('div');
-  toast.textContent = salvou ? '↩ Pagamento desfeito e salvo!' : '↩ Desfeito localmente — sem conexão com servidor';
+  toast.textContent = salvou ? '↩ Pagamento desfeito!' : '↩ Erro ao salvar neste aparelho';
   toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${salvou?'#1e7e34':'#c0392b'};color:#fff;padding:10px 22px;border-radius:20px;z-index:9999;font-size:0.95rem;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), salvou ? 2500 : 4000);
@@ -6528,15 +6457,10 @@ function lancarRapido(clienteId, mesRef) {
     _ultimoPagClienteId = clienteId; _ultimoPagMes = mes;
     renderDashboard();
 
-    let salvou = await salvarStorage();
-    if (!salvou) {
-      // Tenta uma vez mais após 2 segundos antes de desistir
-      await new Promise(r => setTimeout(r, 2000));
-      salvou = await salvarStorage();
-    }
+    const salvou = await salvarStorage();
     // Toast de confirmação visível (mais confiável que alert() no celular)
     const toast = document.createElement('div');
-    toast.textContent = salvou ? '✅ Pagamento salvo!' : '⚠️ Pagamento salvo só neste aparelho — sem conexão com o servidor. Abra o app novamente com internet para sincronizar.';
+    toast.textContent = salvou ? '✅ Pagamento salvo!' : '⚠️ Erro ao salvar neste aparelho.';
     toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${salvou?'#1e7e34':'#c0392b'};color:#fff;padding:10px 22px;border-radius:20px;z-index:9999;font-size:0.95rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;text-align:center`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), salvou ? 2500 : 6000);
@@ -6663,11 +6587,13 @@ function lerArquivoImport(input) {
   reader.onload = function(e) {
     try {
       _dadosImport = JSON.parse(e.target.result);
-      const c  = (_dadosImport.cm_clientes   || []).length;
-      const pg = (_dadosImport.cm_pagamentos || []).length;
-      const pl = (_dadosImport.cm_planos     || []).length;
+      const c  = (_dadosImport.cm_clientes    || []).length;
+      const pg = (_dadosImport.cm_pagamentos  || []).length;
+      const pl = (_dadosImport.cm_planos      || []).length;
+      const ins = (_dadosImport.cm_instalacoes || []).length;
+      const sd = (_dadosImport.cm_saidas      || []).length;
       document.getElementById('import-resumo').innerHTML =
-        `🧑‍💼 <strong>${c}</strong> clientes &nbsp;|&nbsp; 💰 <strong>${pg}</strong> pagamentos &nbsp;|&nbsp; 📦 <strong>${pl}</strong> planos`;
+        `🧑‍💼 <strong>${c}</strong> clientes &nbsp;|&nbsp; 💰 <strong>${pg}</strong> pagamentos &nbsp;|&nbsp; 📦 <strong>${pl}</strong> planos &nbsp;|&nbsp; 🔧 <strong>${ins}</strong> instalações &nbsp;|&nbsp; 💳 <strong>${sd}</strong> saídas`;
       document.getElementById('import-preview').style.display = 'block';
     } catch(err) {
       alert('Arquivo inválido ou corrompido!');
@@ -6677,11 +6603,20 @@ function lerArquivoImport(input) {
   reader.readAsText(file);
 }
 
+// Importa TUDO que está no arquivo de backup (antes só trazia clientes,
+// pagamentos e planos — instalações, cartões, saídas, categorias, mapa de
+// rede (OLT/PON/CTO), QR code e configurações ficavam de fora e sumiam ao
+// levar o backup para outro aparelho).
 function importarDados(modo) {
   if (!_dadosImport) return;
-  const novosClientes   = _dadosImport.cm_clientes   || [];
-  const novosPagamentos = _dadosImport.cm_pagamentos || [];
-  const novosPlanos     = _dadosImport.cm_planos     || [];
+  const novosClientes    = _dadosImport.cm_clientes    || [];
+  const novosPagamentos  = _dadosImport.cm_pagamentos  || [];
+  const novosPlanos      = _dadosImport.cm_planos      || [];
+  const novasInstalacoes = _dadosImport.cm_instalacoes || [];
+  const novosCartoes     = _dadosImport.cm_cartoes     || [];
+  const novasSaidas      = _dadosImport.cm_saidas      || [];
+  const novasCategorias  = _dadosImport.cm_categorias  || [];
+  const novasOlts        = _dadosImport.cm_olts        || [];
 
   if (modo === 'substituir') {
     if (!confirm(`⚠️ Isso vai APAGAR todos os ${clientes.length} clientes, ${pagamentos.length} pagamentos e ${planos.length} planos atuais e substituir pelos ${novosClientes.length} do arquivo. Confirma?`)) return;
@@ -6691,21 +6626,47 @@ function importarDados(modo) {
       alert(`🛑 Importação bloqueada por segurança!\n\nO arquivo selecionado tem apenas ${novosPagamentos.length} pagamentos, mas o sistema atualmente tem ${pagamentos.length}.\n\nIsso indica que o arquivo é um backup incompleto ou desatualizado. Substituir agora apagaria baixas já registradas.\n\nSe tiver certeza que quer usar este arquivo mesmo assim, use a opção "Mesclar" em vez de "Substituir".`);
       return;
     }
-    clientes   = novosClientes;
-    pagamentos = novosPagamentos;
-    planos     = novosPlanos;
+    clientes    = novosClientes;
+    pagamentos  = novosPagamentos;
+    planos      = novosPlanos;
+    if (_dadosImport.cm_instalacoes) instalacoes = novasInstalacoes;
+    if (_dadosImport.cm_cartoes)     cartoes     = novosCartoes;
+    if (_dadosImport.cm_saidas)      saidas      = novasSaidas;
+    if (_dadosImport.cm_categorias)  categorias  = novasCategorias;
+    if (novasOlts.length)            olts        = novasOlts;
   } else {
     // Mesclar: adiciona apenas ids que não existem
-    const idsClientes   = new Set(clientes.map(x => x.id));
-    const idsPagamentos = new Set(pagamentos.map(x => x.id));
-    const idsPlanos     = new Set(planos.map(x => x.id));
-    novosClientes.forEach(c   => { if (!idsClientes.has(c.id))   clientes.push(c); });
-    novosPagamentos.forEach(p => { if (!idsPagamentos.has(p.id)) pagamentos.push(p); });
-    novosPlanos.forEach(pl    => { if (!idsPlanos.has(pl.id))    planos.push(pl); });
+    const idsClientes    = new Set(clientes.map(x => x.id));
+    const idsPagamentos  = new Set(pagamentos.map(x => x.id));
+    const idsPlanos      = new Set(planos.map(x => x.id));
+    const idsInstalacoes = new Set(instalacoes.map(x => x.id));
+    const idsCartoes     = new Set(cartoes.map(x => x.id));
+    const idsSaidas      = new Set(saidas.map(x => x.id));
+    const idsCategorias  = new Set(categorias.map(x => x.id));
+    const idsOlts        = new Set(olts.map(x => x.id));
+    novosClientes.forEach(c    => { if (!idsClientes.has(c.id))    clientes.push(c); });
+    novosPagamentos.forEach(p  => { if (!idsPagamentos.has(p.id))  pagamentos.push(p); });
+    novosPlanos.forEach(pl     => { if (!idsPlanos.has(pl.id))     planos.push(pl); });
+    novasInstalacoes.forEach(i => { if (!idsInstalacoes.has(i.id)) instalacoes.push(i); });
+    novosCartoes.forEach(ct    => { if (!idsCartoes.has(ct.id))    cartoes.push(ct); });
+    novasSaidas.forEach(s      => { if (!idsSaidas.has(s.id))      saidas.push(s); });
+    novasCategorias.forEach(ca => { if (!idsCategorias.has(ca.id)) categorias.push(ca); });
+    novasOlts.forEach(o        => { if (!idsOlts.has(o.id))        olts.push(o); });
   }
+
+  // Configurações de valor único: não fazem sentido "mesclar" (é um texto só),
+  // então sempre trazemos do arquivo quando ele tiver o campo preenchido.
+  if (_dadosImport.cm_empresa)            localStorage.setItem('cm_empresa', JSON.stringify(_dadosImport.cm_empresa));
+  if (_dadosImport.cm_msg)                localStorage.setItem('cm_msg', _dadosImport.cm_msg);
+  if (_dadosImport.cm_msg_boleto)         localStorage.setItem('cm_msg_boleto', _dadosImport.cm_msg_boleto);
+  if (_dadosImport.cm_msg_profissional)   localStorage.setItem('cm_msg_profissional', _dadosImport.cm_msg_profissional);
+  if (_dadosImport.cm_msg_agradecimento)  localStorage.setItem('cm_msg_agradecimento', _dadosImport.cm_msg_agradecimento);
+  if (_dadosImport.cm_qrcode)             localStorage.setItem('cm_qrcode', _dadosImport.cm_qrcode);
+  if (_dadosImport.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', _dadosImport.cm_mes_inicio_sistema);
 
   salvarStorage();
   renderClientes(); renderDashboard(); renderHistorico(); renderPlanos();
+  try { renderOlt(); } catch(e) {}
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-filename').textContent = '';
   document.getElementById('import-file').value = '';
@@ -7346,27 +7307,69 @@ function renderTabelaSaidas() {
 }
 
 
-function exportarBackup() {
+// Gera o backup com TUDO (antes faltava instalações, cartões, saídas,
+// categorias, mapa de rede OLT/PON/CTO, QR code e mês de início — um backup
+// assim incompleto perdia essas informações ao importar em outro aparelho,
+// que é agora a única forma de levar dados de um aparelho pro outro).
+async function exportarBackup() {
   const dados = {
     sistema: 'CZnET Telecom - Controle de Mensalidades',
     dataBackup: new Date().toISOString(),
-    cm_clientes:   clientes,
-    cm_pagamentos: pagamentos,
-    cm_planos:     planos,
+    cm_clientes:    clientes,
+    cm_pagamentos:  pagamentos,
+    cm_planos:      planos,
+    cm_instalacoes: instalacoes,
+    cm_cartoes:     cartoes,
+    cm_saidas:      saidas,
+    cm_categorias:  categorias,
+    cm_olts:        olts,
     cm_empresa:    getCfgEmpresa(),
     cm_msg:        localStorage.getItem('cm_msg')        || '',
     cm_msg_boleto: localStorage.getItem('cm_msg_boleto') || '',
     cm_msg_profissional: localStorage.getItem('cm_msg_profissional') || '',
     cm_msg_agradecimento: localStorage.getItem('cm_msg_agradecimento') || '',
+    cm_qrcode:             localStorage.getItem('cm_qrcode') || '',
+    cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
   };
-  const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+  const conteudo = JSON.stringify(dados, null, 2);
+  const nomeArquivo = `backup_cznet_${fmtData()}.json`;
+
+  // Se o navegador suportar (Chrome/Edge no PC e no Android), abre o
+  // seletor nativo de "Salvar como" — assim dá pra escolher direto a pasta
+  // do Google Drive (Drive de Backup e Sincronização no PC, ou o provedor
+  // "Drive" dentro do seletor de arquivos no Android). Em navegadores sem
+  // suporte (ex: iPhone/Safari), cai no download normal de sempre.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: nomeArquivo,
+        types: [{ description: 'Backup CZnET (JSON)', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(conteudo);
+      await writable.close();
+      marcarBackupFeito();
+      mostrarToast('✅ Backup salvo!', 'ok');
+      return;
+    } catch(e) {
+      // Usuário cancelou o seletor — não faz nada (não força o download por baixo).
+      if (e && e.name === 'AbortError') return;
+      console.warn('Seletor de arquivo falhou, usando download normal:', e);
+    }
+  }
+
+  // Fallback: download comum (vai para a pasta padrão de Downloads do navegador)
+  const blob = new Blob([conteudo], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const data = fmtData();
   a.href     = url;
-  a.download = `backup_cznet_${data}.json`;
+  a.download = nomeArquivo;
   a.click();
   URL.revokeObjectURL(url);
+  marcarBackupFeito();
+}
+
+function marcarBackupFeito() {
   localStorage.setItem('cm_ultimo_backup', new Date().toLocaleString('pt-BR'));
   const el = document.getElementById('backup-ultima');
   if (el) el.textContent = `Último backup: ${localStorage.getItem('cm_ultimo_backup')}`;
@@ -7711,6 +7714,7 @@ function verificarAvisoDezembroBackup() {
     const _ct = localStorage.getItem('cm_cartoes');
     const _sa = localStorage.getItem('cm_saidas');
     const _ca = localStorage.getItem('cm_categorias');
+    const _ol = localStorage.getItem('cm_olts');
     if (_c  && _c  !== '[]') clientes    = JSON.parse(_c);
     if (_p  && _p  !== '[]') pagamentos  = JSON.parse(_p);
     if (_pl && _pl !== '[]') planos      = JSON.parse(_pl);
@@ -7718,42 +7722,25 @@ function verificarAvisoDezembroBackup() {
     if (_ct && _ct !== '[]') cartoes     = JSON.parse(_ct);
     if (_sa && _sa !== '[]') saidas      = JSON.parse(_sa);
     if (_ca && _ca !== '[]') categorias  = JSON.parse(_ca);
-    if (clientes.length > 0) {
-      dadosCarregados = true;
-      atualizarSelectPlanos();
-      renderDashboard();
-      renderSelectClientes();
-      renderClientes();
-    }
+    if (_ol && _ol !== '[]') olts        = JSON.parse(_ol);
+    // dadosCarregados = true sempre, mesmo com 0 clientes (aparelho novo) —
+    // sincronização automática com servidor foi desligada de propósito: o
+    // app agora é 100% local por aparelho, e os dados só viajam entre
+    // aparelhos por backup manual (Configurações > Backup dos Dados).
+    dadosCarregados = true;
+    atualizarSelectPlanos();
+    renderDashboard();
+    renderSelectClientes();
+    renderClientes();
   } catch(e) {}
+  if (!Array.isArray(olts) || olts.length === 0) olts = gerarOltsPadrao();
 
-  // 2. Sincronizar com servidor (fonte de verdade)
-  await carregarDoServidor();
-  atualizarSelectPlanos();
   popularSelectOlt('c');
-  renderDashboard();
-  renderSelectClientes();
-  renderClientes();
   verificarAvisoDezembroBackup();
   // Mostrar data do último backup
   const el = document.getElementById('backup-ultima');
   const v  = localStorage.getItem('cm_ultimo_backup');
   if (el && v) el.textContent = 'Último backup: ' + v;
-  // Recarregar do servidor a cada 2 minutos.
-  // Era a cada 30s, mas o banco (plano gratuito) não aguenta esse volume de
-  // pedidos indo buscar o pacote inteiro de dados com tanta frequência — isso
-  // era uma das causas da lentidão/erro ao sincronizar entre aparelhos.
-  setInterval(async () => {
-    try {
-      await carregarDoServidor();
-      renderDashboard();
-      renderClientes(document.getElementById('input-busca-clientes')?.value || '');
-    } catch (erroSync) {
-      // Nunca deixa um erro na sincronização automática travar o app ou
-      // deixar a tela em branco silenciosamente.
-      console.error('Erro na sincronização automática:', erroSync);
-    }
-  }, 120000); // Sincroniza a cada 2 minutos
 })();
 
 // (Removido o auto-save no fechamento/recarregamento da página — ele podia
