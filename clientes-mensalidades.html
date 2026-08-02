@@ -1912,26 +1912,48 @@ async function carregarDoServidor() {
       // carimbo de tempo) — isso evita "ressuscitar" um item antigo que foi
       // de fato apagado em outro aparelho.
       const LIMITE_RECENTE = Date.now() - 2 * 60 * 1000;
+
+      // Proteção extra: se a lista que veio do servidor for muito menor do
+      // que a que já está na tela (menos da metade, por exemplo), é sinal de
+      // uma resposta incompleta/instável — melhor ignorar essa atualização
+      // específica e manter o que já estava mostrando, do que aceitar uma
+      // lista claramente errada e "apagar" a tela.
+      function respostaSuspeita(servArr, localArr) {
+        return localArr.length >= 5 && servArr.length < localArr.length * 0.5;
+      }
+
       if (d.cm_clientes) {
         const clientesServ = JSON.parse(d.cm_clientes);
-        const idsServ = new Set(clientesServ.map(c => c.id));
-        const localNovos = clientes.filter(c => !idsServ.has(c.id) && c.id > LIMITE_RECENTE);
-        clientes = [...clientesServ, ...localNovos];
-        localStorage.setItem('cm_clientes', JSON.stringify(clientes));
+        if (respostaSuspeita(clientesServ, clientes)) {
+          console.warn(`⚠️ Ignorando atualização de clientes: servidor mandou ${clientesServ.length}, mas já tínhamos ${clientes.length} na tela.`);
+        } else {
+          const idsServ = new Set(clientesServ.map(c => c.id));
+          const localNovos = clientes.filter(c => !idsServ.has(c.id) && c.id > LIMITE_RECENTE);
+          clientes = [...clientesServ, ...localNovos];
+          localStorage.setItem('cm_clientes', JSON.stringify(clientes));
+        }
       }
       if (d.cm_pagamentos) {
         const pagamentosServ = JSON.parse(d.cm_pagamentos);
-        const idsServ = new Set(pagamentosServ.map(p => p.id));
-        const localNovos = pagamentos.filter(p => !idsServ.has(p.id) && p.id > LIMITE_RECENTE);
-        pagamentos = [...pagamentosServ, ...localNovos];
-        localStorage.setItem('cm_pagamentos', JSON.stringify(pagamentos));
+        if (respostaSuspeita(pagamentosServ, pagamentos)) {
+          console.warn(`⚠️ Ignorando atualização de pagamentos: servidor mandou ${pagamentosServ.length}, mas já tínhamos ${pagamentos.length} na tela.`);
+        } else {
+          const idsServ = new Set(pagamentosServ.map(p => p.id));
+          const localNovos = pagamentos.filter(p => !idsServ.has(p.id) && p.id > LIMITE_RECENTE);
+          pagamentos = [...pagamentosServ, ...localNovos];
+          localStorage.setItem('cm_pagamentos', JSON.stringify(pagamentos));
+        }
       }
       if (d.cm_instalacoes) {
         const instalacoesServ = JSON.parse(d.cm_instalacoes);
-        const idsServ = new Set(instalacoesServ.map(i => i.id));
-        const localNovos = instalacoes.filter(i => !idsServ.has(i.id) && i.id > LIMITE_RECENTE);
-        instalacoes = [...instalacoesServ, ...localNovos];
-        localStorage.setItem('cm_instalacoes', JSON.stringify(instalacoes));
+        if (respostaSuspeita(instalacoesServ, instalacoes)) {
+          console.warn(`⚠️ Ignorando atualização de instalações: servidor mandou ${instalacoesServ.length}, mas já tínhamos ${instalacoes.length} na tela.`);
+        } else {
+          const idsServ = new Set(instalacoesServ.map(i => i.id));
+          const localNovos = instalacoes.filter(i => !idsServ.has(i.id) && i.id > LIMITE_RECENTE);
+          instalacoes = [...instalacoesServ, ...localNovos];
+          localStorage.setItem('cm_instalacoes', JSON.stringify(instalacoes));
+        }
       }
       if (d.cm_planos)       { planos       = JSON.parse(d.cm_planos);       localStorage.setItem('cm_planos', d.cm_planos); }
       if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
