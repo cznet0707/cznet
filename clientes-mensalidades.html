@@ -7743,11 +7743,16 @@ function verificarAvisoDezembroBackup() {
   if (el && v) el.textContent = 'Último backup: ' + v;
 })();
 
-// (Removido o auto-save no fechamento/recarregamento da página — ele podia
-// salvar uma versão desatualizada por cima de mudanças mais novas feitas em
-// outro aparelho, já que o dado local podia estar velho na hora do fechamento.
-// Os salvamentos já acontecem normalmente a cada ação do usuário.)
-
+// Salva de novo ao fechar/trocar de aba, como rede de segurança extra.
+// (Antes isso era arriscado porque podia sobrescrever com uma versão velha
+// as mudanças feitas em outro aparelho — mas agora que a sincronização
+// automática entre aparelhos foi desligada e cada aparelho é local, não tem
+// mais esse risco. Na prática cada ação já salva na hora mesmo, então isso
+// aqui é só uma garantia a mais.)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') salvarStorage();
+});
+window.addEventListener('pagehide', () => { salvarStorage(); });
 </script>
 
 <script>
