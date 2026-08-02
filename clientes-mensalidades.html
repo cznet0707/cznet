@@ -1870,6 +1870,30 @@ let dadosCarregados = false;
 // detectar se outro dispositivo salvou algo novo antes de nós salvarmos).
 let ultimoUpdatedAt = null;
 
+// Exclusões recentes de cliente: a sincronização (carregarDoServidor) e a
+// mesclagem de conflito (salvarStorage) só sabem UNIR o que é novo — não têm
+// como saber que um cliente foi excluído, então se a exclusão ainda não
+// tinha sido confirmada pelo servidor, o cliente "voltava sozinho" na tela.
+// Guardamos aqui o id de quem acabou de ser excluído por alguns minutos, pra
+// essas rotinas saberem ignorar esse cliente mesmo que o servidor ainda
+// mande ele de volta.
+const JANELA_EXCLUSAO_MS = 5 * 60 * 1000;
+function marcarClienteExcluido(id) {
+  let lista = [];
+  try { lista = JSON.parse(localStorage.getItem('cm_excluidos_recentes') || '[]'); } catch(e) {}
+  const agora = Date.now();
+  lista = lista.filter(x => agora - x.ts < JANELA_EXCLUSAO_MS);
+  lista.push({ id, ts: agora });
+  localStorage.setItem('cm_excluidos_recentes', JSON.stringify(lista));
+}
+function idsClientesExcluidosRecentemente() {
+  let lista = [];
+  try { lista = JSON.parse(localStorage.getItem('cm_excluidos_recentes') || '[]'); } catch(e) {}
+  const agora = Date.now();
+  lista = lista.filter(x => agora - x.ts < JANELA_EXCLUSAO_MS);
+  return new Set(lista.map(x => x.id));
+}
+
 // Retorna data/mês no fuso horário LOCAL do usuário (evita bug de virar o mês
 // horas antes da meia-noite local para quem está em fusos UTC-negativos, como o Brasil).
 function fmtData(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -1925,24 +1949,29 @@ async function carregarDoServidor() {
         return localArr.length >= 5 && servArr.length < localArr.length * 0.5;
       }
 
+      const idsExcluidos = idsClientesExcluidosRecentemente();
       if (d.cm_clientes) {
-        const clientesServ = JSON.parse(d.cm_clientes);
+        let clientesServ = JSON.parse(d.cm_clientes);
         if (respostaSuspeita(clientesServ, clientes)) {
           console.warn(`⚠️ Ignorando atualização de clientes: servidor mandou ${clientesServ.length}, mas já tínhamos ${clientes.length} na tela.`);
         } else {
+          // Não deixa um cliente excluído há pouco aqui "voltar" só porque o
+          // servidor ainda não confirmou a exclusão.
+          if (idsExcluidos.size) clientesServ = clientesServ.filter(c => !idsExcluidos.has(c.id));
           const idsServ = new Set(clientesServ.map(c => c.id));
-          const localNovos = clientes.filter(c => !idsServ.has(c.id) && c.id > LIMITE_RECENTE);
+          const localNovos = clientes.filter(c => !idsServ.has(c.id) && c.id > LIMITE_RECENTE && !idsExcluidos.has(c.id));
           clientes = [...clientesServ, ...localNovos];
           localStorage.setItem('cm_clientes', JSON.stringify(clientes));
         }
       }
       if (d.cm_pagamentos) {
-        const pagamentosServ = JSON.parse(d.cm_pagamentos);
+        let pagamentosServ = JSON.parse(d.cm_pagamentos);
         if (respostaSuspeita(pagamentosServ, pagamentos)) {
           console.warn(`⚠️ Ignorando atualização de pagamentos: servidor mandou ${pagamentosServ.length}, mas já tínhamos ${pagamentos.length} na tela.`);
         } else {
+          if (idsExcluidos.size) pagamentosServ = pagamentosServ.filter(p => !idsExcluidos.has(p.clienteId));
           const idsServ = new Set(pagamentosServ.map(p => p.id));
-          const localNovos = pagamentos.filter(p => !idsServ.has(p.id) && p.id > LIMITE_RECENTE);
+          const localNovos = pagamentos.filter(p => !idsServ.has(p.id) && p.id > LIMITE_RECENTE && !idsExcluidos.has(p.clienteId));
           pagamentos = [...pagamentosServ, ...localNovos];
           localStorage.setItem('cm_pagamentos', JSON.stringify(pagamentos));
         }
@@ -2274,9 +2303,16 @@ async function salvarStorage(_tentativa) {
       const dServ = j.data || {};
 
       try {
-        const clientesServ    = dServ.cm_clientes    ? JSON.parse(dServ.cm_clientes)    : clientes;
-        const pagamentosServ  = dServ.cm_pagamentos  ? JSON.parse(dServ.cm_pagamentos)  : pagamentos;
+        // Mesma proteção do carregarDoServidor: um cliente excluído há pouco
+        // aqui não pode ser trazido de volta pela mesclagem de conflito.
+        const idsExcluidos = idsClientesExcluidosRecentemente();
+        let clientesServ    = dServ.cm_clientes    ? JSON.parse(dServ.cm_clientes)    : clientes;
+        let pagamentosServ  = dServ.cm_pagamentos  ? JSON.parse(dServ.cm_pagamentos)  : pagamentos;
         const instalacoesServ = dServ.cm_instalacoes ? JSON.parse(dServ.cm_instalacoes) : instalacoes;
+        if (idsExcluidos.size) {
+          clientesServ   = clientesServ.filter(c => !idsExcluidos.has(c.id));
+          pagamentosServ = pagamentosServ.filter(p => !idsExcluidos.has(p.clienteId));
+        }
 
         // Pagamentos: união pelo id — mantém tudo que já estava no servidor
         // e adiciona qualquer pagamento novo feito aqui que ainda não chegou lá.
@@ -3515,10 +3551,20 @@ function abrirExcluir(id) {
   document.getElementById('msg-excluir').textContent = `Excluir o cliente "${c?.nome}"? Isso não pode ser desfeito.`;
   document.getElementById('modal-excluir').classList.add('open');
 }
-function confirmarExclusao() {
-  clientes   = clientes.filter(x => x.id !== excluirId);
-  pagamentos = pagamentos.filter(x => x.clienteId !== excluirId);
-  salvarStorage(); fecharModal(); renderClientes(); renderDashboard();
+async function confirmarExclusao() {
+  const idApagado = excluirId;
+  clientes   = clientes.filter(x => x.id !== idApagado);
+  pagamentos = pagamentos.filter(x => x.clienteId !== idApagado);
+  // Registra a exclusão antes de salvar: se a sincronização automática rodar
+  // no meio do caminho e o servidor ainda não tiver confirmado, esse cliente
+  // não pode ser "ressuscitado" de volta pra tela (ver idsClientesExcluidosRecentemente).
+  marcarClienteExcluido(idApagado);
+  fecharModal(); renderClientes(); renderDashboard();
+  const salvou = await salvarStorage();
+  mostrarToast(
+    salvou ? '✅ Cliente excluído e salvo no servidor!' : '⚠️ Cliente excluído neste aparelho — ainda tentando confirmar com o servidor. Verifique a conexão.',
+    salvou ? 'ok' : 'erro'
+  );
 }
 function fecharModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
 
