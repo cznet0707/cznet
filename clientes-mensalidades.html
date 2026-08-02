@@ -1894,6 +1894,32 @@ function idsClientesExcluidosRecentemente() {
   return new Set(lista.map(x => x.id));
 }
 
+// Mesmo problema, mas para EDIÇÕES: a mesclagem de conflito trata um cliente
+// que já existia como "não é novidade" e usa a versão do servidor por cima —
+// então se duas gravações caírem uma logo depois da outra (ex: vincular dois
+// clientes diferentes numa CTO, um em seguida do outro, sem esperar a
+// primeira confirmar), a edição mais recente podia ser silenciosamente
+// descartada e substituída pela versão antiga do servidor. Aqui marcamos o
+// id de quem acabou de ser editado, pra mesclagem saber manter a versão
+// local (mais nova) desses clientes em vez da versão do servidor.
+const JANELA_MODIFICACAO_MS = 5 * 60 * 1000;
+function marcarClienteModificado(id) {
+  let lista = [];
+  try { lista = JSON.parse(localStorage.getItem('cm_modificados_recentes') || '[]'); } catch(e) {}
+  const agora = Date.now();
+  lista = lista.filter(x => agora - x.ts < JANELA_MODIFICACAO_MS);
+  lista = lista.filter(x => x.id !== id);
+  lista.push({ id, ts: agora });
+  localStorage.setItem('cm_modificados_recentes', JSON.stringify(lista));
+}
+function idsClientesModificadosRecentemente() {
+  let lista = [];
+  try { lista = JSON.parse(localStorage.getItem('cm_modificados_recentes') || '[]'); } catch(e) {}
+  const agora = Date.now();
+  lista = lista.filter(x => agora - x.ts < JANELA_MODIFICACAO_MS);
+  return new Set(lista.map(x => x.id));
+}
+
 // Retorna data/mês no fuso horário LOCAL do usuário (evita bug de virar o mês
 // horas antes da meia-noite local para quem está em fusos UTC-negativos, como o Brasil).
 function fmtData(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -1950,6 +1976,7 @@ async function carregarDoServidor() {
       }
 
       const idsExcluidos = idsClientesExcluidosRecentemente();
+      const idsModificados = idsClientesModificadosRecentemente();
       if (d.cm_clientes) {
         let clientesServ = JSON.parse(d.cm_clientes);
         if (respostaSuspeita(clientesServ, clientes)) {
@@ -1958,6 +1985,13 @@ async function carregarDoServidor() {
           // Não deixa um cliente excluído há pouco aqui "voltar" só porque o
           // servidor ainda não confirmou a exclusão.
           if (idsExcluidos.size) clientesServ = clientesServ.filter(c => !idsExcluidos.has(c.id));
+          // Nem deixa uma edição recente aqui (ex: vincular a uma CTO) ser
+          // sobrescrita pela versão antiga do servidor enquanto o save dessa
+          // edição ainda não terminou de confirmar.
+          if (idsModificados.size) {
+            const clientesLocaisPorId = new Map(clientes.map(c => [c.id, c]));
+            clientesServ = clientesServ.map(c => idsModificados.has(c.id) && clientesLocaisPorId.has(c.id) ? clientesLocaisPorId.get(c.id) : c);
+          }
           const idsServ = new Set(clientesServ.map(c => c.id));
           const localNovos = clientes.filter(c => !idsServ.has(c.id) && c.id > LIMITE_RECENTE && !idsExcluidos.has(c.id));
           clientes = [...clientesServ, ...localNovos];
@@ -2323,7 +2357,14 @@ async function salvarStorage(_tentativa) {
         // Clientes: mesma lógica para clientes novos cadastrados aqui que
         // ainda não estavam no servidor. Clientes já existentes usam a
         // versão do servidor (mais recente) para não desfazer edições feitas
-        // em outro aparelho.
+        // em outro aparelho — EXCETO os que acabamos de editar agora mesmo
+        // neste aparelho (idsModificados), onde mantemos a nossa versão local
+        // pra não perder a edição que ainda não tinha sido confirmada.
+        const idsModificados = idsClientesModificadosRecentemente();
+        const clientesLocaisPorId = new Map(clientes.map(c => [c.id, c]));
+        if (idsModificados.size) {
+          clientesServ = clientesServ.map(c => idsModificados.has(c.id) && clientesLocaisPorId.has(c.id) ? clientesLocaisPorId.get(c.id) : c);
+        }
         const idsCliServ = new Set(clientesServ.map(c => c.id));
         const clientesNovosLocais = clientes.filter(c => !idsCliServ.has(c.id));
         clientes = [...clientesServ, ...clientesNovosLocais];
@@ -3512,7 +3553,7 @@ function renderHistoricoFotosEdicao(c) {
     </div>`;
   }).join('');
 }
-function confirmarEdicao() {
+async function confirmarEdicao() {
   const c = clientes.find(x => x.id === editandoId); if (!c) return;
   c.nome   = document.getElementById('edit-nome').value.trim();
   c.tel    = document.getElementById('edit-tel').value.trim();
@@ -3543,7 +3584,17 @@ function confirmarEdicao() {
   c.roteador_senha    = document.getElementById('edit-roteador-senha').value.trim();
   c.localizacao       = document.getElementById('edit-localizacao').value.trim();
   c.instalacao_gratis = document.getElementById('edit-inst-gratis').checked;
-  salvarStorage(); fecharModal(); renderClientes(); renderSelectClientes();
+  // Marca como editado antes de salvar: se essa gravação esbarrar num
+  // conflito com outro aparelho salvando quase ao mesmo tempo, a mesclagem
+  // não pode simplesmente jogar fora essa edição e usar a versão antiga do
+  // servidor (era exatamente isso que fazia uma edição "sumir" às vezes).
+  marcarClienteModificado(c.id);
+  fecharModal(); renderClientes(); renderSelectClientes();
+  const salvou = await salvarStorage();
+  mostrarToast(
+    salvou ? '✅ Alterações salvas no servidor!' : '⚠️ Alterações salvas só neste aparelho — não foi possível confirmar com o servidor. Verifique a conexão.',
+    salvou ? 'ok' : 'erro'
+  );
 }
 function abrirExcluir(id) {
   excluirId = id;
@@ -3956,6 +4007,7 @@ async function adicionarClienteNaCtoPorNome(ctoId) {
   }
 
   cliente.ctoRedeId = ctoId;
+  marcarClienteModificado(cliente.id);
   input.value = '';
   renderOlt();
   // Antes isso não esperava a resposta do servidor nem avisava se falhasse —
@@ -3974,6 +4026,7 @@ async function removerClienteDaCto(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   if (!confirm(`Remover "${c.nome}" desta CTO? O cadastro do cliente continua normal, só a posição na rede é desmarcada.`)) return;
   c.ctoRedeId = null;
+  marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ Alteração salva só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
@@ -3988,6 +4041,7 @@ async function editarPppoeRapido(clienteId) {
   const novo = prompt(`PPPoE de "${c.nome}"\n\n(exatamente como aparece no roteador/OLT quando ele está conectado)`, c.pppoe_usuario || '');
   if (novo === null) return; // cancelou
   c.pppoe_usuario = novo.trim();
+  marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ PPPoE salvo só neste aparelho — não foi possível confirmar com o servidor.', 'erro');
