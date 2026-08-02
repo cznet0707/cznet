@@ -2210,12 +2210,48 @@ async function salvarStorage(_tentativa) {
     });
     if (resp.status === 409) {
       // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
-      // leitura e este save. Em vez de descartar a mudança que o usuário
-      // acabou de fazer, tentamos automaticamente de novo: atualizamos só a
-      // "marca de tempo" base e reenviamos os MESMOS dados locais (que já
-      // incluem a mudança do usuário), até 3 tentativas.
+      // leitura e este save. Antes, isso reenviava os MESMOS dados locais
+      // (que não tinham a mudança feita no outro aparelho), sobrescrevendo-a
+      // silenciosamente. Agora, mesclamos: pegamos a versão mais nova do
+      // servidor como base e só adicionamos por cima o que é realmente novo
+      // e ainda não salvo neste aparelho (ex: um cliente ou pagamento que
+      // acabamos de lançar), preservando as mudanças feitas em outro lugar.
       let j = {};
       try { j = await resp.json(); } catch(e) {}
+      const dServ = j.data || {};
+
+      try {
+        const clientesServ    = dServ.cm_clientes    ? JSON.parse(dServ.cm_clientes)    : clientes;
+        const pagamentosServ  = dServ.cm_pagamentos  ? JSON.parse(dServ.cm_pagamentos)  : pagamentos;
+        const instalacoesServ = dServ.cm_instalacoes ? JSON.parse(dServ.cm_instalacoes) : instalacoes;
+
+        // Pagamentos: união pelo id — mantém tudo que já estava no servidor
+        // e adiciona qualquer pagamento novo feito aqui que ainda não chegou lá.
+        const idsPagServ = new Set(pagamentosServ.map(p => p.id));
+        const pagamentosNovosLocais = pagamentos.filter(p => !idsPagServ.has(p.id));
+        pagamentos = [...pagamentosServ, ...pagamentosNovosLocais];
+
+        // Clientes: mesma lógica para clientes novos cadastrados aqui que
+        // ainda não estavam no servidor. Clientes já existentes usam a
+        // versão do servidor (mais recente) para não desfazer edições feitas
+        // em outro aparelho.
+        const idsCliServ = new Set(clientesServ.map(c => c.id));
+        const clientesNovosLocais = clientes.filter(c => !idsCliServ.has(c.id));
+        clientes = [...clientesServ, ...clientesNovosLocais];
+
+        // Instalações: mesma lógica de união pelo id.
+        const idsInstServ = new Set(instalacoesServ.map(i => i.id));
+        const instalacoesNovasLocais = instalacoes.filter(i => !idsInstServ.has(i.id));
+        instalacoes = [...instalacoesServ, ...instalacoesNovasLocais];
+
+        localStorage.setItem('cm_clientes', JSON.stringify(clientes));
+        localStorage.setItem('cm_pagamentos', JSON.stringify(pagamentos));
+        localStorage.setItem('cm_instalacoes', JSON.stringify(instalacoes));
+        try { renderDashboard(); renderClientes(document.getElementById('input-busca-clientes')?.value || ''); } catch(e2) {}
+      } catch(eMerge) {
+        console.error('Erro ao mesclar dados após conflito:', eMerge);
+      }
+
       ultimoUpdatedAt = j.updatedAt || ultimoUpdatedAt;
 
       if (tentativa < 3) {
@@ -2223,23 +2259,11 @@ async function salvarStorage(_tentativa) {
         return salvarStorage(tentativa + 1);
       }
 
-      // Esgotou as tentativas automáticas: agora sim adota a versão do servidor e avisa
-      const d = j.data || {};
-      try {
-        if (d.cm_clientes)     { clientes     = JSON.parse(d.cm_clientes);     localStorage.setItem('cm_clientes', d.cm_clientes); }
-        if (d.cm_pagamentos)   { pagamentos   = JSON.parse(d.cm_pagamentos);   localStorage.setItem('cm_pagamentos', d.cm_pagamentos); }
-        if (d.cm_planos)       { planos       = JSON.parse(d.cm_planos);       localStorage.setItem('cm_planos', d.cm_planos); }
-        if (d.cm_instalacoes)  { instalacoes  = JSON.parse(d.cm_instalacoes);  localStorage.setItem('cm_instalacoes', d.cm_instalacoes); }
-        if (d.cm_cartoes)      { cartoes      = JSON.parse(d.cm_cartoes);      localStorage.setItem('cm_cartoes', d.cm_cartoes); }
-        if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
-        if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
-        if (d.cm_olts)         { olts         = JSON.parse(d.cm_olts);        localStorage.setItem('cm_olts', d.cm_olts); }
-      } catch(e2) {}
-      try {
-        renderDashboard();
-        renderClientes(document.getElementById('input-busca-clientes')?.value || '');
-      } catch(e3) {}
-      alert('⚠️ Outro dispositivo salvou dados mais novos enquanto você editava, e não foi possível combinar automaticamente.\n\nOs dados na tela foram atualizados com a versão mais recente do servidor. Confira e refaça a última alteração, se necessário.');
+      // Esgotou as 3 tentativas automáticas de salvar (mesmo já mesclando os
+      // dados a cada vez). Mantém a versão já mesclada na tela — é a melhor
+      // candidata que temos — e avisa o usuário pra conferir e tentar salvar
+      // de novo manualmente se precisar.
+      mostrarToast('⚠️ Muitas mudanças acontecendo ao mesmo tempo em outro aparelho. Tentamos combinar tudo automaticamente, mas não deu tempo de confirmar com o servidor. Confira os dados na tela.', 'erro');
       return false;
     }
     if (resp.ok) {
@@ -2482,7 +2506,7 @@ function normalizarTexto(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
-function salvarCliente(e) {
+async function salvarCliente(e) {
   e.preventDefault();
   const nomeDigitado = document.getElementById('c-nome').value.trim();
   const telDigitado  = document.getElementById('c-tel').value.trim();
@@ -2546,8 +2570,15 @@ function salvarCliente(e) {
     const instGratis = document.getElementById('c-inst-gratis').checked;
     instalacoes.push({ id: Date.now(), clienteId: cliente.id, data: instData, gratis: instGratis, paga: false });
   }
-  salvarStorage(); limparForm(); renderClientes();
-  alert('✅ Cliente cadastrado com sucesso!');
+  limparForm();
+  renderClientes();
+
+  const salvou = await salvarStorage();
+  if (salvou) {
+    mostrarToast('✅ Cliente cadastrado e salvo no servidor!', 'ok');
+  } else {
+    mostrarToast('⚠️ Cliente salvo só neste aparelho — não foi possível confirmar com o servidor. Confira a conexão e tente sincronizar de novo.', 'erro');
+  }
 }
 function toggleCamposInstalacaoCadastro() {
   const mostrar = document.getElementById('c-registrar-inst').checked;
