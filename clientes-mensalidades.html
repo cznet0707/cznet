@@ -1898,7 +1898,10 @@ function gerarOltsPadrao() {
 
 async function carregarDoServidor() {
   try {
-    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+    // 60s (era 15s): o banco às vezes demora mais que isso pra responder,
+    // mas responde certo — desistir cedo demais é o que fazia a tela mostrar
+    // "sem clientes" mesmo com os dados intactos no servidor.
+    const resp = await fetch('/api/data', { signal: AbortSignal.timeout(60000), cache: 'no-store' });
     if (!resp.ok) throw new Error('offline');
     const d = await resp.json();
     // Só aceita dados do servidor se houver conteúdo real (evita sobrescrever com vazio)
@@ -2254,7 +2257,9 @@ async function salvarStorage(_tentativa) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(12000)
+      // 60s (era 12s) — mesmo motivo do carregamento: dar tempo do
+      // salvamento terminar de verdade em vez de desistir cedo demais.
+      signal: AbortSignal.timeout(60000)
     });
     if (resp.status === 409) {
       // Conflito: outro dispositivo (ou outra aba) salvou entre nossa última
@@ -7621,7 +7626,10 @@ function verificarAvisoDezembroBackup() {
   const el = document.getElementById('backup-ultima');
   const v  = localStorage.getItem('cm_ultimo_backup');
   if (el && v) el.textContent = 'Último backup: ' + v;
-  // Recarregar do servidor a cada 5 minutos
+  // Recarregar do servidor a cada 2 minutos.
+  // Era a cada 30s, mas o banco (plano gratuito) não aguenta esse volume de
+  // pedidos indo buscar o pacote inteiro de dados com tanta frequência — isso
+  // era uma das causas da lentidão/erro ao sincronizar entre aparelhos.
   setInterval(async () => {
     try {
       await carregarDoServidor();
@@ -7632,7 +7640,7 @@ function verificarAvisoDezembroBackup() {
       // deixar a tela em branco silenciosamente.
       console.error('Erro na sincronização automática:', erroSync);
     }
-  }, 30000); // Sincroniza a cada 30 segundos
+  }, 120000); // Sincroniza a cada 2 minutos
 })();
 
 // (Removido o auto-save no fechamento/recarregamento da página — ele podia
