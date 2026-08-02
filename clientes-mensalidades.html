@@ -3324,25 +3324,31 @@ function toggleOrdemAZ() {
 }
 
 function renderClientes(filtro = '') {
-  let lista = filtro
-    ? clientes.filter(c => c.nome.toLowerCase().includes(filtro.toLowerCase()) || (c.cpf||'').includes(filtro))
-    : [...clientes];
-  if (_ordemAZ) lista = lista.slice().sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-
   const el = document.getElementById('tabela-clientes');
-  if (!lista.length) { el.innerHTML = '<div class="empty-state"><div>👤</div>Nenhum cliente encontrado.</div>'; return; }
-  el.innerHTML = `
-    <table>
-      <thead><tr><th>Nome / Endereço</th><th>Telefone</th><th>CPF</th><th>Plano</th><th>Mensalidade</th><th>Vcto</th><th>Ações</th></tr></thead>
-      <tbody>${lista.map(c => {
-        const pl = planos.find(x => x.id === c.planoId);
-        const end = enderecoCompleto(c);
-        return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
-          <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
-          <td>${c.tel}</td>
-          <td>${c.cpf||'-'}</td>
-          <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
-          <td>${moeda(c.valor)}</td>
+  try {
+    // Filtra fora, de forma defensiva, qualquer registro sem nome (dado
+    // corrompido/incompleto) — antes, um único registro assim quebrava a
+    // renderização da lista inteira e deixava a tela em branco.
+    let base = clientes.filter(c => c && typeof c.nome === 'string' && c.nome.trim() !== '');
+
+    let lista = filtro
+      ? base.filter(c => c.nome.toLowerCase().includes(filtro.toLowerCase()) || (c.cpf||'').includes(filtro))
+      : [...base];
+    if (_ordemAZ) lista = lista.slice().sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    if (!lista.length) { el.innerHTML = '<div class="empty-state"><div>👤</div>Nenhum cliente encontrado.</div>'; return; }
+    el.innerHTML = `
+      <table>
+        <thead><tr><th>Nome / Endereço</th><th>Telefone</th><th>CPF</th><th>Plano</th><th>Mensalidade</th><th>Vcto</th><th>Ações</th></tr></thead>
+        <tbody>${lista.map(c => {
+          const pl = planos.find(x => x.id === c.planoId);
+          const end = enderecoCompleto(c);
+          return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
+            <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
+            <td>${c.tel}</td>
+            <td>${c.cpf||'-'}</td>
+            <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
+            <td>${moeda(c.valor)}</td>
           <td>Dia ${c.dia}</td>
           <td><div class="td-acoes">
             <button class="btn btn-outline" onclick="abrirEditar(${c.id})">✏️</button>
@@ -3358,6 +3364,15 @@ function renderClientes(filtro = '') {
         </tr>`;
       }).join('')}</tbody>
     </table>`;
+  } catch (erroRender) {
+    // Nunca mais deixa a tela em branco silenciosamente: mostra um aviso
+    // visível e registra o erro real, em vez de sumir com a lista inteira.
+    console.error('Erro ao desenhar a lista de clientes:', erroRender);
+    el.innerHTML = `<div style="background:#fce8e6;border:1px solid #f5b3ac;border-radius:8px;padding:14px;color:#c0392b;font-size:0.85rem">
+      ⚠️ Erro ao mostrar a lista de clientes: ${erroRender.message}<br>
+      <span style="color:#888">Seus dados estão salvos normalmente — isso é só um problema de exibição. Tire um print e envie para o suporte.</span>
+    </div>`;
+  }
 }
 function filtrarClientes(v) { renderClientes(v); }
 
@@ -7586,9 +7601,15 @@ function verificarAvisoDezembroBackup() {
   if (el && v) el.textContent = 'Último backup: ' + v;
   // Recarregar do servidor a cada 5 minutos
   setInterval(async () => {
-    await carregarDoServidor();
-    renderDashboard();
-    renderClientes(document.getElementById('input-busca-clientes')?.value || '');
+    try {
+      await carregarDoServidor();
+      renderDashboard();
+      renderClientes(document.getElementById('input-busca-clientes')?.value || '');
+    } catch (erroSync) {
+      // Nunca deixa um erro na sincronização automática travar o app ou
+      // deixar a tela em branco silenciosamente.
+      console.error('Erro na sincronização automática:', erroSync);
+    }
   }, 30000); // Sincroniza a cada 30 segundos
 })();
 
