@@ -8,11 +8,24 @@ const MONGODB_URI  = process.env.MONGODB_URI;
 const DATA_FILE    = path.join(__dirname, 'dados.json');
 
 app.use(express.json({ limit: '100mb' }));
-app.use(express.static(__dirname));
 
+// Garante que a página principal (o app inteiro) nunca fique presa em cache
+// no navegador/CDN — sem isso, celular e PC podiam continuar rodando uma
+// versão antiga do código mesmo depois de uma correção nova ser publicada.
 app.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, 'clientes-mensalidades.html'));
 });
+
+app.use(express.static(__dirname, {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  }
+}));
 
 // MongoDB helper
 let cachedDb = null;
