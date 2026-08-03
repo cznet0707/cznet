@@ -3791,18 +3791,27 @@ function renderOlt() {
   }
 }
 
+const LIMITE_CLIENTES_PON = 64;
+
 function renderPonHtml(olt, pon) {
-  const totalOcupadas = pon.ctos.reduce((s,c) => s + clientesDaCto(c.id).length, 0);
-  const totalVagas     = pon.ctos.reduce((s,c) => s + c.capacidade, 0);
+  const totalClientes = pon.ctos.reduce((s, c) => s + clientesDaCto(c.id).length, 0);
+  const vagasRestantes = LIMITE_CLIENTES_PON - totalClientes;
+  const percentualOcupacao = Math.min((totalClientes / LIMITE_CLIENTES_PON) * 100, 100);
+  const corCapacidade = totalClientes >= 60 ? '#c62828' :
+    (totalClientes >= 55 ? '#f9a825' : '#1e8449');
   return `
   <div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
       <strong style="font-size:0.95rem">📡 PON ${pon.numero}</strong>
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:0.78rem;color:#777">${totalOcupadas}/${totalVagas} vagas ocupadas</span>
+        <span style="font-size:0.78rem;font-weight:700;color:#1e8449" title="${totalClientes} de ${LIMITE_CLIENTES_PON} clientes instalados">${totalClientes}/${LIMITE_CLIENTES_PON}</span>
+        <span style="font-size:0.78rem;font-weight:700;color:${corCapacidade}" title="${vagasRestantes} vagas restantes">faltam ${vagasRestantes} vagas</span>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarDerivacaoCto('${olt.id}','${pon.id}')">➕ Derivação</button>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerPon('${olt.id}','${pon.id}')">🗑️ Remover PON</button>
       </div>
+    </div>
+    <div style="height:8px;background:#e8eaed;border-radius:999px;overflow:hidden;margin-bottom:10px" aria-label="${totalClientes} de ${LIMITE_CLIENTES_PON} clientes instalados">
+      <div style="height:100%;width:${percentualOcupacao}%;background:${corCapacidade};border-radius:inherit;transition:width 0.2s ease"></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
       ${pon.ctos.map(cto => renderCtoHtml(olt, pon, cto)).join('')}
@@ -3810,16 +3819,19 @@ function renderPonHtml(olt, pon) {
   </div>`;
 }
 
+const LIMITE_CLIENTES_CTO = 64;
+
 function renderCtoHtml(olt, pon, cto) {
   const ocupantes = clientesDaCto(cto.id);
-  const vagas = cto.capacidade;
-  const cor = ocupantes.length >= vagas ? '#c62828' : (ocupantes.length >= vagas*0.75 ? '#e65100' : '#1e8449');
+  const quantidadeClientes = ocupantes.length;
+  const cor = quantidadeClientes >= 60 ? '#c62828' :
+    (quantidadeClientes >= 55 ? '#f9a825' : '#1e8449');
   const label = cto.derivacao ? `CTO ${cto.numero} — ${cto.derivacao}` : `CTO ${cto.numero}`;
   return `
   <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <strong style="font-size:0.86rem">📦 ${label}</strong>
-      <span style="font-size:0.75rem;font-weight:700;color:${cor}">${ocupantes.length}/${vagas}</span>
+      <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="${quantidadeClientes} de ${LIMITE_CLIENTES_CTO} clientes">${quantidadeClientes}/${LIMITE_CLIENTES_CTO}</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
