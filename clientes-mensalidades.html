@@ -3984,90 +3984,102 @@ function _adesivoFormatarTelefone(tel) {
 // da CTO em destaque, OLT/PON) + área branca à direita (derivação,
 // versículo e telefone de suporte). Coordenadas em mm, origem no topo.
 function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
-  const radius = 3, leftW = 50;
-  const AZUL = [13, 71, 161], AZUL_ESCURO = [9, 46, 107], AZUL_CLARO = [188, 210, 247];
+  const radius = 3, headerH = 9, footerH = 17;
+  const AZUL = [13, 71, 161], AZUL_ESCURO = [9, 46, 107], AZUL_CLARO = [232, 240, 254];
+  const AZUL_MUITO_CLARO = [188, 210, 247];
   const CINZA = [95, 99, 104], CINZA_CLARO = [199, 204, 209], BRANCO = [255, 255, 255];
 
   // Fundo branco do cartão
   doc.setFillColor(...BRANCO);
   doc.roundedRect(x, yTop, w, h, radius, radius, 'F');
 
-  // Painel azul à esquerda
+  // Faixa azul do topo (marca)
   doc.setFillColor(...AZUL);
-  doc.roundedRect(x, yTop, leftW, h, radius, radius, 'F');
+  doc.roundedRect(x, yTop, w, headerH, radius, radius, 'F');
 
-  // Bordas
+  // Faixa azul escura do rodapé (suporte + versículo)
+  doc.setFillColor(...AZUL_ESCURO);
+  doc.roundedRect(x, yTop + h - footerH, w, footerH, radius, radius, 'F');
+
+  const midTop = yTop + headerH;
+
+  // Faixa clara atrás do número da CTO (destaque)
+  doc.setFillColor(...AZUL_CLARO);
+  doc.rect(x, midTop + 1, w, 12, 'F');
+
+  // Borda do cartão
   doc.setDrawColor(...AZUL);
   doc.setLineWidth(0.35);
   doc.roundedRect(x, yTop, w, h, radius, radius, 'S');
-  doc.roundedRect(x, yTop, leftW, h, radius, radius, 'S');
 
-  const lcx = x + leftW / 2;
+  const cx = x + w / 2;
 
-  // --- Painel esquerdo ---
+  // Marca
+  doc.setTextColor(...BRANCO);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+  doc.text(nomeEmpresa.toUpperCase(), cx, yTop + headerH / 2 + 1.8, { align: 'center' });
+
+  // Texto em destaque (grande): se a CTO for uma derivação (extensão da
+  // MESMA CTO, cadastrada em "➕ Derivação"), mostra o rótulo digitado
+  // (ex: "CTO 3 Derivação B") no lugar do número normal da CTO.
+  const ctoTxt = 'CTO ' + String(item.cto).padStart(2, '0');
+  const textoGrande = item.derivacao ? item.derivacao : ctoTxt;
+  doc.setTextColor(...AZUL_ESCURO);
+  doc.setFont('helvetica', 'bold');
+  let tamGrande = item.derivacao ? 26 : 36;
+  const larguraMaxGrande = w - 16;
+  while (tamGrande > 14 && doc.getStringUnitWidth(textoGrande) * tamGrande / doc.internal.scaleFactor > larguraMaxGrande) {
+    tamGrande -= 1;
+  }
+  doc.setFontSize(tamGrande);
+  doc.text(textoGrande, cx, midTop + 9.5, { align: 'center' });
+
+  // OLT / PON
+  const ponTxt = typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon;
+  doc.setTextColor(...CINZA);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5);
+  doc.text(`${item.olt}   ·   PON ${ponTxt}`, cx, midTop + 16, { align: 'center' });
+
+  // Linha divisória fina
+  doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
+  doc.line(x + 8, midTop + 19, x + w - 8, midTop + 19);
+
+  // Selo "DERIVAÇÃO" — só aparece quando a CTO for uma derivação, pra deixar
+  // claro que o texto grande acima é o rótulo dela, não o número normal.
+  if (item.derivacao) {
+    doc.setTextColor(...AZUL);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+    doc.text('Esta CTO é uma DERIVAÇÃO', cx, midTop + 24, { align: 'center' });
+  }
+
+  // Rodapé (dentro da faixa azul escura): telefone + versículo + referência
+  const footerTop = yTop + h - footerH, pad = 6;
+
   doc.setTextColor(...BRANCO);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
-  doc.text(nomeEmpresa.toUpperCase(), lcx, yTop + 7, { align: 'center' });
+  doc.text(`Suporte: ${telefone}`, cx, footerTop + 4, { align: 'center' });
 
-  doc.setDrawColor(...BRANCO); doc.setLineWidth(0.25);
-  doc.line(x + 6, yTop + 9.5, x + leftW - 6, yTop + 9.5);
+  doc.setDrawColor(...AZUL); doc.setLineWidth(0.3);
+  doc.line(x + pad, footerTop + 6, x + w - pad, footerTop + 6);
 
-  const ctoTxt = 'CTO ' + String(item.cto).padStart(2, '0');
-  doc.setTextColor(...BRANCO);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(30);
-  doc.text(ctoTxt, lcx, yTop + h / 2 + 4, { align: 'center' });
-
-  const ponTxt = typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon;
-  doc.setTextColor(...AZUL_CLARO);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-  doc.text(`${item.olt}  ·  PON ${ponTxt}`, lcx, yTop + h - 6, { align: 'center' });
-
-  // --- Área direita: derivação (só quando existir — é uma extensão da
-  // MESMA CTO, não uma referência a outra), versículo e suporte ---
-  const rx0 = x + leftW + 7, rx1 = x + w - 7, rw = rx1 - rx0;
-
-  const temDerivacao = !!item.derivacao;
-  let linhaY;
-  if (temDerivacao) {
-    // Destaque: mostra que esta CTO tem uma extensão/derivação própria
-    doc.setFillColor(...AZUL_CLARO);
-    doc.roundedRect(rx0 - 3, yTop + 4, rw + 6, 8, 1.5, 1.5, 'F');
-    doc.setTextColor(...AZUL);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text(`Derivação desta CTO: ${item.derivacao}`, rx0, yTop + 9.3);
-    linhaY = yTop + 17;
-    doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
-    doc.line(rx0, linhaY, rx1, linhaY);
-  } else {
-    linhaY = yTop + 6;
-  }
-
-  doc.setFont('helvetica', 'italic'); doc.setFontSize(10.5);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(10);
   const versoTxt = `“${item.versiculoTxt}”`;
-  let linhas = doc.splitTextToSize(versoTxt, rw);
+  let linhas = doc.splitTextToSize(versoTxt, w - 2 * pad);
   if (linhas.length > 2) linhas = [linhas[0], linhas.slice(1).join(' ')];
 
-  const v1Y = linhaY + 8, v2Y = linhaY + 13, refDy = 5.5;
-  doc.setTextColor(...AZUL_ESCURO);
+  doc.setTextColor(...AZUL_MUITO_CLARO);
   let refY;
   if (linhas.length === 1) {
-    doc.text(linhas[0], rx0, v1Y);
-    refY = v1Y + refDy;
+    doc.text(linhas[0], cx, footerTop + 9.8, { align: 'center' });
+    refY = footerTop + 13.6;
   } else {
-    doc.text(linhas[0], rx0, v1Y);
-    doc.text(linhas[1], rx0, v2Y);
-    refY = v2Y + refDy;
+    doc.text(linhas[0], cx, footerTop + 9.3, { align: 'center' });
+    doc.text(linhas[1], cx, footerTop + 12.8, { align: 'center' });
+    refY = footerTop + 16;
   }
-  doc.setTextColor(...CINZA);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-  doc.text(`— ${item.versiculoRef}`, rx0, refY);
-
-  doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
-  doc.line(rx0, yTop + h - 9, rx1, yTop + h - 9);
-
-  doc.setTextColor(...AZUL);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-  doc.text(`Suporte: ${telefone}`, rx0, yTop + h - 4);
+  doc.setTextColor(...BRANCO);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.8);
+  doc.text(`— ${item.versiculoRef}`, cx, refY, { align: 'center' });
 }
 
 // Vincula um cliente já cadastrado a uma CTO, buscando pelo nome digitado no
