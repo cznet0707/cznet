@@ -3793,14 +3793,16 @@ function renderOlt() {
 
 function renderPonHtml(olt, pon) {
   const totalClientes = pon.ctos.reduce((s, c) => s + clientesDaCto(c.id).length, 0);
-  const corCapacidade = totalClientes >= 60 ? '#c62828' :
-    (totalClientes >= 55 ? '#f9a825' : '#777');
+  const vagasRestantes = 64 - totalClientes;
+  const corVagasRestantes = vagasRestantes < 5 ? '#c62828' :
+    (vagasRestantes <= 9 ? '#f9a825' : '#1e8449');
   return `
   <div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
       <strong style="font-size:0.95rem">📡 PON ${pon.numero}</strong>
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:0.78rem;font-weight:700;color:${corCapacidade}" title="${totalClientes} de 64 clientes">${totalClientes}/64</span>
+        <span style="font-size:0.78rem;font-weight:700;color:#1e8449" title="${totalClientes} de 64 clientes instalados">${totalClientes}/64</span>
+        <span style="font-size:0.78rem;font-weight:700;color:${corVagasRestantes}" title="${vagasRestantes} vagas restantes">faltam ${vagasRestantes} vagas</span>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarDerivacaoCto('${olt.id}','${pon.id}')">➕ Derivação</button>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerPon('${olt.id}','${pon.id}')">🗑️ Remover PON</button>
       </div>
