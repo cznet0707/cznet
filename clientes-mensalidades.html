@@ -3779,10 +3779,18 @@ function renderOlt() {
       salvarStorage();
     }
 
-    box.innerHTML = olts.map(olt => `
+    box.innerHTML = olts.map(olt => {
+      const totalInstaladosOlt = olt.pons.reduce((s, p) => s + p.ctos.reduce((s2, c) => s2 + clientesDaCto(c.id).length, 0), 0);
+      const totalVagasOlt = olt.pons.length * 64;
+      return `
       <div style="margin-bottom:22px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-          <h3 style="color:#0a4fa0;margin:0">🗼 ${olt.nome}</h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h3 style="color:#0a4fa0;margin:0">🗼 ${olt.nome}</h3>
+            <span style="font-size:0.78rem;font-weight:700;color:#0a4fa0;background:#eaf2fd;border-radius:20px;padding:3px 10px">
+              👥 ${totalInstaladosOlt}/${totalVagasOlt} instalados em todas as PONs
+            </span>
+          </div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarNovaPon('${olt.id}')">➕ Nova PON</button>
             <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerOlt('${olt.id}')">🗑️ Remover OLT</button>
@@ -3791,7 +3799,8 @@ function renderOlt() {
         <div style="display:flex;flex-direction:column;gap:14px">
           ${olt.pons.map(pon => renderPonHtml(olt, pon)).join('')}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     // Lista de sugestão (autocompletar) com os clientes que ainda não têm
     // posição na rede definida — facilita achar rápido quem falta organizar.
