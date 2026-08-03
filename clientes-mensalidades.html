@@ -870,8 +870,9 @@
         Veja quantos clientes estão instalados em cada CTO e onde estão. Para um cliente aparecer aqui, selecione a
         posição dele (OLT / PON / CTO) no cadastro ou na edição do cliente.
       </p>
-      <div style="margin-bottom:14px">
+      <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="adicionarNovaOlt()">➕ Nova OLT</button>
+        <button class="btn btn-outline" onclick="gerarAdesivosCTOs()">🖨️ Gerar Adesivos das CTOs</button>
       </div>
       <div id="olt-conteudo"></div>
       <datalist id="lista-clientes-sem-cto"></datalist>
@@ -3857,6 +3858,216 @@ function renderCtoHtml(olt, pon, cto) {
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoCto('${olt.id}','${pon.id}','${cto.id}')">📲 Avisar Técnico</button>
     </div>
   </div>`;
+}
+
+// ============================================================
+// ADESIVOS DE IDENTIFICAÇÃO DAS CTOs (PDF, formato faixa)
+// Gera 1 adesivo por CTO cadastrada (todas as OLTs/PONs), com o número da
+// CTO em destaque, de qual CTO ela deriva, um versículo e o telefone de
+// suporte. 5 adesivos por folha A4, prontos pra imprimir e recortar.
+// ============================================================
+
+// Versículos curtos e conhecidos (tradução clássica). Um por CTO, em
+// sequência — repete a lista se houver mais CTOs do que versículos.
+const VERSICULOS_ADESIVO = [
+  ["João 3:16", "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito."],
+  ["Salmos 23:1", "O Senhor é o meu pastor; nada me faltará."],
+  ["Filipenses 4:13", "Tudo posso naquele que me fortalece."],
+  ["Provérbios 3:5", "Confia no Senhor de todo o teu coração."],
+  ["Josué 1:9", "Sê forte e corajoso; não temas, nem te espantes."],
+  ["Isaías 41:10", "Não temas, porque eu sou contigo."],
+  ["Romanos 8:28", "Todas as coisas cooperam para o bem daqueles que amam a Deus."],
+  ["Salmos 46:1", "Deus é o nosso refúgio e fortaleza."],
+  ["Mateus 11:28", "Vinde a mim, todos os que estais cansados e sobrecarregados."],
+  ["Salmos 27:1", "O Senhor é a minha luz e a minha salvação."],
+  ["Provérbios 16:3", "Entrega ao Senhor tudo o que fazes."],
+  ["Jeremias 29:11", "Eu bem sei os pensamentos que tenho a vosso respeito, diz o Senhor."],
+  ["2 Timóteo 1:7", "Deus não nos deu espírito de covardia, mas de poder, amor e moderação."],
+  ["Gálatas 5:22", "O fruto do Espírito é amor, alegria, paz, longanimidade."],
+  ["Hebreus 11:1", "A fé é a certeza daquilo que esperamos."],
+  ["Efésios 2:8", "Pela graça sois salvos, por meio da fé."],
+  ["Salmos 34:8", "Provai e vede que o Senhor é bom."],
+  ["Salmos 91:1", "Aquele que habita no esconderijo do Altíssimo."],
+  ["Isaías 40:31", "Os que esperam no Senhor renovarão as forças."],
+  ["Filipenses 4:6", "Não andeis ansiosos por coisa alguma."],
+  ["Mateus 6:33", "Buscai primeiro o Reino de Deus, e a sua justiça."],
+  ["Romanos 12:2", "Não vos conformeis com este mundo."],
+  ["Salmos 100:5", "O Senhor é bom, e eterna é a sua misericórdia."],
+  ["Deuteronômio 31:6", "Sê forte e corajoso; o Senhor teu Deus é contigo."],
+  ["Salmos 55:22", "Lança sobre o Senhor o teu cuidado, e ele te sustentará."],
+  ["Sofonias 3:17", "O Senhor teu Deus está no meio de ti, poderoso para salvar."],
+  ["Lamentações 3:22", "As misericórdias do Senhor se renovam cada manhã."],
+  ["Tiago 1:5", "Se algum de vós tem falta de sabedoria, peça-a a Deus."],
+  ["1 Pedro 5:7", "Lançando sobre ele toda a vossa ansiedade, porque ele tem cuidado de vós."],
+  ["Provérbios 18:10", "Torre forte é o nome do Senhor; a ele correm os justos."],
+  ["Filipenses 1:6", "Aquele que começou boa obra em vós a aperfeiçoará."],
+  ["2 Coríntios 5:17", "Se alguém está em Cristo, nova criatura é."],
+  ["Gálatas 6:9", "Não nos cansemos de fazer o bem."],
+  ["1 João 4:18", "No amor não há medo; o perfeito amor lança fora o medo."],
+  ["Salmos 46:10", "Aquietai-vos, e sabei que eu sou Deus."],
+  ["Salmos 34:18", "Perto está o Senhor dos que têm o coração quebrantado."],
+  ["João 14:27", "Deixo-vos a paz, a minha paz vos dou."],
+  ["Romanos 8:31", "Se Deus é por nós, quem será contra nós?"],
+  ["Hebreus 13:5", "Não te deixarei, nem te desampararei."],
+  ["Salmos 121:2", "O meu socorro vem do Senhor, que fez os céus e a terra."],
+];
+
+function gerarAdesivosCTOs() {
+  if (typeof window.jspdf === 'undefined') {
+    alert('Biblioteca jsPDF não carregada. Recarregue a página.'); return;
+  }
+  if (!Array.isArray(olts) || olts.length === 0) {
+    alert('Nenhuma OLT/CTO cadastrada ainda.'); return;
+  }
+
+  // Monta a lista de adesivos (1 por CTO). "Derivação" é uma extensão da
+  // MESMA CTO (rótulo cadastrado ao clicar em "➕ Derivação" na tela de
+  // rede, ex: "CTO 3 Derivação B") — só aparece no adesivo quando existir;
+  // não é uma referência a outra CTO.
+  const itens = [];
+  let contador = 0;
+  olts.forEach(olt => {
+    (olt.pons || []).forEach(pon => {
+      (pon.ctos || []).forEach(cto => {
+        const numero = cto.numero;
+        const derivacao = (cto.derivacao || '').trim();
+        const [ref, texto] = VERSICULOS_ADESIVO[contador % VERSICULOS_ADESIVO.length];
+        itens.push({
+          olt: olt.nome || olt.id,
+          pon: pon.numero,
+          cto: numero,
+          derivacao,
+          versiculoRef: ref,
+          versiculoTxt: texto,
+        });
+        contador++;
+      });
+    });
+  });
+
+  if (!itens.length) { alert('Nenhuma CTO cadastrada para gerar adesivos.'); return; }
+
+  const empresa = getCfgEmpresa();
+  const nomeEmpresa = 'CZnET Telecom';
+  const telefone = _adesivoFormatarTelefone(empresa.tel || '');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const pageW = 210, pageH = 297;
+  const margin = 8, gap = 3, cols = 1, rows = 5, porPagina = cols * rows;
+  const usableW = pageW - 2 * margin, usableH = pageH - 2 * margin;
+  const labelW = (usableW - (cols - 1) * gap) / cols;
+  const labelH = (usableH - (rows - 1) * gap) / rows;
+
+  itens.forEach((item, idx) => {
+    const posNaPagina = idx % porPagina;
+    if (posNaPagina === 0 && idx !== 0) doc.addPage();
+    const col = posNaPagina % cols;
+    const row = Math.floor(posNaPagina / cols);
+    const x = margin + col * (labelW + gap);
+    const yTop = margin + row * (labelH + gap);
+    _desenharAdesivoCto(doc, x, yTop, labelW, labelH, item, nomeEmpresa, telefone);
+  });
+
+  doc.save('Adesivos_CTOs_CZnET.pdf');
+}
+
+function _adesivoFormatarTelefone(tel) {
+  const d = (tel || '').replace(/\D/g, '');
+  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7,11)}`;
+  if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6,10)}`;
+  return tel || '';
+}
+
+// Desenha um adesivo em formato faixa: painel azul à esquerda (marca, nº
+// da CTO em destaque, OLT/PON) + área branca à direita (derivação,
+// versículo e telefone de suporte). Coordenadas em mm, origem no topo.
+function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
+  const radius = 3, leftW = 50;
+  const AZUL = [13, 71, 161], AZUL_ESCURO = [9, 46, 107], AZUL_CLARO = [188, 210, 247];
+  const CINZA = [95, 99, 104], CINZA_CLARO = [199, 204, 209], BRANCO = [255, 255, 255];
+
+  // Fundo branco do cartão
+  doc.setFillColor(...BRANCO);
+  doc.roundedRect(x, yTop, w, h, radius, radius, 'F');
+
+  // Painel azul à esquerda
+  doc.setFillColor(...AZUL);
+  doc.roundedRect(x, yTop, leftW, h, radius, radius, 'F');
+
+  // Bordas
+  doc.setDrawColor(...AZUL);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(x, yTop, w, h, radius, radius, 'S');
+  doc.roundedRect(x, yTop, leftW, h, radius, radius, 'S');
+
+  const lcx = x + leftW / 2;
+
+  // --- Painel esquerdo ---
+  doc.setTextColor(...BRANCO);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+  doc.text(nomeEmpresa.toUpperCase(), lcx, yTop + 7, { align: 'center' });
+
+  doc.setDrawColor(...BRANCO); doc.setLineWidth(0.25);
+  doc.line(x + 6, yTop + 9.5, x + leftW - 6, yTop + 9.5);
+
+  const ctoTxt = 'CTO ' + String(item.cto).padStart(2, '0');
+  doc.setTextColor(...BRANCO);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(30);
+  doc.text(ctoTxt, lcx, yTop + h / 2 + 4, { align: 'center' });
+
+  const ponTxt = typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon;
+  doc.setTextColor(...AZUL_CLARO);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text(`${item.olt}  ·  PON ${ponTxt}`, lcx, yTop + h - 6, { align: 'center' });
+
+  // --- Área direita: derivação (só quando existir — é uma extensão da
+  // MESMA CTO, não uma referência a outra), versículo e suporte ---
+  const rx0 = x + leftW + 7, rx1 = x + w - 7, rw = rx1 - rx0;
+
+  const temDerivacao = !!item.derivacao;
+  let linhaY;
+  if (temDerivacao) {
+    // Destaque: mostra que esta CTO tem uma extensão/derivação própria
+    doc.setFillColor(...AZUL_CLARO);
+    doc.roundedRect(rx0 - 3, yTop + 4, rw + 6, 8, 1.5, 1.5, 'F');
+    doc.setTextColor(...AZUL);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(`Derivação desta CTO: ${item.derivacao}`, rx0, yTop + 9.3);
+    linhaY = yTop + 17;
+    doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
+    doc.line(rx0, linhaY, rx1, linhaY);
+  } else {
+    linhaY = yTop + 6;
+  }
+
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(10.5);
+  const versoTxt = `“${item.versiculoTxt}”`;
+  let linhas = doc.splitTextToSize(versoTxt, rw);
+  if (linhas.length > 2) linhas = [linhas[0], linhas.slice(1).join(' ')];
+
+  const v1Y = linhaY + 8, v2Y = linhaY + 13, refDy = 5.5;
+  doc.setTextColor(...AZUL_ESCURO);
+  let refY;
+  if (linhas.length === 1) {
+    doc.text(linhas[0], rx0, v1Y);
+    refY = v1Y + refDy;
+  } else {
+    doc.text(linhas[0], rx0, v1Y);
+    doc.text(linhas[1], rx0, v2Y);
+    refY = v2Y + refDy;
+  }
+  doc.setTextColor(...CINZA);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  doc.text(`— ${item.versiculoRef}`, rx0, refY);
+
+  doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
+  doc.line(rx0, yTop + h - 9, rx1, yTop + h - 9);
+
+  doc.setTextColor(...AZUL);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+  doc.text(`Suporte: ${telefone}`, rx0, yTop + h - 4);
 }
 
 // Vincula um cliente já cadastrado a uma CTO, buscando pelo nome digitado no
