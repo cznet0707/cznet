@@ -3810,16 +3810,19 @@ function renderPonHtml(olt, pon) {
   </div>`;
 }
 
+const LIMITE_CLIENTES_CTO = 64;
+
 function renderCtoHtml(olt, pon, cto) {
   const ocupantes = clientesDaCto(cto.id);
-  const vagas = cto.capacidade;
-  const cor = ocupantes.length >= vagas ? '#c62828' : (ocupantes.length >= vagas*0.75 ? '#e65100' : '#1e8449');
+  const quantidadeClientes = ocupantes.length;
+  const cor = quantidadeClientes >= 60 ? '#c62828' :
+    (quantidadeClientes >= 55 ? '#f9a825' : '#1e8449');
   const label = cto.derivacao ? `CTO ${cto.numero} — ${cto.derivacao}` : `CTO ${cto.numero}`;
   return `
   <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <strong style="font-size:0.86rem">📦 ${label}</strong>
-      <span style="font-size:0.75rem;font-weight:700;color:${cor}">${ocupantes.length}/${vagas}</span>
+      <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="${quantidadeClientes} de ${LIMITE_CLIENTES_CTO} clientes">${quantidadeClientes}/${LIMITE_CLIENTES_CTO}</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
       ${ocupantes.length ? ocupantes.map(c => `
