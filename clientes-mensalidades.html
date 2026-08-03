@@ -3792,17 +3792,29 @@ function renderOlt() {
 }
 
 function renderPonHtml(olt, pon) {
+  // Capacidade da PON é sempre fixa em 64 vagas — NUNCA a soma das
+  // capacidades das CTOs (isso inflava o total, ex: "X/72").
+  const CAPACIDADE_FIXA_PON = 64;
   const totalOcupadas = pon.ctos.reduce((s,c) => s + clientesDaCto(c.id).length, 0);
-  const totalVagas     = pon.ctos.reduce((s,c) => s + c.capacidade, 0);
+  const totalVagas     = CAPACIDADE_FIXA_PON;
+  const vagasRestantes = Math.max(0, totalVagas - totalOcupadas);
+  const percentualPreenchido = Math.min(100, (totalOcupadas / totalVagas) * 100);
+  const corRestantes = totalOcupadas >= 60 ? '#c62828' : (totalOcupadas >= 55 ? '#f9a825' : '#1e8449');
   return `
   <div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
       <strong style="font-size:0.95rem">📡 PON ${pon.numero}</strong>
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:0.78rem;color:#777">${totalOcupadas}/${totalVagas} vagas ocupadas</span>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="adicionarDerivacaoCto('${olt.id}','${pon.id}')">➕ Derivação</button>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px;color:#c62828;border-color:#f5b3ac" onclick="removerPon('${olt.id}','${pon.id}')">🗑️ Remover PON</button>
       </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="flex:1;background:${corRestantes}40;border-radius:6px;height:8px;overflow:hidden">
+        <div style="width:${percentualPreenchido}%;height:100%;background:#1e8449;border-radius:6px 0 0 6px"></div>
+      </div>
+      <span style="font-size:0.72rem;font-weight:600;color:${corRestantes};white-space:nowrap">faltam ${vagasRestantes} vagas</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
       ${pon.ctos.map(cto => renderCtoHtml(olt, pon, cto)).join('')}
