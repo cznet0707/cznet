@@ -872,7 +872,7 @@
       </p>
       <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="adicionarNovaOlt()">➕ Nova OLT</button>
-        <button class="btn btn-outline" onclick="gerarAdesivosCTOs()">🖨️ Gerar Adesivos das CTOs</button>
+        <button class="btn btn-outline" onclick="abrirModalAdesivosCTOs()">🖨️ Gerar Adesivos das CTOs</button>
       </div>
       <div id="olt-conteudo"></div>
       <datalist id="lista-clientes-sem-cto"></datalist>
@@ -1440,6 +1440,24 @@ Qualquer dúvida, estamos à disposição!</div>
 </div>
 
 <!-- MODAL ESCOLHA DE MESES EM ATRASO -->
+<div class="modal-overlay" id="modal-adesivos-cto">
+  <div class="modal" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column">
+    <h3>🖨️ Gerar Adesivos das CTOs</h3>
+    <p style="color:#777;font-size:0.83rem;margin-bottom:10px">
+      Escolha quais CTOs entram no PDF. 🔀 indica que a CTO é uma derivação.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="_marcarTodosAdesivos(true)">☑️ Marcar todas</button>
+      <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="_marcarTodosAdesivos(false)">⬜ Desmarcar todas</button>
+    </div>
+    <div id="adesivos-cto-lista" style="flex:1;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:10px;margin-bottom:14px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button id="btn-confirmar-adesivos" class="btn btn-success" onclick="confirmarGerarAdesivos()">⬇️ Baixar PDF</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-escolha-meses">
   <div class="modal" style="max-width:440px">
     <h3>📅 Meses em Aberto — <span id="escolha-meses-nome"></span></h3>
@@ -3912,30 +3930,24 @@ const VERSICULOS_ADESIVO = [
   ["Salmos 121:2", "O meu socorro vem do Senhor, que fez os céus e a terra."],
 ];
 
-function gerarAdesivosCTOs() {
-  if (typeof window.jspdf === 'undefined') {
-    alert('Biblioteca jsPDF não carregada. Recarregue a página.'); return;
-  }
-  if (!Array.isArray(olts) || olts.length === 0) {
-    alert('Nenhuma OLT/CTO cadastrada ainda.'); return;
-  }
-
-  // Monta a lista de adesivos (1 por CTO). "Derivação" é uma extensão da
-  // MESMA CTO (rótulo cadastrado ao clicar em "➕ Derivação" na tela de
-  // rede, ex: "CTO 3 Derivação B") — só aparece no adesivo quando existir;
-  // não é uma referência a outra CTO.
+// Monta a lista de todas as CTOs cadastradas, já com o versículo sorteado
+// em sequência e o id da CTO (pra poder filtrar quais o usuário selecionou).
+// "Derivação" é uma extensão da MESMA CTO (rótulo cadastrado ao clicar em
+// "➕ Derivação" na tela de rede, ex: "CTO 3 Derivação B") — não é uma
+// referência a outra CTO.
+function _montarItensAdesivos() {
   const itens = [];
   let contador = 0;
-  olts.forEach(olt => {
+  (olts || []).forEach(olt => {
     (olt.pons || []).forEach(pon => {
       (pon.ctos || []).forEach(cto => {
-        const numero = cto.numero;
         const derivacao = (cto.derivacao || '').trim();
         const [ref, texto] = VERSICULOS_ADESIVO[contador % VERSICULOS_ADESIVO.length];
         itens.push({
+          ctoId: cto.id,
           olt: olt.nome || olt.id,
           pon: pon.numero,
-          cto: numero,
+          cto: cto.numero,
           derivacao,
           versiculoRef: ref,
           versiculoTxt: texto,
@@ -3944,6 +3956,78 @@ function gerarAdesivosCTOs() {
       });
     });
   });
+  return itens;
+}
+
+// Abre o modal de seleção: o usuário escolhe se quer gerar o adesivo de
+// todas as CTOs ou só de algumas específicas antes de baixar o PDF.
+function abrirModalAdesivosCTOs() {
+  if (!Array.isArray(olts) || olts.length === 0) {
+    alert('Nenhuma OLT/CTO cadastrada ainda.'); return;
+  }
+  const itens = _montarItensAdesivos();
+  if (!itens.length) { alert('Nenhuma CTO cadastrada para gerar adesivos.'); return; }
+
+  const porOlt = {};
+  itens.forEach(item => {
+    if (!porOlt[item.olt]) porOlt[item.olt] = {};
+    const ponLabel = `PON ${typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon}`;
+    if (!porOlt[item.olt][ponLabel]) porOlt[item.olt][ponLabel] = [];
+    porOlt[item.olt][ponLabel].push(item);
+  });
+
+  const lista = document.getElementById('adesivos-cto-lista');
+  lista.innerHTML = Object.keys(porOlt).map(oltNome => `
+    <div style="margin-bottom:10px">
+      <div style="font-weight:700;color:#0a4fa0;font-size:0.85rem;margin-bottom:4px">🗼 ${oltNome}</div>
+      ${Object.keys(porOlt[oltNome]).map(ponLabel => `
+        <div style="margin-bottom:6px;padding-left:8px">
+          <div style="font-size:0.78rem;color:#777;font-weight:600;margin-bottom:3px">📡 ${ponLabel}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:8px">
+            ${porOlt[oltNome][ponLabel].map(item => `
+              <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;background:#f5f7fa;border-radius:6px;padding:3px 8px;cursor:pointer">
+                <input type="checkbox" class="adesivo-cto-check" value="${item.ctoId}" checked onchange="_atualizarContadorAdesivos()">
+                CTO ${item.cto}${item.derivacao ? ' 🔀' : ''}
+              </label>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  _atualizarContadorAdesivos();
+  document.getElementById('modal-adesivos-cto').classList.add('open');
+}
+
+function _marcarTodosAdesivos(marcar) {
+  document.querySelectorAll('.adesivo-cto-check').forEach(chk => chk.checked = marcar);
+  _atualizarContadorAdesivos();
+}
+
+function _atualizarContadorAdesivos() {
+  const total = document.querySelectorAll('.adesivo-cto-check').length;
+  const marcados = document.querySelectorAll('.adesivo-cto-check:checked').length;
+  const btn = document.getElementById('btn-confirmar-adesivos');
+  if (btn) btn.textContent = marcados === total
+    ? `⬇️ Baixar PDF (todas as ${total})`
+    : `⬇️ Baixar PDF (${marcados} selecionada${marcados === 1 ? '' : 's'})`;
+}
+
+function confirmarGerarAdesivos() {
+  const idsSelecionados = Array.from(document.querySelectorAll('.adesivo-cto-check:checked')).map(chk => chk.value);
+  if (!idsSelecionados.length) { alert('Selecione ao menos uma CTO.'); return; }
+  fecharModal();
+  gerarAdesivosCTOs(idsSelecionados);
+}
+
+function gerarAdesivosCTOs(idsFiltro) {
+  if (typeof window.jspdf === 'undefined') {
+    alert('Biblioteca jsPDF não carregada. Recarregue a página.'); return;
+  }
+
+  let itens = _montarItensAdesivos();
+  if (Array.isArray(idsFiltro) && idsFiltro.length) {
+    const filtroSet = new Set(idsFiltro);
+    itens = itens.filter(item => filtroSet.has(item.ctoId));
+  }
 
   if (!itens.length) { alert('Nenhuma CTO cadastrada para gerar adesivos.'); return; }
 
@@ -3970,7 +4054,8 @@ function gerarAdesivosCTOs() {
     _desenharAdesivoCto(doc, x, yTop, labelW, labelH, item, nomeEmpresa, telefone);
   });
 
-  doc.save('Adesivos_CTOs_CZnET.pdf');
+  const sufixo = itens.length === 1 ? `_CTO${itens[0].cto}` : '';
+  doc.save(`Adesivos_CTOs_CZnET${sufixo}.pdf`);
 }
 
 function _adesivoFormatarTelefone(tel) {
