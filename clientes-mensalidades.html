@@ -3874,6 +3874,7 @@ function renderCtoHtml(olt, pon, cto) {
     <div style="display:flex;gap:5px;flex-wrap:wrap">
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeCto('${cto.id}')">⚙️ Capacidade</button>
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoCto('${olt.id}','${pon.id}','${cto.id}')">📲 Avisar Técnico</button>
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#c62828;border-color:#f5b3ac" onclick="removerCto('${olt.id}','${pon.id}','${cto.id}')">🗑️ Remover CTO</button>
     </div>
   </div>`;
 }
@@ -4332,6 +4333,27 @@ function adicionarDerivacaoCto(oltId, ponId) {
   const numero = pon.ctos.length + 1;
   const novaCto = { id: `${pon.id}-deriv${Date.now()}`, numero, capacidade: cap, derivacao: rotulo };
   pon.ctos.push(novaCto);
+  salvarStorage();
+  renderOlt();
+}
+
+// Remove uma CTO (inclusive derivações) — mesma proteção das outras remoções:
+// só deixa remover se não houver cliente vinculado a ela.
+function removerCto(oltId, ponId, ctoId) {
+  const olt = olts.find(o => o.id === oltId); if (!olt) return;
+  const pon = olt.pons.find(p => p.id === ponId); if (!pon) return;
+  const cto = pon.ctos.find(c => c.id === ctoId); if (!cto) return;
+
+  const ocupantes = clientesDaCto(cto.id);
+  if (ocupantes.length) {
+    alert(`Não é possível remover: ${ocupantes.length} cliente(s) vinculado(s) a esta CTO. Mova-os antes de remover.`);
+    return;
+  }
+
+  const label = cto.derivacao ? `CTO ${cto.numero} (${cto.derivacao})` : `CTO ${cto.numero}`;
+  if (!confirm(`Remover ${label}? Esta ação não pode ser desfeita.`)) return;
+
+  pon.ctos = pon.ctos.filter(c => c.id !== ctoId);
   salvarStorage();
   renderOlt();
 }
