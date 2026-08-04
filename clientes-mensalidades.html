@@ -1444,16 +1444,20 @@ Qualquer dúvida, estamos à disposição!</div>
   <div class="modal" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column">
     <h3>🖨️ Gerar Adesivos das CTOs</h3>
     <p style="color:#777;font-size:0.83rem;margin-bottom:10px">
-      Escolha quais CTOs entram no PDF. 🔀 indica que a CTO é uma derivação.
+      Escolha quais CTOs entram no arquivo. 🔀 indica que a CTO é uma derivação.
     </p>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="_marcarTodosAdesivos(true)">☑️ Marcar todas</button>
       <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="_marcarTodosAdesivos(false)">⬜ Desmarcar todas</button>
     </div>
     <div id="adesivos-cto-lista" style="flex:1;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:10px;margin-bottom:14px"></div>
+    <p style="color:#999;font-size:0.72rem;margin-bottom:8px">
+      📄 PDF: pronto pra imprimir direto. 🎨 SVG: formato vetorial editável — a gráfica abre no CorelDRAW (Arquivo → Importar) com texto e formas 100% editáveis.
+    </p>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
-      <button id="btn-confirmar-adesivos" class="btn btn-success" onclick="confirmarGerarAdesivos()">⬇️ Baixar PDF</button>
+      <button id="btn-confirmar-adesivos-svg" class="btn btn-outline" onclick="confirmarGerarAdesivos('svg')">🎨 Baixar SVG (CorelDRAW)</button>
+      <button id="btn-confirmar-adesivos" class="btn btn-success" onclick="confirmarGerarAdesivos('pdf')">📄 Baixar PDF</button>
     </div>
   </div>
 </div>
@@ -4040,17 +4044,22 @@ function _marcarTodosAdesivos(marcar) {
 function _atualizarContadorAdesivos() {
   const total = document.querySelectorAll('.adesivo-cto-check').length;
   const marcados = document.querySelectorAll('.adesivo-cto-check:checked').length;
-  const btn = document.getElementById('btn-confirmar-adesivos');
-  if (btn) btn.textContent = marcados === total
-    ? `⬇️ Baixar PDF (todas as ${total})`
-    : `⬇️ Baixar PDF (${marcados} selecionada${marcados === 1 ? '' : 's'})`;
+  const sufixo = marcados === total ? `todas as ${total}` : `${marcados} selecionada${marcados === 1 ? '' : 's'}`;
+  const btnPdf = document.getElementById('btn-confirmar-adesivos');
+  const btnSvg = document.getElementById('btn-confirmar-adesivos-svg');
+  if (btnPdf) btnPdf.textContent = `📄 Baixar PDF (${sufixo})`;
+  if (btnSvg) btnSvg.textContent = `🎨 Baixar SVG (${sufixo})`;
 }
 
-function confirmarGerarAdesivos() {
+function confirmarGerarAdesivos(formato) {
   const idsSelecionados = Array.from(document.querySelectorAll('.adesivo-cto-check:checked')).map(chk => chk.value);
   if (!idsSelecionados.length) { alert('Selecione ao menos uma CTO.'); return; }
   fecharModal();
-  gerarAdesivosCTOs(idsSelecionados);
+  if (formato === 'svg') {
+    gerarAdesivosCTOsSVG(idsSelecionados);
+  } else {
+    gerarAdesivosCTOs(idsSelecionados);
+  }
 }
 
 function gerarAdesivosCTOs(idsFiltro) {
@@ -4101,6 +4110,121 @@ function gerarAdesivosCTOs(idsFiltro) {
 
   const sufixo = itens.length === 1 ? `_CTO${itens[0].cto}` : '';
   doc.save(`Adesivos_CTOs_CZnET${sufixo}.pdf`);
+}
+
+// Gera os mesmos adesivos (15x15cm, folha de 1x1m) em formato SVG —
+// vetorial nativo, que o CorelDRAW importa (Arquivo → Importar) com
+// texto, formas e cores 100% editáveis, sem perda de qualidade.
+// Diferente do PDF (que pagina), o SVG sai como um arquivo único e
+// contínuo: se houver mais de 36 CTOs, a grade cresce para baixo em
+// vez de criar uma "página 2".
+function gerarAdesivosCTOsSVG(idsFiltro) {
+  let itens = _montarItensAdesivos();
+  if (Array.isArray(idsFiltro) && idsFiltro.length) {
+    const filtroSet = new Set(idsFiltro);
+    itens = itens.filter(item => filtroSet.has(item.ctoId));
+  }
+  if (!itens.length) { alert('Nenhuma CTO cadastrada para gerar adesivos.'); return; }
+
+  const empresa = getCfgEmpresa();
+  const nomeEmpresa = 'CZnET Telecom';
+  const telefone = _adesivoFormatarTelefone(empresa.tel || '');
+
+  const labelSize = 150; // mm (15cm)
+  const pageW = 1000;    // mm (1m de largura, igual à folha da gráfica)
+  const gap = 5;
+  const cols = Math.floor((pageW + gap) / (labelSize + gap)); // 6
+  const rows = Math.ceil(itens.length / cols);
+  const contentW = cols * labelSize + (cols - 1) * gap;
+  const marginX = (pageW - contentW) / 2;
+  const marginY = 37.5; // mesma margem usada no PDF
+  const pageH = marginY * 2 + rows * labelSize + (rows - 1) * gap;
+
+  let corpo = '';
+  itens.forEach((item, idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    const x = marginX + col * (labelSize + gap);
+    const y = marginY + row * (labelSize + gap);
+    corpo += _svgAdesivoCto(x, y, labelSize, item, nomeEmpresa, telefone);
+  });
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}mm" height="${pageH}mm" viewBox="0 0 ${pageW} ${pageH}">
+  <rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#ffffff"/>
+  ${corpo}
+</svg>`;
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const sufixo = itens.length === 1 ? `_CTO${itens[0].cto}` : '';
+  a.href = url;
+  a.download = `Adesivos_CTOs_CZnET${sufixo}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Monta o SVG (grupo <g>) de um único adesivo, no mesmo layout visual
+// usado no PDF: faixa azul no topo, número da CTO em destaque, OLT/PON,
+// e rodapé azul escuro com telefone de suporte + versículo.
+function _svgAdesivoCto(x, y, size, item, nomeEmpresa, telefone) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // O viewBox do SVG está em mm, mas as fórmulas de tamanho de fonte abaixo
+  // foram herdadas dos valores usados no jsPDF (que interpreta setFontSize
+  // em PONTOS, não em mm). Por isso multiplicamos por PT2MM na hora de
+  // desenhar, senão o texto sai ~2,8x maior que o esperado.
+  const PT2MM = 0.3527;
+  const headerH = size * 0.15;
+  const footerH = size * 0.30;
+  const midTop = headerH;
+  const midH = size - headerH - footerH;
+  const cx = size / 2;
+  const radius = 4;
+
+  const ctoTxt = 'CTO ' + String(item.cto).padStart(2, '0');
+  const textoGrande = item.derivacao ? item.derivacao : ctoTxt;
+  const tamGrandeBase = item.derivacao ? midH * 0.34 : midH * 0.5;
+  // Redução aproximada de fonte para textos longos de derivação (sem medir string real, como no PDF)
+  const tamGrande = (textoGrande.length > 14 ? tamGrandeBase * 0.7 : tamGrandeBase) * PT2MM;
+
+  const ponTxt = typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon;
+
+  const footerTop = size - footerH;
+  const versoTxt = item.versiculoTxt;
+  // Quebra o versículo em 2 linhas respeitando palavras inteiras (procura o
+  // espaço mais próximo do meio do texto, em vez de cortar no meio de uma
+  // palavra como "man|eira").
+  let linhas = [versoTxt];
+  if (versoTxt.length > 60) {
+    const meio = Math.ceil(versoTxt.length / 2);
+    let corte = versoTxt.lastIndexOf(' ', meio);
+    if (corte === -1) corte = versoTxt.indexOf(' ', meio);
+    if (corte === -1) corte = meio;
+    linhas = [versoTxt.slice(0, corte).trim(), versoTxt.slice(corte).trim()];
+  }
+
+  return `
+  <g transform="translate(${x},${y})" font-family="Helvetica, Arial, sans-serif">
+    <rect x="0" y="0" width="${size}" height="${size}" rx="${radius}" fill="#ffffff" stroke="#0d47a1" stroke-width="0.5"/>
+    <path d="M ${radius} 0 H ${size - radius} A ${radius} ${radius} 0 0 1 ${size} ${radius} V ${headerH} H 0 V ${radius} A ${radius} ${radius} 0 0 1 ${radius} 0 Z" fill="#0d47a1"/>
+    <rect x="0" y="${midTop + midH * 0.03}" width="${size}" height="${midH * 0.42}" fill="#e8f0fe"/>
+    <path d="M 0 ${footerTop} H ${size} V ${size - radius} A ${radius} ${radius} 0 0 1 ${size - radius} ${size} H ${radius} A ${radius} ${radius} 0 0 1 0 ${size - radius} Z" fill="#092e6b"/>
+    <text x="${cx}" y="${headerH / 2 + headerH * 0.22}" text-anchor="middle" font-weight="bold" font-size="${headerH * 1.7 * PT2MM}" fill="#ffffff">${esc(nomeEmpresa.toUpperCase())}</text>
+    <text x="${cx}" y="${midTop + midH * 0.32}" text-anchor="middle" font-weight="bold" font-size="${tamGrande}" fill="#092e6b">${esc(textoGrande)}</text>
+    <text x="${cx}" y="${midTop + midH * 0.55}" text-anchor="middle" font-weight="bold" font-size="${midH * 0.14 * PT2MM}" fill="#5f6368">${esc(item.olt)}   ·   PON ${esc(ponTxt)}</text>
+    <line x1="${size * 0.08}" y1="${midTop + midH * 0.65}" x2="${size - size * 0.08}" y2="${midTop + midH * 0.65}" stroke="#c7ccd1" stroke-width="0.4"/>
+    ${item.derivacao ? `<text x="${cx}" y="${midTop + midH * 0.78}" text-anchor="middle" font-weight="bold" font-size="${midH * 0.13 * PT2MM}" fill="#0d47a1">Esta CTO é uma DERIVAÇÃO</text>` : ''}
+    <text x="${cx}" y="${footerTop + footerH * 0.22}" text-anchor="middle" font-weight="bold" font-size="${footerH * 0.20 * PT2MM}" fill="#ffffff">Suporte: ${esc(telefone)}</text>
+    <line x1="${size * 0.06}" y1="${footerTop + footerH * 0.30}" x2="${size - size * 0.06}" y2="${footerTop + footerH * 0.30}" stroke="#0d47a1" stroke-width="0.4"/>
+    ${linhas.length === 1
+      ? `<text x="${cx}" y="${footerTop + footerH * 0.50}" text-anchor="middle" font-style="italic" font-size="${footerH * 0.17 * PT2MM}" fill="#bcd2f7">"${esc(linhas[0])}"</text>`
+      : `<text x="${cx}" y="${footerTop + footerH * 0.46}" text-anchor="middle" font-style="italic" font-size="${footerH * 0.17 * PT2MM}" fill="#bcd2f7">"${esc(linhas[0])}</text>
+    <text x="${cx}" y="${footerTop + footerH * 0.58}" text-anchor="middle" font-style="italic" font-size="${footerH * 0.17 * PT2MM}" fill="#bcd2f7">${esc(linhas[1])}"</text>`}
+    <text x="${cx}" y="${footerTop + footerH * (linhas.length === 1 ? 0.68 : 0.78)}" text-anchor="middle" font-weight="bold" font-size="${footerH * 0.14 * PT2MM}" fill="#ffffff">— ${esc(item.versiculoRef)}</text>
+  </g>`;
 }
 
 function _adesivoFormatarTelefone(tel) {
