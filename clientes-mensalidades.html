@@ -1458,6 +1458,30 @@ Qualquer dúvida, estamos à disposição!</div>
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-trocar-cto">
+  <div class="modal" style="max-width:440px">
+    <h3>🔀 Trocar Cliente de CTO</h3>
+    <input type="hidden" id="trocar-cto-cliente-id">
+    <input type="hidden" id="trocar-cto-origem-id">
+    <p style="font-size:0.85rem;margin-bottom:4px">
+      Cliente: <strong id="trocar-cto-nome-cliente"></strong>
+    </p>
+    <p style="color:#777;font-size:0.78rem;margin-bottom:14px">
+      CTO atual: <span id="trocar-cto-origem-label"></span>
+    </p>
+    <p style="font-weight:600;font-size:0.83rem;margin-bottom:8px">Nova posição na rede:</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:6px">
+      <div><label>OLT</label><select id="trocacto-net-olt" onchange="atualizarSelectPon('trocacto')"><option value="">Selecione...</option></select></div>
+      <div><label>PON</label><select id="trocacto-net-pon" onchange="atualizarSelectCto('trocacto')"><option value="">Selecione a OLT primeiro</option></select></div>
+      <div><label>CTO</label><select id="trocacto-net-cto"><option value="">Selecione a PON primeiro</option></select></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarTrocarCto()">🔀 Confirmar Troca</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-escolha-meses">
   <div class="modal" style="max-width:440px">
     <h3>📅 Meses em Aberto — <span id="escolha-meses-nome"></span></h3>
@@ -3873,6 +3897,7 @@ function renderCtoHtml(olt, pon, cto) {
               </div>
             </div>
           </div>
+          <span style="cursor:pointer;color:#1a73e8;padding-left:2px;flex-shrink:0;font-size:0.9rem" onclick="abrirModalTrocarCto(${c.id}, '${cto.id}')" title="Trocar este cliente de CTO">🔀</span>
           <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
         </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
     </div>
@@ -4046,22 +4071,32 @@ function gerarAdesivosCTOs(idsFiltro) {
   const telefone = _adesivoFormatarTelefone(empresa.tel || '');
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const pageW = 210, pageH = 297;
-  const margin = 8, gap = 3, cols = 1, rows = 5, porPagina = cols * rows;
-  const usableW = pageW - 2 * margin, usableH = pageH - 2 * margin;
-  const labelW = (usableW - (cols - 1) * gap) / cols;
-  const labelH = (usableH - (rows - 1) * gap) / rows;
+  // Folha de 1m x 1m (tamanho da folha usada na gráfica), com adesivos
+  // quadrados de 15x15cm cada. Formato vetorial (PDF), que o CorelDRAW
+  // abre normalmente em File > Import/Open para impressão.
+  const labelSize = 150; // mm (15cm)
+  const pageW = 1000, pageH = 1000; // mm (1m x 1m)
+  const gap = 5; // mm de espaço entre adesivos (facilita o corte)
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [pageW, pageH] });
+
+  const cols = Math.floor((pageW + gap) / (labelSize + gap));
+  const rows = Math.floor((pageH + gap) / (labelSize + gap));
+  const porPagina = cols * rows;
+  const contentW = cols * labelSize + (cols - 1) * gap;
+  const contentH = rows * labelSize + (rows - 1) * gap;
+  const marginX = (pageW - contentW) / 2;
+  const marginY = (pageH - contentH) / 2;
 
   itens.forEach((item, idx) => {
     const posNaPagina = idx % porPagina;
-    if (posNaPagina === 0 && idx !== 0) doc.addPage();
+    if (posNaPagina === 0 && idx !== 0) doc.addPage([pageW, pageH]);
     const col = posNaPagina % cols;
     const row = Math.floor(posNaPagina / cols);
-    const x = margin + col * (labelW + gap);
-    const yTop = margin + row * (labelH + gap);
-    _desenharAdesivoCto(doc, x, yTop, labelW, labelH, item, nomeEmpresa, telefone);
+    const x = marginX + col * (labelSize + gap);
+    const yTop = marginY + row * (labelSize + gap);
+    _desenharAdesivoCto(doc, x, yTop, labelSize, labelSize, item, nomeEmpresa, telefone);
   });
 
   const sufixo = itens.length === 1 ? `_CTO${itens[0].cto}` : '';
@@ -4075,11 +4110,15 @@ function _adesivoFormatarTelefone(tel) {
   return tel || '';
 }
 
-// Desenha um adesivo em formato faixa: painel azul à esquerda (marca, nº
-// da CTO em destaque, OLT/PON) + área branca à direita (derivação,
-// versículo e telefone de suporte). Coordenadas em mm, origem no topo.
+// Desenha um adesivo QUADRADO de 15x15cm: faixa azul no topo (marca),
+// número da CTO em destaque no meio, OLT/PON logo abaixo, e rodapé azul
+// escuro com telefone de suporte + versículo. Coordenadas em mm, origem
+// no canto superior esquerdo do adesivo. w e h são sempre iguais (150mm),
+// mas o desenho usa frações de h para caber em qualquer tamanho quadrado.
 function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
-  const radius = 3, headerH = 9, footerH = 17;
+  const radius = 4;
+  const headerH = h * 0.15;
+  const footerH = h * 0.30;
   const AZUL = [13, 71, 161], AZUL_ESCURO = [9, 46, 107], AZUL_CLARO = [232, 240, 254];
   const AZUL_MUITO_CLARO = [188, 210, 247];
   const CINZA = [95, 99, 104], CINZA_CLARO = [199, 204, 209], BRANCO = [255, 255, 255];
@@ -4097,22 +4136,23 @@ function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
   doc.roundedRect(x, yTop + h - footerH, w, footerH, radius, radius, 'F');
 
   const midTop = yTop + headerH;
+  const midH = h - headerH - footerH;
 
   // Faixa clara atrás do número da CTO (destaque)
   doc.setFillColor(...AZUL_CLARO);
-  doc.rect(x, midTop + 1, w, 12, 'F');
+  doc.rect(x, midTop + midH * 0.03, w, midH * 0.42, 'F');
 
   // Borda do cartão
   doc.setDrawColor(...AZUL);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.5);
   doc.roundedRect(x, yTop, w, h, radius, radius, 'S');
 
   const cx = x + w / 2;
 
   // Marca
   doc.setTextColor(...BRANCO);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-  doc.text(nomeEmpresa.toUpperCase(), cx, yTop + headerH / 2 + 1.8, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(headerH * 1.7);
+  doc.text(nomeEmpresa.toUpperCase(), cx, yTop + headerH / 2 + headerH * 0.22, { align: 'center' });
 
   // Texto em destaque (grande): se a CTO for uma derivação (extensão da
   // MESMA CTO, cadastrada em "➕ Derivação"), mostra o rótulo digitado
@@ -4121,43 +4161,43 @@ function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
   const textoGrande = item.derivacao ? item.derivacao : ctoTxt;
   doc.setTextColor(...AZUL_ESCURO);
   doc.setFont('helvetica', 'bold');
-  let tamGrande = item.derivacao ? 26 : 36;
-  const larguraMaxGrande = w - 16;
+  let tamGrande = item.derivacao ? midH * 0.42 : midH * 0.62;
+  const larguraMaxGrande = w - w * 0.1;
   while (tamGrande > 14 && doc.getStringUnitWidth(textoGrande) * tamGrande / doc.internal.scaleFactor > larguraMaxGrande) {
     tamGrande -= 1;
   }
   doc.setFontSize(tamGrande);
-  doc.text(textoGrande, cx, midTop + 9.5, { align: 'center' });
+  doc.text(textoGrande, cx, midTop + midH * 0.32, { align: 'center' });
 
   // OLT / PON
   const ponTxt = typeof item.pon === 'number' ? String(item.pon).padStart(2, '0') : item.pon;
   doc.setTextColor(...CINZA);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5);
-  doc.text(`${item.olt}   ·   PON ${ponTxt}`, cx, midTop + 16, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(midH * 0.14);
+  doc.text(`${item.olt}   ·   PON ${ponTxt}`, cx, midTop + midH * 0.55, { align: 'center' });
 
   // Linha divisória fina
-  doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.3);
-  doc.line(x + 8, midTop + 19, x + w - 8, midTop + 19);
+  doc.setDrawColor(...CINZA_CLARO); doc.setLineWidth(0.4);
+  doc.line(x + w * 0.08, midTop + midH * 0.65, x + w - w * 0.08, midTop + midH * 0.65);
 
   // Selo "DERIVAÇÃO" — só aparece quando a CTO for uma derivação, pra deixar
   // claro que o texto grande acima é o rótulo dela, não o número normal.
   if (item.derivacao) {
     doc.setTextColor(...AZUL);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
-    doc.text('Esta CTO é uma DERIVAÇÃO', cx, midTop + 24, { align: 'center' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(midH * 0.13);
+    doc.text('Esta CTO é uma DERIVAÇÃO', cx, midTop + midH * 0.78, { align: 'center' });
   }
 
   // Rodapé (dentro da faixa azul escura): telefone + versículo + referência
-  const footerTop = yTop + h - footerH, pad = 6;
+  const footerTop = yTop + h - footerH, pad = w * 0.06;
 
   doc.setTextColor(...BRANCO);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
-  doc.text(`Suporte: ${telefone}`, cx, footerTop + 4, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(footerH * 0.20);
+  doc.text(`Suporte: ${telefone}`, cx, footerTop + footerH * 0.22, { align: 'center' });
 
-  doc.setDrawColor(...AZUL); doc.setLineWidth(0.3);
-  doc.line(x + pad, footerTop + 6, x + w - pad, footerTop + 6);
+  doc.setDrawColor(...AZUL); doc.setLineWidth(0.4);
+  doc.line(x + pad, footerTop + footerH * 0.30, x + w - pad, footerTop + footerH * 0.30);
 
-  doc.setFont('helvetica', 'italic'); doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(footerH * 0.17);
   const versoTxt = `“${item.versiculoTxt}”`;
   let linhas = doc.splitTextToSize(versoTxt, w - 2 * pad);
   if (linhas.length > 2) linhas = [linhas[0], linhas.slice(1).join(' ')];
@@ -4165,15 +4205,15 @@ function _desenharAdesivoCto(doc, x, yTop, w, h, item, nomeEmpresa, telefone) {
   doc.setTextColor(...AZUL_MUITO_CLARO);
   let refY;
   if (linhas.length === 1) {
-    doc.text(linhas[0], cx, footerTop + 9.8, { align: 'center' });
-    refY = footerTop + 13.6;
+    doc.text(linhas[0], cx, footerTop + footerH * 0.50, { align: 'center' });
+    refY = footerTop + footerH * 0.68;
   } else {
-    doc.text(linhas[0], cx, footerTop + 9.3, { align: 'center' });
-    doc.text(linhas[1], cx, footerTop + 12.8, { align: 'center' });
-    refY = footerTop + 16;
+    doc.text(linhas[0], cx, footerTop + footerH * 0.46, { align: 'center' });
+    doc.text(linhas[1], cx, footerTop + footerH * 0.58, { align: 'center' });
+    refY = footerTop + footerH * 0.78;
   }
   doc.setTextColor(...BRANCO);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.8);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(footerH * 0.14);
   doc.text(`— ${item.versiculoRef}`, cx, refY, { align: 'center' });
 }
 
@@ -4231,6 +4271,64 @@ async function removerClienteDaCto(clienteId) {
   renderOlt();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ Erro ao salvar a alteração neste aparelho.', 'erro');
+}
+
+// Troca rápida de CTO — pensado pra corrigir cliente que ficou registrado
+// na CTO errada: abre um modal com os selects em cascata de OLT/PON/CTO
+// (mesmo padrão do cadastro) já mostrando de onde o cliente está saindo.
+function abrirModalTrocarCto(clienteId, ctoAtualId) {
+  const cliente = clientes.find(c => c.id === clienteId);
+  if (!cliente) return;
+  const achado = encontrarCtoNaRede(ctoAtualId);
+
+  document.getElementById('trocar-cto-cliente-id').value = clienteId;
+  document.getElementById('trocar-cto-origem-id').value = ctoAtualId;
+  document.getElementById('trocar-cto-nome-cliente').textContent = cliente.nome;
+  document.getElementById('trocar-cto-origem-label').textContent = achado
+    ? `${achado.olt.nome || achado.olt.id} · PON ${achado.pon.numero} · CTO ${achado.cto.numero}${achado.cto.derivacao ? ' — ' + achado.cto.derivacao : ''}`
+    : 'CTO não encontrada';
+
+  popularSelectOlt('trocacto');
+  document.getElementById('trocacto-net-pon').innerHTML = '<option value="">Selecione a OLT primeiro</option>';
+  document.getElementById('trocacto-net-cto').innerHTML = '<option value="">Selecione a PON primeiro</option>';
+
+  // Pré-seleciona a OLT/PON atuais do cliente, pra facilitar caso a troca
+  // seja só para outra CTO dentro da mesma PON.
+  if (achado) {
+    document.getElementById('trocacto-net-olt').value = achado.olt.id;
+    atualizarSelectPon('trocacto', achado.pon.id);
+  }
+
+  document.getElementById('modal-trocar-cto').classList.add('open');
+}
+
+async function confirmarTrocarCto() {
+  const clienteId = Number(document.getElementById('trocar-cto-cliente-id').value);
+  const ctoOrigemId = document.getElementById('trocar-cto-origem-id').value;
+  const ctoDestinoId = document.getElementById('trocacto-net-cto').value;
+
+  if (!ctoDestinoId) { alert('Selecione a CTO de destino (OLT → PON → CTO).'); return; }
+  if (ctoDestinoId === ctoOrigemId) { alert('Essa já é a CTO atual do cliente. Escolha outra CTO de destino.'); return; }
+
+  const cliente = clientes.find(c => c.id === clienteId);
+  if (!cliente) return;
+  const achadoDestino = encontrarCtoNaRede(ctoDestinoId);
+  if (!achadoDestino) return;
+
+  const ocupacaoDestino = clientesDaCto(ctoDestinoId).length;
+  if (ocupacaoDestino >= achadoDestino.cto.capacidade) {
+    if (!confirm(`⚠️ A CTO de destino já está com ${ocupacaoDestino}/${achadoDestino.cto.capacidade} vagas ocupadas. Trocar mesmo assim?`)) return;
+  }
+
+  cliente.ctoRedeId = ctoDestinoId;
+  marcarClienteModificado(cliente.id);
+  fecharModal();
+  renderOlt();
+  const salvou = await salvarStorage();
+  mostrarToast(
+    salvou ? `✅ ${cliente.nome} trocado de CTO com sucesso!` : `⚠️ Erro ao salvar a troca neste aparelho.`,
+    salvou ? 'ok' : 'erro'
+  );
 }
 
 // Edição rápida do PPPoE direto na tela da OLT — pensado exatamente pra
