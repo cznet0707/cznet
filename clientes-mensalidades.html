@@ -1184,6 +1184,25 @@ Qualquer dúvida, estamos à disposição!</div>
       </div>
     </div>
 
+    <div class="card">
+      <h2>📡 Mensagem de Suporte (Sem Internet)</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:10px">Enviada pelo botão 📡 na ficha do cliente, quando ele avisa que ficou sem internet — antes de mandar o técnico:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge" style="background:#e3f2fd;color:#0d47a1;cursor:pointer" onclick="inserirVar('{nome}','config-msg-suporte')"><code>{nome}</code></span>
+        <span class="badge" style="background:#e3f2fd;color:#0d47a1;cursor:pointer" onclick="inserirVar('{telefone}','config-msg-suporte')"><code>{telefone}</code></span>
+        <span class="badge" style="background:#e3f2fd;color:#0d47a1;cursor:pointer" onclick="inserirVar('{empresa}','config-msg-suporte')"><code>{empresa}</code></span>
+      </div>
+      <textarea id="config-msg-suporte" rows="12" style="margin-bottom:10px"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarConfigSuporte()">💾 Salvar</button>
+        <button class="btn btn-outline" onclick="restaurarMsgSuporte()">↩️ Padrão</button>
+      </div>
+      <div style="margin-top:14px">
+        <label>Pré-visualização:</label>
+        <div class="zap-preview" id="config-preview-suporte" style="border-left-color:#0d47a1;background:#e3f2fd"></div>
+      </div>
+    </div>
+
 
     <div class="card">
       <h2>💾 Backup dos Dados</h2>
@@ -1343,6 +1362,7 @@ Qualquer dúvida, estamos à disposição!</div>
       </div>
     </div>
     <div class="modal-actions">
+      <button class="btn btn-outline" style="background:#e3f2fd;color:#0d47a1;border-color:#90caf9;margin-right:auto" onclick="enviarSuporteZap(editandoId)" title="Cliente sem internet? Envia passo a passo pra tentar resolver via WhatsApp">📡 Sem Internet</button>
       <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarEdicao()">💾 Salvar</button>
     </div>
@@ -1907,6 +1927,22 @@ Muito obrigado pela pontualidade! 🙏
 
 Qualquer dúvida, estamos à disposição!`;
 
+const MSG_SUPORTE_PADRAO = `Olá, {nome}! 👋
+
+Vamos tentar resolver a falta de internet por aqui mesmo, é rápido. Siga os passos:
+
+1️⃣ Verifique se as luzes do roteador/ONU estão acesas normalmente (sem piscar vermelho).
+2️⃣ Confira se os cabos de rede e de energia estão bem encaixados, sem folga.
+3️⃣ *Desligue o roteador da tomada, espere 30 segundos e ligue novamente.*
+4️⃣ Aguarde de 2 a 3 minutos até as luzes ficarem estáveis.
+5️⃣ Teste a internet novamente no celular ou computador.
+
+🔴 *Caso a luz do roteador/ONU esteja vermelha* (ou piscando vermelho) mesmo depois de reiniciar, isso indica um problema na fibra que a gente precisa resolver no local — nesse caso, é só responder aqui pra já agendarmos o reparo.
+
+Se depois desses passos ainda continuar sem internet, é só responder aqui que já vamos te ajudar ou ligar pra {telefone}.
+
+— {empresa}`;
+
 // Flag: só permite salvar no servidor depois que os dados foram carregados
 let dadosCarregados = false;
 // Carimbo de tempo da última versão dos dados vinda do servidor (usado para
@@ -2075,6 +2111,7 @@ async function carregarDoServidor() {
       if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
       if (d.cm_msg_profissional) localStorage.setItem('cm_msg_profissional', d.cm_msg_profissional);
       if (d.cm_msg_agradecimento) localStorage.setItem('cm_msg_agradecimento', d.cm_msg_agradecimento);
+      if (d.cm_msg_suporte) localStorage.setItem('cm_msg_suporte', d.cm_msg_suporte);
       if (d.cm_qrcode)     localStorage.setItem('cm_qrcode', d.cm_qrcode);
       if (d.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', d.cm_mes_inicio_sistema);
       dadosCarregados = true;
@@ -2113,6 +2150,7 @@ function getMsgCobranca() { return localStorage.getItem('cm_msg') || MSG_PADRAO;
 function getMsgCobrancaBoleto() { return localStorage.getItem('cm_msg_boleto') || MSG_PADRAO_BOLETO; }
 function getMsgCobrancaProfissional() { return localStorage.getItem('cm_msg_profissional') || MSG_PADRAO_PROFISSIONAL; }
 function getMsgAgradecimento() { return localStorage.getItem('cm_msg_agradecimento') || MSG_AGRADECIMENTO_PADRAO; }
+function getMsgSuporte() { return localStorage.getItem('cm_msg_suporte') || MSG_SUPORTE_PADRAO; }
 
 // ===== Mensagem padrão ÚNICA de confirmação de pagamento (usada em todos os fluxos) =====
 // Conta quantos meses o cliente já pagou com atraso antes (excluindo o mês atual)
@@ -3399,6 +3437,7 @@ function renderClientes(filtro = '') {
             <button class="btn btn-success" onclick="abrirBaixa(${c.id})" title="Dar Baixa">💰</button>
             <button class="btn-whatsapp btn" onclick="abrirZap(${c.id})" title="Cobrar via WhatsApp">📱</button>
             ${(c.wifi_nome || c.wifi_senha) ? `<button class="btn btn-wifi" onclick="enviarWifiZap(${c.id})" title="Enviar WiFi via WhatsApp">📶</button>` : ''}
+            <button class="btn btn-outline" style="background:#e3f2fd;color:#0d47a1;border-color:#90caf9" onclick="enviarSuporteZap(${c.id})" title="Cliente sem internet? Envia passo a passo pra tentar resolver via WhatsApp">📡</button>
             <button class="btn-carne btn" onclick="abrirCarne(${c.id})" title="Gerar Carnê PDF">📋</button>
             <button class="btn btn-outline" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
             <button class="btn btn-outline" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
@@ -4830,6 +4869,26 @@ function enviarWifiZap(clienteId) {
     `🔑 *Senha:* ${senha}\n\n` +
     `Qualquer dúvida, estamos à disposição! 😊\n` +
     `— CZnET Telecom`;
+  const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// Envia um passo a passo básico de "sem internet" pro cliente tentar antes
+// de precisar de visita técnica — pensado pro momento em que o cliente liga
+// avisando que caiu a internet e você quer já mandar o procedimento padrão.
+// O texto é configurável em Configurações → Mensagem de Suporte (Sem Internet).
+function enviarSuporteZap(clienteId) {
+  const c = clientes.find(x => x.id === clienteId);
+  if (!c) return;
+  const tel = telLimpo(c.tel);
+  if (!tel) { alert('Cliente sem telefone cadastrado.'); return; }
+
+  const empresa = getCfgEmpresa();
+  const msg = getMsgSuporte()
+    .replace(/{nome}/g, c.nome)
+    .replace(/{telefone}/g, empresa.tel || '(não cadastrado)')
+    .replace(/{empresa}/g, empresa.nome || 'CZnET Telecom');
+
   const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
 }
@@ -7263,9 +7322,11 @@ function carregarConfig() {
   document.getElementById('config-msg-boleto').value = getMsgCobrancaBoleto();
   document.getElementById('config-msg-profissional').value = getMsgCobrancaProfissional();
   document.getElementById('config-msg-agr').value  = getMsgAgradecimento();
+  document.getElementById('config-msg-suporte').value = getMsgSuporte();
   atualizarPreviewAgr();
   atualizarPreviewBoleto();
   atualizarPreviewProfissional();
+  atualizarPreviewSuporte();
   // QR Code
   const qr = localStorage.getItem('cm_qrcode');
   renderQRPreview(qr);
@@ -7357,6 +7418,7 @@ function importarDados(modo) {
   if (_dadosImport.cm_msg_boleto)         localStorage.setItem('cm_msg_boleto', _dadosImport.cm_msg_boleto);
   if (_dadosImport.cm_msg_profissional)   localStorage.setItem('cm_msg_profissional', _dadosImport.cm_msg_profissional);
   if (_dadosImport.cm_msg_agradecimento)  localStorage.setItem('cm_msg_agradecimento', _dadosImport.cm_msg_agradecimento);
+  if (_dadosImport.cm_msg_suporte)        localStorage.setItem('cm_msg_suporte', _dadosImport.cm_msg_suporte);
   if (_dadosImport.cm_qrcode)             localStorage.setItem('cm_qrcode', _dadosImport.cm_qrcode);
   if (_dadosImport.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', _dadosImport.cm_mes_inicio_sistema);
 
@@ -7433,6 +7495,10 @@ function atualizarPreviewAgr() {
   const el = document.getElementById('config-preview-agr');
   if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-agr').value);
 }
+function atualizarPreviewSuporte() {
+  const el = document.getElementById('config-preview-suporte');
+  if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-suporte').value);
+}
 function atualizarPreviewBoleto() {
   const el = document.getElementById('config-preview-boleto');
   if (el) el.textContent = aplicarExemplo(document.getElementById('config-msg-boleto').value);
@@ -7461,6 +7527,11 @@ function salvarConfigAgr() {
   salvarStorage();
   alert('✅ Mensagem de agradecimento salva!');
 }
+function salvarConfigSuporte() {
+  localStorage.setItem('cm_msg_suporte', document.getElementById('config-msg-suporte').value);
+  salvarStorage();
+  alert('✅ Mensagem de suporte (sem internet) salva!');
+}
 function restaurarMsgPadrao() {
   document.getElementById('config-msg').value = MSG_PADRAO;
   atualizarPreview();
@@ -7477,6 +7548,10 @@ function restaurarMsgAgr() {
   document.getElementById('config-msg-agr').value = MSG_AGRADECIMENTO_PADRAO;
   atualizarPreviewAgr();
 }
+function restaurarMsgSuporte() {
+  document.getElementById('config-msg-suporte').value = MSG_SUPORTE_PADRAO;
+  atualizarPreviewSuporte();
+}
 function inserirVar(v, targetId = 'config-msg') {
   const el  = document.getElementById(targetId);
   const pos = el.selectionStart;
@@ -7486,6 +7561,7 @@ function inserirVar(v, targetId = 'config-msg') {
   if (targetId === 'config-msg') atualizarPreview();
   else if (targetId === 'config-msg-boleto') atualizarPreviewBoleto();
   else if (targetId === 'config-msg-profissional') atualizarPreviewProfissional();
+  else if (targetId === 'config-msg-suporte') atualizarPreviewSuporte();
   else atualizarPreviewAgr();
 }
 document.addEventListener('input', e => {
@@ -7493,6 +7569,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'config-msg-boleto') atualizarPreviewBoleto();
   if (e.target.id === 'config-msg-profissional') atualizarPreviewProfissional();
   if (e.target.id === 'config-msg-agr') atualizarPreviewAgr();
+  if (e.target.id === 'config-msg-suporte') atualizarPreviewSuporte();
   if (e.target.id === 'zap-msg-edit')   document.getElementById('zap-preview').textContent = e.target.value;
 });
 
