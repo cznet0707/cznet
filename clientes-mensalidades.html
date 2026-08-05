@@ -3891,6 +3891,113 @@ function clientesDaCto(ctoId) {
   return clientes.filter(c => c.ctoRedeId === ctoId);
 }
 
+// ===== Nós (ONU + Switch) dentro de uma CTO =====
+// Cenário: você puxa 1 fibra da CTO pra uma ONU, liga um switch nela e
+// pendura vários clientes por cabo de rede nesse switch. Fisicamente isso
+// ocupa 1 porta/vaga só da CTO — então cada "nó" conta como 1 vaga na CTO,
+// e os clientes pendurados nele ficam contados dentro da capacidade do
+// próprio nó (não da CTO).
+function nosDaCto(cto) {
+  if (!cto.nos) cto.nos = [];
+  return cto.nos;
+}
+function clientesDoNo(noId) {
+  return clientes.filter(c => c.noId === noId);
+}
+// Clientes ligados direto na CTO (fibra), sem passar por nenhum nó/switch.
+function ocupantesDiretosCto(ctoId) {
+  return clientesDaCto(ctoId).filter(c => !c.noId);
+}
+// Ocupação real da CTO em vagas de fibra: cada cliente direto = 1 vaga,
+// cada nó (independente de quantos clientes tenha pendurado) = 1 vaga.
+function ocupacaoCto(cto) {
+  const diretos = ocupantesDiretosCto(cto.id).length;
+  const nos = nosDaCto(cto).length;
+  return { ocupadas: diretos + nos, vagas: cto.capacidade };
+}
+
+async function adicionarNoNaCto(oltId, ponId, ctoId) {
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { cto } = achado;
+  const ocupacao = ocupacaoCto(cto);
+  if (ocupacao.ocupadas >= cto.capacidade) {
+    if (!confirm(`⚠️ Esta CTO já está com ${ocupacao.ocupadas}/${cto.capacidade} vagas ocupadas. Adicionar o nó mesmo assim?`)) return;
+  }
+  const nome = prompt('Nome/identificação deste nó (ex: "Switch Rua das Flores", "ONU Prédio Azul"):', 'Switch');
+  if (!nome || !nome.trim()) return;
+  const capRaw = prompt('Quantos clientes esse switch/ONU suporta (capacidade)?', '8');
+  const cap = parseInt(capRaw);
+  if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
+
+  nosDaCto(cto).push({ id: `no${Date.now()}`, nome: nome.trim(), capacidade: cap });
+  renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar o nó neste aparelho.', 'erro');
+}
+
+async function removerNoDaCto(ctoId, noId) {
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { cto } = achado;
+  const presos = clientesDoNo(noId);
+  if (presos.length) {
+    alert(`Este nó ainda tem ${presos.length} cliente(s) vinculado(s). Remova ou troque esses clientes de nó/CTO antes de excluir o nó.`);
+    return;
+  }
+  if (!confirm('Remover este nó (ONU/Switch)? Essa ação não pode ser desfeita.')) return;
+  cto.nos = nosDaCto(cto).filter(n => n.id !== noId);
+  renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a remoção neste aparelho.', 'erro');
+}
+
+async function adicionarClienteNoNoPorNome(ctoId, noId) {
+  const input = document.getElementById(`add-cliente-no-${noId}`);
+  const nomeDigitado = input.value.trim();
+  if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
+
+  const nomeNorm = normalizarTexto(nomeDigitado);
+  const encontrados = clientes.filter(c => normalizarTexto(c.nome) === nomeNorm);
+
+  if (!encontrados.length) {
+    alert(`Nenhum cliente encontrado com o nome "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    return;
+  }
+  if (encontrados.length > 1) {
+    alert(`Encontrei ${encontrados.length} clientes com esse nome. Abra o cadastro de cada um e defina a posição na rede por lá, pra evitar engano.`);
+    return;
+  }
+
+  const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
+  const { cto } = achado;
+  const no = nosDaCto(cto).find(n => n.id === noId); if (!no) return;
+
+  const cliente = encontrados[0];
+  if (cliente.noId === noId) { alert('Este cliente já está neste nó.'); return; }
+
+  const ocupadosNo = clientesDoNo(noId).length;
+  if (ocupadosNo >= no.capacidade) {
+    if (!confirm(`⚠️ Este nó já está com ${ocupadosNo}/${no.capacidade} clientes. Adicionar mesmo assim?`)) return;
+  }
+
+  cliente.ctoRedeId = ctoId;
+  cliente.noId = noId;
+  marcarClienteModificado(cliente.id);
+  input.value = '';
+  renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
+}
+
+async function removerClienteDoNo(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  if (!confirm(`Remover "${c.nome}" deste nó? Ele continua vinculado à CTO, só sai do switch/ONU.`)) return;
+  c.noId = null;
+  marcarClienteModificado(c.id);
+  renderOlt();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a alteração neste aparelho.', 'erro');
+}
+
 // ===== Múltiplos pontos de internet do mesmo cliente =====
 // Cada "ponto" continua sendo um registro normal de cliente (com sua
 // própria CTO, plano, valor, dia de vencimento e mensalidades) — isso
@@ -4005,7 +4112,7 @@ function renderPonHtml(olt, pon) {
   // Capacidade da PON é sempre fixa em 64 vagas — NUNCA a soma das
   // capacidades das CTOs (isso inflava o total, ex: "X/72").
   const CAPACIDADE_FIXA_PON = 64;
-  const totalOcupadas = pon.ctos.reduce((s,c) => s + clientesDaCto(c.id).length, 0);
+  const totalOcupadas = pon.ctos.reduce((s,c) => s + ocupacaoCto(c).ocupadas, 0);
   const totalVagas     = CAPACIDADE_FIXA_PON;
   const vagasRestantes = Math.max(0, totalVagas - totalOcupadas);
   const percentualPreenchido = Math.min(100, (totalOcupadas / totalVagas) * 100);
@@ -4033,18 +4140,14 @@ function renderPonHtml(olt, pon) {
 }
 
 function renderCtoHtml(olt, pon, cto) {
-  const ocupantes = clientesDaCto(cto.id);
+  const diretos = ocupantesDiretosCto(cto.id);
+  const nos = nosDaCto(cto);
+  const ocupacao = ocupacaoCto(cto);
   const vagas = cto.capacidade;
-  const cor = ocupantes.length >= vagas ? '#c62828' : (ocupantes.length >= vagas*0.75 ? '#e65100' : '#1e8449');
+  const cor = ocupacao.ocupadas >= vagas ? '#c62828' : (ocupacao.ocupadas >= vagas*0.75 ? '#e65100' : '#1e8449');
   const label = cto.derivacao ? `CTO ${cto.numero} — ${cto.derivacao}` : `CTO ${cto.numero}`;
-  return `
-  <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <strong style="font-size:0.86rem">📦 ${label}</strong>
-      <span style="font-size:0.75rem;font-weight:700;color:${cor}">${ocupantes.length}/${vagas}</span>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:170px;overflow-y:auto">
-      ${ocupantes.length ? ocupantes.map(c => `
+
+  const linhaCliente = (c, onTrocar, onRemover) => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
           <div style="display:flex;align-items:center;gap:6px;overflow:hidden;flex:1;min-width:0">
             <input type="checkbox" class="cto-aviso-check" data-cto="${cto.id}" data-cliente="${c.id}" checked style="width:15px;height:15px;padding:0;flex-shrink:0;cursor:pointer" title="Incluir no aviso ao técnico">
@@ -4055,15 +4158,45 @@ function renderCtoHtml(olt, pon, cto) {
               </div>
             </div>
           </div>
-          <span style="cursor:pointer;color:#1a73e8;padding-left:2px;flex-shrink:0;font-size:0.9rem" onclick="abrirModalTrocarCto(${c.id}, '${cto.id}')" title="Trocar este cliente de CTO">🔀</span>
-          <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="removerClienteDaCto(${c.id})" title="Remover desta CTO">✕</span>
-        </div>`).join('') : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`}
+          <span style="cursor:pointer;color:#1a73e8;padding-left:2px;flex-shrink:0;font-size:0.9rem" onclick="${onTrocar}" title="Trocar este cliente de CTO">🔀</span>
+          <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="${onRemover}" title="Remover">✕</span>
+        </div>`;
+
+  const htmlNos = nos.map(no => {
+    const clientesNo = clientesDoNo(no.id);
+    const corNo = clientesNo.length >= no.capacidade ? '#c62828' : '#1a73e8';
+    return `
+      <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <strong style="font-size:0.76rem;color:#0d47a1">🔀 ${no.nome} <span style="font-weight:400;color:${corNo}">(${clientesNo.length}/${no.capacidade})</span></strong>
+          ${clientesNo.length ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerNoDaCto('${cto.id}','${no.id}')" title="Remover este nó (só se estiver vazio)">🗑️</span>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
+          ${clientesNo.length ? clientesNo.map(c => linhaCliente(c, `abrirModalTrocarCto(${c.id}, '${cto.id}')`, `removerClienteDoNo(${c.id})`)).join('') : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`}
+        </div>
+        <div style="display:flex;gap:5px">
+          <input type="text" list="lista-clientes-sem-cto" id="add-cliente-no-${no.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.7rem;padding:3px 6px;border:1px solid #ddd;border-radius:5px" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNoNoPorNome('${cto.id}','${no.id}');}">
+          <button class="btn btn-outline" style="font-size:0.68rem;padding:2px 7px" onclick="adicionarClienteNoNoPorNome('${cto.id}','${no.id}')" title="Vincular cliente a este nó">➕</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <strong style="font-size:0.86rem">📦 ${label}</strong>
+      <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Vagas de fibra: cada cliente direto ou cada nó (ONU/Switch) conta 1 vaga">${ocupacao.ocupadas}/${vagas}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:230px;overflow-y:auto">
+      ${htmlNos}
+      ${diretos.length ? diretos.map(c => linhaCliente(c, `abrirModalTrocarCto(${c.id}, '${cto.id}')`, `removerClienteDaCto(${c.id})`)).join('') : (nos.length ? '' : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`)}
     </div>
     <div style="display:flex;gap:5px;margin-bottom:6px">
       <input type="text" list="lista-clientes-sem-cto" id="add-cliente-${cto.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.72rem;padding:4px 6px;border:1px solid #ddd;border-radius:5px" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNaCtoPorNome('${cto.id}');}">
-      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 8px" onclick="adicionarClienteNaCtoPorNome('${cto.id}')" title="Vincular cliente a esta CTO">➕</button>
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 8px" onclick="adicionarClienteNaCtoPorNome('${cto.id}')" title="Vincular cliente direto a esta CTO (fibra)">➕</button>
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#0d47a1;border-color:#90caf9" onclick="adicionarNoNaCto('${olt.id}','${pon.id}','${cto.id}')" title="Cadastrar uma ONU+Switch com vários clientes pendurados, ocupando 1 vaga de fibra">🔀 Adicionar Nó (ONU/Switch)</button>
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeCto('${cto.id}')">⚙️ Capacidade</button>
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoCto('${olt.id}','${pon.id}','${cto.id}')">📲 Avisar Técnico</button>
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#c62828;border-color:#f5b3ac" onclick="removerCto('${olt.id}','${pon.id}','${cto.id}')">🗑️ Remover CTO</button>
@@ -4545,6 +4678,7 @@ async function removerClienteDaCto(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   if (!confirm(`Remover "${c.nome}" desta CTO? O cadastro do cliente continua normal, só a posição na rede é desmarcada.`)) return;
   c.ctoRedeId = null;
+  c.noId = null;
   marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
@@ -4599,6 +4733,7 @@ async function confirmarTrocarCto() {
   }
 
   cliente.ctoRedeId = ctoDestinoId;
+  cliente.noId = null; // o nó (ONU/Switch) pertence à CTO de origem, não faz sentido manter na CTO nova
   marcarClienteModificado(cliente.id);
   fecharModal();
   renderOlt();
