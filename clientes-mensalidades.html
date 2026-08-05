@@ -549,7 +549,7 @@
     <div class="card">
       <h2>➕ Cadastrar Novo Cliente</h2>
       <div id="aviso-novo-ponto" style="display:none;align-items:center;gap:10px;background:#e8f0fe;border:1px solid #90b8f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;color:#0a4fa0">
-        🔗 Cadastrando <strong>novo ponto de internet</strong> para o cliente <strong id="aviso-novo-ponto-nome"></strong> — os dados pessoais já vieram preenchidos, é só completar o plano, CTO e PPPoE deste ponto.
+        🔗 Cadastrando <strong>novo ponto de internet</strong> para o cliente <strong id="aviso-novo-ponto-nome"></strong> — nome, telefone e CPF já vieram preenchidos. O endereço fica em branco de propósito (esse ponto pode ser em outro imóvel), então complete endereço, plano, CTO e PPPoE deste ponto.
         <button type="button" class="btn btn-outline" style="margin-left:auto;font-size:0.75rem;padding:3px 10px" onclick="cancelarNovoPonto()">Cancelar</button>
       </div>
       <form id="form-cliente" onsubmit="salvarCliente(event)">
@@ -3923,16 +3923,11 @@ function iniciarNovoPontoParaCliente(id) {
   document.getElementById('c-nome').value    = c.nome || '';
   document.getElementById('c-tel').value     = c.tel || '';
   document.getElementById('c-cpf').value     = c.cpf || '';
-  document.getElementById('c-cep').value     = c.cep || '';
-  document.getElementById('c-rua').value     = c.rua || '';
-  document.getElementById('c-numero').value  = c.numero || '';
-  document.getElementById('c-bairro').value  = c.bairro || '';
-  document.getElementById('c-cidade').value  = c.cidade || '';
-  document.getElementById('c-estado').value  = c.estado || '';
-  document.getElementById('c-comp').value    = c.comp || '';
 
-  // Campos deste novo ponto (rede/plano/PPPoE) começam vazios de propósito
-  ['c-plano', 'c-valor', 'c-dia', 'c-inicio', 'c-wifi-nome', 'c-wifi-senha',
+  // O endereço fica em branco de propósito: um segundo ponto pode ser em
+  // outro imóvel/endereço, então quem preenche é você mesmo caso se aplique.
+  ['c-cep', 'c-rua', 'c-numero', 'c-bairro', 'c-cidade', 'c-estado', 'c-comp',
+   'c-plano', 'c-valor', 'c-dia', 'c-inicio', 'c-wifi-nome', 'c-wifi-senha',
    'c-pppoe-usuario', 'c-pppoe-senha', 'c-pon', 'c-cto', 'c-equip-marca',
    'c-equip-modelo', 'c-equip-mac', 'c-roteador-usuario', 'c-roteador-senha',
    'c-obs', 'c-localizacao'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
