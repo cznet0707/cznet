@@ -548,7 +548,12 @@
   <div id="page-clientes" class="page">
     <div class="card">
       <h2>➕ Cadastrar Novo Cliente</h2>
+      <div id="aviso-novo-ponto" style="display:none;align-items:center;gap:10px;background:#e8f0fe;border:1px solid #90b8f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;color:#0a4fa0">
+        🔗 Cadastrando <strong>novo ponto de internet</strong> para o cliente <strong id="aviso-novo-ponto-nome"></strong> — os dados pessoais já vieram preenchidos, é só completar o plano, CTO e PPPoE deste ponto.
+        <button type="button" class="btn btn-outline" style="margin-left:auto;font-size:0.75rem;padding:3px 10px" onclick="cancelarNovoPonto()">Cancelar</button>
+      </div>
       <form id="form-cliente" onsubmit="salvarCliente(event)">
+        <input type="hidden" id="c-ponto-de-id" value="">
         <div class="form-grid">
           <div>
             <label>Nome Completo *</label>
@@ -1321,6 +1326,13 @@ Qualquer dúvida, estamos à disposição!</div>
       <div class="full" style="display:flex;align-items:center;gap:10px;padding:6px 0">
         <input type="checkbox" id="edit-inst-gratis" style="width:18px;height:18px;cursor:pointer">
         <label for="edit-inst-gratis" style="cursor:pointer;font-weight:500">🎁 Instalação Grátis (não cobrar taxa de R$50)</label>
+      </div>
+      <div class="full" style="margin-top:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <label style="margin:0">🔗 Outros pontos de internet deste cliente</label>
+          <button type="button" class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px;white-space:nowrap" onclick="iniciarNovoPontoParaCliente(editandoId)">➕ Adicionar outro ponto</button>
+        </div>
+        <div id="edit-pontos-lista" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
       <div class="full" style="margin-top:6px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
@@ -2553,26 +2565,34 @@ async function salvarCliente(e) {
   const telDigitado  = document.getElementById('c-tel').value.trim();
   const telLimpoNovo = telLimpo(telDigitado);
   const nomeNorm      = normalizarTexto(nomeDigitado);
+  const pontoDeIdRaw   = document.getElementById('c-ponto-de-id').value;
+  const pontoDeId      = pontoDeIdRaw ? Number(pontoDeIdRaw) : null;
 
-  // Checa se já existe cliente com o mesmo nome ou o mesmo telefone
-  const duplicadoNome = clientes.find(c => normalizarTexto(c.nome) === nomeNorm);
-  const duplicadoTel  = telLimpoNovo ? clientes.find(c => telLimpo(c.tel || '') === telLimpoNovo) : null;
+  // Se este cadastro veio do botão "➕ Adicionar outro ponto", já sabemos
+  // que é a mesma pessoa de propósito — não faz sentido perguntar de novo
+  // se "é pessoa diferente".
+  if (!pontoDeId) {
+    // Checa se já existe cliente com o mesmo nome ou o mesmo telefone
+    const duplicadoNome = clientes.find(c => normalizarTexto(c.nome) === nomeNorm);
+    const duplicadoTel  = telLimpoNovo ? clientes.find(c => telLimpo(c.tel || '') === telLimpoNovo) : null;
 
-  if (duplicadoNome || duplicadoTel) {
-    const motivo = duplicadoNome && duplicadoTel && duplicadoNome.id === duplicadoTel.id
-      ? 'mesmo nome e mesmo telefone'
-      : duplicadoNome ? 'mesmo nome' : 'mesmo telefone';
-    const cRef = duplicadoNome || duplicadoTel;
-    const continuar = confirm(
-      `⚠️ Cliente já cadastrado!\n\n` +
-      `Já existe um cliente com ${motivo}:\n"${cRef.nome}" — ${cRef.tel || 'sem telefone'}\n\n` +
-      `Deseja cadastrar mesmo assim (pessoa diferente)?\n\nOK = Cadastrar mesmo assim\nCancelar = Não cadastrar`
-    );
-    if (!continuar) return;
+    if (duplicadoNome || duplicadoTel) {
+      const motivo = duplicadoNome && duplicadoTel && duplicadoNome.id === duplicadoTel.id
+        ? 'mesmo nome e mesmo telefone'
+        : duplicadoNome ? 'mesmo nome' : 'mesmo telefone';
+      const cRef = duplicadoNome || duplicadoTel;
+      const continuar = confirm(
+        `⚠️ Cliente já cadastrado!\n\n` +
+        `Já existe um cliente com ${motivo}:\n"${cRef.nome}" — ${cRef.tel || 'sem telefone'}\n\n` +
+        `Deseja cadastrar mesmo assim (pessoa diferente)?\nSe for o MESMO cliente com um segundo ponto de internet, cancele aqui e use o botão "🔗 Outro ponto" na listagem.\n\nOK = Cadastrar mesmo assim\nCancelar = Não cadastrar`
+      );
+      if (!continuar) return;
+    }
   }
 
   const cliente = {
     id:      Date.now(),
+    pontoDeId: pontoDeId,
     nome:    nomeDigitado,
     tel:     telDigitado,
     cpf:     document.getElementById('c-cpf').value.trim(),
@@ -2629,7 +2649,12 @@ function toggleCamposInstalacaoCadastro() {
     if (!dataEl.value) dataEl.value = fmtData();
   }
 }
-function limparForm() { document.getElementById('form-cliente').reset(); document.getElementById('campos-instalacao-cadastro').style.display='none'; }
+function limparForm() {
+  document.getElementById('form-cliente').reset();
+  document.getElementById('campos-instalacao-cadastro').style.display='none';
+  const aviso = document.getElementById('aviso-novo-ponto');
+  if (aviso) aviso.style.display = 'none';
+}
 
 let _ordemAZ = false;
 let _ordemAZDash = false;
@@ -3358,8 +3383,12 @@ function renderClientes(filtro = '') {
         <tbody>${lista.map(c => {
           const pl = planos.find(x => x.id === c.planoId);
           const end = enderecoCompleto(c);
+          const pontos = pontosDoCliente(c.id);
+          const badgePontos = pontos.length > 1
+            ? ` <span class="badge" style="background:#fff3e0;color:#e65100" title="${pontos.length} pontos de internet deste cliente">🔗 ${pontos.length} pontos</span>`
+            : '';
           return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
-            <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong><br><small style="color:#888">${end||''}</small></td>
+            <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong>${badgePontos}<br><small style="color:#888">${end||''}</small></td>
             <td>${c.tel}</td>
             <td>${c.cpf||'-'}</td>
             <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
@@ -3373,6 +3402,7 @@ function renderClientes(filtro = '') {
             <button class="btn-carne btn" onclick="abrirCarne(${c.id})" title="Gerar Carnê PDF">📋</button>
             <button class="btn btn-outline" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="abrirOS(${c.id})" title="Enviar OS para o Técnico">🛠️</button>
             <button class="btn btn-outline" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="abrirFotosCliente(${c.id})" title="Fotos de serviços/instalação">📸</button>
+            <button class="btn btn-outline" style="background:#ede7f6;color:#4527a0;border-color:#b39ddb" onclick="iniciarNovoPontoParaCliente(${c.id})" title="Cadastrar outro ponto de internet para este mesmo cliente">🔗</button>
             <button class="btn-cal btn" onclick="abrirCalendario(${c.id})" title="Ver meses pagos/atrasados">📅</button>
             <button class="btn btn-danger" onclick="abrirExcluir(${c.id})">🗑️</button>
           </div></td>
@@ -3436,8 +3466,35 @@ function abrirEditar(id) {
   document.getElementById('edit-localizacao').value      = c.localizacao || '';
   document.getElementById('edit-inst-gratis').checked  = c.instalacao_gratis || false;
   _fotosClienteId = id;
+  renderPontosEdicao(c);
   renderHistoricoFotosEdicao(c);
   document.getElementById('modal-editar').classList.add('open');
+}
+
+// Mostra os outros pontos de internet deste mesmo cliente (se houver),
+// com um resumo de CTO/plano/valor e atalho pra abrir cada um.
+function renderPontosEdicao(c) {
+  const box = document.getElementById('edit-pontos-lista');
+  if (!box) return;
+  const outros = pontosDoCliente(c.id).filter(p => p.id !== c.id);
+
+  if (!outros.length) {
+    box.innerHTML = `<div style="font-size:0.78rem;color:#999">Nenhum outro ponto cadastrado ainda pra este cliente.</div>`;
+    return;
+  }
+
+  box.innerHTML = outros.map(p => {
+    const pl = planos.find(x => x.id === p.planoId);
+    const achado = p.ctoRedeId ? encontrarCtoNaRede(p.ctoRedeId) : null;
+    const ctoTxt = achado ? `CTO ${achado.cto.numero}${achado.cto.derivacao ? ' — ' + achado.cto.derivacao : ''}` : 'Sem CTO vinculada';
+    return `<div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:8px;padding:8px 10px;font-size:0.8rem">
+      <div style="flex:1">
+        <strong>${ctoTxt}</strong><br>
+        <span style="color:#777">${pl ? pl.nome : 'Plano manual'} · ${moeda(p.valor)} · Vencimento dia ${p.dia}</span>
+      </div>
+      <button type="button" class="btn btn-outline" style="font-size:0.72rem;padding:3px 8px" onclick="abrirEditar(${p.id})">Abrir</button>
+    </div>`;
+  }).join('');
 }
 
 // Mostra, dentro da própria ficha do cliente, um resumo dos serviços já
@@ -3793,6 +3850,69 @@ function encontrarCtoNaRede(ctoId) {
 
 function clientesDaCto(ctoId) {
   return clientes.filter(c => c.ctoRedeId === ctoId);
+}
+
+// ===== Múltiplos pontos de internet do mesmo cliente =====
+// Cada "ponto" continua sendo um registro normal de cliente (com sua
+// própria CTO, plano, valor, dia de vencimento e mensalidades) — isso
+// reaproveita toda a lógica de cobrança/carnê/PDF já existente sem
+// mudar nada nela. O que muda é só o vínculo: um ponto criado a partir
+// de outro guarda o id do ponto "raiz" em pontoDeId, e todos os pontos
+// que compartilham a mesma raiz aparecem juntos como "o mesmo cliente".
+function grupoRaizId(cliente) {
+  return cliente.pontoDeId || cliente.id;
+}
+function pontosDoCliente(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return [];
+  const raiz = grupoRaizId(c);
+  return clientes.filter(x => grupoRaizId(x) === raiz);
+}
+
+// Abre o formulário de cadastro já preenchido com os dados pessoais do
+// cliente (nome, telefone, CPF, endereço), deixando em branco só o que
+// é específico do NOVO ponto (plano, valor, PPPoE, CTO etc.), pra criar
+// um segundo contrato/conexão pro mesmo cliente.
+function iniciarNovoPontoParaCliente(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  const raizId = grupoRaizId(c);
+
+  showPage('clientes');
+
+  document.getElementById('c-ponto-de-id').value = raizId;
+  document.getElementById('c-nome').value    = c.nome || '';
+  document.getElementById('c-tel').value     = c.tel || '';
+  document.getElementById('c-cpf').value     = c.cpf || '';
+  document.getElementById('c-cep').value     = c.cep || '';
+  document.getElementById('c-rua').value     = c.rua || '';
+  document.getElementById('c-numero').value  = c.numero || '';
+  document.getElementById('c-bairro').value  = c.bairro || '';
+  document.getElementById('c-cidade').value  = c.cidade || '';
+  document.getElementById('c-estado').value  = c.estado || '';
+  document.getElementById('c-comp').value    = c.comp || '';
+
+  // Campos deste novo ponto (rede/plano/PPPoE) começam vazios de propósito
+  ['c-plano', 'c-valor', 'c-dia', 'c-inicio', 'c-wifi-nome', 'c-wifi-senha',
+   'c-pppoe-usuario', 'c-pppoe-senha', 'c-pon', 'c-cto', 'c-equip-marca',
+   'c-equip-modelo', 'c-equip-mac', 'c-roteador-usuario', 'c-roteador-senha',
+   'c-obs', 'c-localizacao'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  const oltSel = document.getElementById('c-net-olt');
+  if (oltSel) oltSel.value = '';
+  const ponSel = document.getElementById('c-net-pon');
+  if (ponSel) ponSel.innerHTML = '<option value="">Selecione a OLT primeiro</option>';
+  const ctoSel = document.getElementById('c-net-cto');
+  if (ctoSel) ctoSel.innerHTML = '<option value="">Selecione a PON primeiro</option>';
+  const instGratis = document.getElementById('c-inst-gratis');
+  if (instGratis) instGratis.checked = false;
+
+  document.getElementById('aviso-novo-ponto-nome').textContent = c.nome;
+  document.getElementById('aviso-novo-ponto').style.display = 'flex';
+  document.getElementById('form-cliente').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarNovoPonto() {
+  limparForm();
 }
 
 function renderOlt() {
