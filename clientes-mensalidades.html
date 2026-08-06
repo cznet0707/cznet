@@ -4313,19 +4313,54 @@ async function editarPortaCabo(clienteId) {
   if (!salvou) mostrarToast('⚠️ Erro ao salvar a porta neste aparelho.', 'erro');
 }
 
+// ===== Navegação "tipo pasta" pela Rede a Cabo =====
+// Em vez de empilhar caixa dentro de caixa (o que ficava gigante e
+// confuso com cadeias longas), agora você abre um switch por vez: vê os
+// clientes dele, os sub-switches dele (como uma lista, não aninhados
+// visualmente), e navega clicando. Um "caminho" no topo mostra onde você
+// está e deixa voltar pra qualquer nível anterior num toque.
+let _caboAtualId = null; // null = lista de switches principais
+
+function navegarCabo(nodeId) {
+  _caboAtualId = nodeId;
+  renderRedeCabo();
+}
+
+// Caminho do switch principal até o node atual (array, do mais externo
+// pro mais interno), usado pra montar o "breadcrumb".
+function caminhoCabo(nodeId) {
+  const caminho = [];
+  let idAtual = nodeId;
+  while (idAtual) {
+    const achado = encontrarNoCaboEPai(idAtual);
+    if (!achado) break;
+    caminho.unshift(achado.no);
+    idAtual = achado.pai ? achado.pai.id : null;
+  }
+  return caminho;
+}
+
 function renderRedeCabo() {
   const box = document.getElementById('redecabo-conteudo');
   if (!box) return;
   atualizarContadorClientesCabo();
   try {
     if (!switchesCabo.length) {
+      _caboAtualId = null;
       box.innerHTML = `<div style="text-align:center;color:#999;padding:30px 10px">🔌 Nenhum switch principal cadastrado ainda. Clique em "➕ Novo Switch Principal" pra começar.</div>`;
       return;
     }
 
-    box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
-      ${switchesCabo.map((sw, idx) => renderSwitchPrincipalHtml(sw, idx, switchesCabo.length)).join('')}
-    </div>`;
+    if (_caboAtualId === null) {
+      box.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
+        ${switchesCabo.map((sw, idx) => renderLinhaSwitchResumoCabo(sw, idx, switchesCabo.length)).join('')}
+      </div>`;
+      return;
+    }
+
+    const no = encontrarNoCabo(_caboAtualId);
+    if (!no) { _caboAtualId = null; renderRedeCabo(); return; }
+    box.innerHTML = renderPainelSwitchCabo(no);
   } catch (e) {
     box.innerHTML = `<div style="background:#fce8e6;border:1px solid #f5b3ac;border-radius:8px;padding:14px;color:#c0392b;font-size:0.85rem">
       ⚠️ Erro ao carregar a rede a cabo: ${(e && e.message) || e}<br>
@@ -4333,6 +4368,99 @@ function renderRedeCabo() {
     </div>`;
     console.error('Erro em renderRedeCabo:', e);
   }
+}
+
+// Linha resumida e clicável de um switch (usada tanto na lista raiz de
+// switches principais quanto na lista de sub-switches dentro de um painel).
+function renderLinhaSwitchResumoCabo(no, idx, total) {
+  const ocupacao = ocupacaoNoCabo(no);
+  const totalClientesDentro = totalClientesNoCaboRecursivo(no);
+  const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : (ocupacao.ocupadas >= no.capacidade*0.75 ? '#e65100' : '#1e8449');
+  const portaTxt = no.portaPai ? ` <span style="font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:0.68rem">P${no.portaPai}</span>` : '';
+  const filhosCount = (no.subs || []).length;
+
+  return `
+    <div style="display:flex;align-items:center;gap:8px;border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;background:#fafafa">
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="navegarCabo('${no.id}')" title="Abrir este switch">
+        <strong style="font-size:0.85rem">🔌 ${no.nome}${portaTxt}</strong><br>
+        <span style="font-size:0.75rem;font-weight:600;color:${cor}">${ocupacao.ocupadas}/${no.capacidade} portas ocupadas</span>
+        <span style="font-size:0.75rem;color:#888"> · ${totalClientesDentro} cliente${totalClientesDentro===1?'':'s'} no total${filhosCount ? ' · ' + filhosCount + ' sub-switch' + (filhosCount>1?'es':'') : ''}</span>
+      </div>
+      <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="cursor:${idx>0?'pointer':'default'};color:${idx>0?'#555':'#ddd'};font-size:0.9rem" ${idx>0?`onclick="moverSubSwitch('${no.id}',-1)"`:''} title="Mover pra cima">⬆️</span>
+        <span style="cursor:${idx<total-1?'pointer':'default'};color:${idx<total-1?'#555':'#ddd'};font-size:0.9rem" ${idx<total-1?`onclick="moverSubSwitch('${no.id}',1)"`:''} title="Mover pra baixo">⬇️</span>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px" onclick="navegarCabo('${no.id}')">Abrir ➡️</button>
+      </span>
+    </div>`;
+}
+
+// Painel completo de UM switch (principal ou sub-switch): breadcrumb,
+// dados do switch, sub-switches dele (em lista, não aninhados) e os
+// clientes ligados direto nele — tudo visível de uma vez, sem precisar
+// rolar por camadas de switches anteriores pra achar a caixa de adicionar.
+function renderPainelSwitchCabo(no) {
+  const caminho = caminhoCabo(no.id);
+  const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(no.id));
+  const subs = no.subs || [];
+  const ocupacao = ocupacaoNoCabo(no);
+  const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : (ocupacao.ocupadas >= no.capacidade*0.75 ? '#e65100' : '#1e8449');
+  const achadoPai = encontrarNoCaboEPai(no.id);
+  const pai = achadoPai ? achadoPai.pai : null;
+
+  const breadcrumb = `
+    <div style="font-size:0.8rem;color:#777;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+      <span style="cursor:pointer;color:#1a73e8" onclick="navegarCabo(null)">🔌 Todos os switches</span>
+      ${caminho.map(n => `<span>›</span><span style="cursor:pointer;color:${n.id===no.id?'#333':'#1a73e8'};font-weight:${n.id===no.id?'700':'400'}" onclick="navegarCabo('${n.id}')">${n.nome}</span>`).join('')}
+    </div>`;
+
+  const listaSubs = subs.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:0.8rem;font-weight:600;color:#555;margin-bottom:6px">🔌 Sub-switches (${subs.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${subs.map((sub, idx) => renderLinhaSwitchResumoCabo(sub, idx, subs.length)).join('')}
+      </div>
+    </div>` : '';
+
+  const removerBotao = pai
+    ? `<button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px;color:#c62828;border-color:#f5b3ac" onclick="removerSubSwitchEVoltar('${no.id}')">🗑️ Remover este switch</button>`
+    : `<button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px;color:#c62828;border-color:#f5b3ac" onclick="removerSwitchPrincipalEVoltar('${no.id}')">🗑️ Remover este switch</button>`;
+
+  return `
+    ${breadcrumb}
+    <div style="border:1px solid #eee;border-radius:8px;padding:14px;background:#fafafa">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <strong style="font-size:1rem">🔌 ${no.nome}${no.portaPai ? ` <span style="font-size:0.72rem;font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:2px 6px">Porta ${no.portaPai} do ${pai ? pai.nome : '?'}</span>` : ''}</strong>
+        <span style="font-size:0.85rem;font-weight:700;color:${cor}">${ocupacao.ocupadas}/${no.capacidade} portas</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+        ${pai ? `<button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px" onclick="editarPortaPaiSubSwitch('${no.id}')">🔢 Porta no switch de cima</button>` : ''}
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px" onclick="editarCapacidadeSwitchPrincipal('${no.id}')">⚙️ Capacidade</button>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${no.id}')">🔌 Adicionar Sub-switch aqui</button>
+        ${removerBotao}
+      </div>
+
+      ${listaSubs}
+
+      <div style="font-size:0.8rem;font-weight:600;color:#555;margin-bottom:6px">👤 Clientes ligados direto aqui (${diretos.length})</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;max-height:280px;overflow-y:auto">
+        ${diretos.length ? diretos.map(c => _linhaClienteCabo(c)).join('') : `<div style="font-size:0.78rem;color:#aaa;text-align:center;padding:10px 0">Nenhum cliente ligado direto aqui ainda</div>`}
+      </div>
+      ${_boxAdicionarClienteCabo(no.id, 92)}
+    </div>`;
+}
+
+// Remove um sub-switch e, se conseguir remover de verdade (não foi
+// cancelado nem bloqueado por ter gente dentro), volta a tela pro
+// switch de cima automaticamente.
+async function removerSubSwitchEVoltar(nodeId) {
+  const achado = encontrarNoCaboEPai(nodeId);
+  const paiId = achado && achado.pai ? achado.pai.id : null;
+  await removerSubSwitch(nodeId);
+  if (!encontrarNoCabo(nodeId)) { navegarCabo(paiId); }
+}
+async function removerSwitchPrincipalEVoltar(switchId) {
+  await removerSwitchPrincipal(switchId);
+  if (!switchesCabo.find(s => s.id === switchId)) { navegarCabo(null); }
 }
 
 // Lista TODOS os switches (principal + sub-switches, em qualquer
@@ -4407,8 +4535,7 @@ async function confirmarTrocarCabo() {
   );
 }
 
-// Linha de um cliente pendurado em qualquer switch (usada tanto no card
-// branco do switch principal quanto nos cards tracejados dos sub-switches).
+// Linha de um cliente pendurado em qualquer switch.
 function _linhaClienteCabo(c) {
   return `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
@@ -4437,103 +4564,12 @@ function _boxAdicionarClienteCabo(nodeId, larguraSugestoes) {
           <div id="sugestoes-cliente-sw-${nodeId}" style="display:none;position:absolute;top:100%;left:0;right:${larguraSugestoes}px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:160px;overflow-y:auto"></div>
         </div>`;
 }
-
-function renderSwitchPrincipalHtml(sw, idx = 0, total = 1) {
-  const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(sw.id));
-  const subs = sw.subs || [];
-  const ocupacao = ocupacaoNoCabo(sw);
-  const vagas = sw.capacidade;
-  const cor = ocupacao.ocupadas >= vagas ? '#c62828' : (ocupacao.ocupadas >= vagas*0.75 ? '#e65100' : '#1e8449');
-
-  // Ordem de cadastro (não reordena sozinho) — use as setinhas ⬆️⬇️ pra
-  // mudar a posição manualmente, sem precisar apagar e recriar.
-  const htmlSubs = subs.map((sub, i) => renderSubSwitchHtml(sub, i, subs.length)).join('');
-  const setinhasPrincipal = total > 1 ? `
-      <span style="cursor:${idx > 0 ? 'pointer' : 'default'};color:${idx > 0 ? '#555' : '#ccc'};font-size:0.78rem" ${idx > 0 ? `onclick="moverSubSwitch('${sw.id}',-1)"` : ''} title="Mover pra cima">⬆️</span>
-      <span style="cursor:${idx < total - 1 ? 'pointer' : 'default'};color:${idx < total - 1 ? '#555' : '#ccc'};font-size:0.78rem" ${idx < total - 1 ? `onclick="moverSubSwitch('${sw.id}',1)"` : ''} title="Mover pra baixo">⬇️</span>` : '';
-
-  return `
-  <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
-      <strong style="font-size:0.86rem">🔌 ${sw.nome}</strong>
-      <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        ${setinhasPrincipal}
-        <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Cada cliente direto ou cada sub-switch conta 1 porta deste switch">${ocupacao.ocupadas}/${vagas}</span>
-      </span>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:280px;overflow-y:auto">
-      ${htmlSubs}
-      ${diretos.length ? diretos.map(c => _linhaClienteCabo(c)).join('') : (subs.length ? '' : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazio</div>`)}
-    </div>
-    <div style="margin-bottom:6px">${_boxAdicionarClienteCabo(sw.id, 92)}</div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap">
-      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${sw.id}')" title="Pendura outro switch numa porta deste, pra continuar a cadeia">🔌 Adicionar Sub-switch</button>
-      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeSwitchPrincipal('${sw.id}')">⚙️ Capacidade</button>
-      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#c62828;border-color:#f5b3ac" onclick="removerSwitchPrincipal('${sw.id}')">🗑️ Remover Switch</button>
-    </div>
-  </div>`;
-}
-
-// Renderiza um sub-switch — e chama a si mesma pra cada sub-switch QUE ELE
-// TIVER dentro, formando a cadeia (switch → switch → switch → ...) do
-// tamanho que for preciso.
-// Controla quais sub-switches estão "abertos" (expandidos) na tela —
-// por padrão todos ficam FECHADOS, só mostrando nome/porta/ocupação,
-// pra não virar uma coluna gigante quando a cadeia tem muitos switches
-// em sequência. Clique no nome (ou na setinha) pra abrir/fechar.
-let _nosCaboAbertos = new Set();
-function toggleNoCabo(nodeId) {
-  if (_nosCaboAbertos.has(nodeId)) _nosCaboAbertos.delete(nodeId);
-  else _nosCaboAbertos.add(nodeId);
-  renderRedeCabo();
-}
 // Conta TODOS os clientes pendurados num switch, somando os dele mesmo
-// com os de todos os sub-switches dentro dele (em qualquer profundidade)
-// — usado pra mostrar um total mesmo com o switch fechado.
+// com os de todos os sub-switches dentro dele (em qualquer profundidade).
 function totalClientesNoCaboRecursivo(no) {
   let total = clientesDiretosDoNoCabo(no.id).length;
   (no.subs || []).forEach(sub => { total += totalClientesNoCaboRecursivo(sub); });
   return total;
-}
-
-function renderSubSwitchHtml(no, idx = 0, total = 1) {
-  const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(no.id));
-  const netos = no.subs || [];
-  const ocupacao = ocupacaoNoCabo(no);
-  const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : '#1a73e8';
-  const portaTxt = no.portaPai ? ` <span style="font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:0.68rem">P${no.portaPai}</span>` : '';
-  const aberto = _nosCaboAbertos.has(no.id);
-  const totalClientesDentro = totalClientesNoCaboRecursivo(no);
-
-  const htmlNetos = netos.map((neto, i) => renderSubSwitchHtml(neto, i, netos.length)).join('');
-
-  const setinhas = `
-            <span style="cursor:${idx > 0 ? 'pointer' : 'default'};color:${idx > 0 ? '#555' : '#ccc'};font-size:0.72rem" ${idx > 0 ? `onclick="moverSubSwitch('${no.id}',-1)"` : ''} title="Mover pra cima">⬆️</span>
-            <span style="cursor:${idx < total - 1 ? 'pointer' : 'default'};color:${idx < total - 1 ? '#555' : '#ccc'};font-size:0.72rem" ${idx < total - 1 ? `onclick="moverSubSwitch('${no.id}',1)"` : ''} title="Mover pra baixo">⬇️</span>`;
-
-  return `
-      <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aberto ? '4px' : '0'};gap:4px">
-          <strong style="font-size:0.76rem;color:#0d47a1;cursor:pointer;flex:1;min-width:0" onclick="toggleNoCabo('${no.id}')" title="${aberto ? 'Fechar' : 'Abrir'} este switch">
-            ${aberto ? '▾' : '▸'} 🔌 ${no.nome}${portaTxt} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span>${!aberto && totalClientesDentro ? ` <span style="font-weight:400;color:#888">· ${totalClientesDentro} cliente${totalClientesDentro===1?'':'s'} no total</span>` : ''}
-          </strong>
-          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            ${setinhas}
-            <span style="cursor:pointer;color:#1a73e8;font-size:0.75rem" onclick="editarPortaPaiSubSwitch('${no.id}')" title="Editar de qual porta do switch pai este sub-switch sai">🔢</span>
-            ${(diretos.length || netos.length) ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${no.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
-          </span>
-        </div>
-        ${aberto ? `
-        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
-          ${htmlNetos}
-          ${diretos.length ? diretos.map(c => _linhaClienteCabo(c)).join('') : (netos.length ? '' : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`)}
-        </div>
-        ${_boxAdicionarClienteCabo(no.id, 34)}
-        <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
-          <button class="btn btn-outline" style="font-size:0.66rem;padding:2px 6px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${no.id}')" title="Pendura outro switch numa porta deste, pra continuar a cadeia">🔌 Adicionar Sub-switch</button>
-          <button class="btn btn-outline" style="font-size:0.66rem;padding:2px 6px" onclick="editarCapacidadeSwitchPrincipal('${no.id}')">⚙️ Capacidade</button>
-        </div>` : ''}
-      </div>`;
 }
 
 // Edição rápida da porta (do pai) em que um sub-switch está plugado —
