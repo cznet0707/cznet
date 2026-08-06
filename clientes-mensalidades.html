@@ -4469,24 +4469,48 @@ function renderSwitchPrincipalHtml(sw) {
 // Renderiza um sub-switch — e chama a si mesma pra cada sub-switch QUE ELE
 // TIVER dentro, formando a cadeia (switch → switch → switch → ...) do
 // tamanho que for preciso.
+// Controla quais sub-switches estão "abertos" (expandidos) na tela —
+// por padrão todos ficam FECHADOS, só mostrando nome/porta/ocupação,
+// pra não virar uma coluna gigante quando a cadeia tem muitos switches
+// em sequência. Clique no nome (ou na setinha) pra abrir/fechar.
+let _nosCaboAbertos = new Set();
+function toggleNoCabo(nodeId) {
+  if (_nosCaboAbertos.has(nodeId)) _nosCaboAbertos.delete(nodeId);
+  else _nosCaboAbertos.add(nodeId);
+  renderRedeCabo();
+}
+// Conta TODOS os clientes pendurados num switch, somando os dele mesmo
+// com os de todos os sub-switches dentro dele (em qualquer profundidade)
+// — usado pra mostrar um total mesmo com o switch fechado.
+function totalClientesNoCaboRecursivo(no) {
+  let total = clientesDiretosDoNoCabo(no.id).length;
+  (no.subs || []).forEach(sub => { total += totalClientesNoCaboRecursivo(sub); });
+  return total;
+}
+
 function renderSubSwitchHtml(no) {
   const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(no.id));
   const netos = [...(no.subs || [])].sort((a,b) => (a.portaPai || 999) - (b.portaPai || 999) || a.nome.localeCompare(b.nome));
   const ocupacao = ocupacaoNoCabo(no);
   const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : '#1a73e8';
   const portaTxt = no.portaPai ? ` <span style="font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:0.68rem">P${no.portaPai}</span>` : '';
+  const aberto = _nosCaboAbertos.has(no.id);
+  const totalClientesDentro = totalClientesNoCaboRecursivo(no);
 
   const htmlNetos = netos.map(neto => renderSubSwitchHtml(neto)).join('');
 
   return `
       <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:4px">
-          <strong style="font-size:0.76rem;color:#0d47a1">🔌 ${no.nome}${portaTxt} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span></strong>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aberto ? '4px' : '0'};gap:4px">
+          <strong style="font-size:0.76rem;color:#0d47a1;cursor:pointer;flex:1;min-width:0" onclick="toggleNoCabo('${no.id}')" title="${aberto ? 'Fechar' : 'Abrir'} este switch">
+            ${aberto ? '▾' : '▸'} 🔌 ${no.nome}${portaTxt} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span>${!aberto && totalClientesDentro ? ` <span style="font-weight:400;color:#888">· ${totalClientesDentro} cliente${totalClientesDentro===1?'':'s'} no total</span>` : ''}
+          </strong>
           <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <span style="cursor:pointer;color:#1a73e8;font-size:0.75rem" onclick="editarPortaPaiSubSwitch('${no.id}')" title="Editar de qual porta do switch pai este sub-switch sai">🔢</span>
             ${(diretos.length || netos.length) ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${no.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
           </span>
         </div>
+        ${aberto ? `
         <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
           ${htmlNetos}
           ${diretos.length ? diretos.map(c => _linhaClienteCabo(c)).join('') : (netos.length ? '' : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`)}
@@ -4495,7 +4519,7 @@ function renderSubSwitchHtml(no) {
         <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
           <button class="btn btn-outline" style="font-size:0.66rem;padding:2px 6px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${no.id}')" title="Pendura outro switch numa porta deste, pra continuar a cadeia">🔌 Adicionar Sub-switch</button>
           <button class="btn btn-outline" style="font-size:0.66rem;padding:2px 6px" onclick="editarCapacidadeSwitchPrincipal('${no.id}')">⚙️ Capacidade</button>
-        </div>
+        </div>` : ''}
       </div>`;
 }
 
