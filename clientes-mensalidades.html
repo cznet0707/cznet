@@ -3967,6 +3967,49 @@ function _buscarClientesPorNomeDigitado(nomeDigitado) {
   return clientes.filter(c => normalizarTexto(c.nome).includes(termo));
 }
 
+// Dropdown de sugestões próprio (não depende do <datalist> do navegador,
+// que em muitos celulares simplesmente não mostra nada). Aparece embaixo
+// do campo de busca conforme a pessoa digita; toque numa opção pra
+// preencher o campo com o nome certinho.
+function mostrarSugestoesCliente(inputEl, tipo, alvoId) {
+  const termo = inputEl.value.trim();
+  const boxId = tipo === 'no' ? `sugestoes-cliente-no-${alvoId}` : `sugestoes-cliente-cto-${alvoId}`;
+  const box = document.getElementById(boxId);
+  if (!box) return;
+
+  if (!termo) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const termoNorm = normalizarTexto(termo);
+  const achados = clientes.filter(c => normalizarTexto(c.nome).includes(termoNorm)).slice(0, 8);
+
+  if (!achados.length) {
+    box.innerHTML = `<div style="padding:6px 8px;color:#999;font-size:0.72rem">Nenhum cliente encontrado</div>`;
+    box.style.display = 'block';
+    return;
+  }
+
+  box.innerHTML = achados.map(c => {
+    const posicaoTxt = c.ctoRedeId ? '<span style="color:#999">· já tem posição na rede</span>' : '<span style="color:#c62828">· sem posição na rede</span>';
+    return `<div style="padding:6px 8px;font-size:0.75rem;cursor:pointer;border-bottom:1px solid #f0f0f0" onmousedown="selecionarSugestaoCliente('${tipo}','${alvoId}',${c.id})">${c.nome} ${posicaoTxt}</div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+function esconderSugestoesCliente(tipo, alvoId) {
+  const boxId = tipo === 'no' ? `sugestoes-cliente-no-${alvoId}` : `sugestoes-cliente-cto-${alvoId}`;
+  const box = document.getElementById(boxId);
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+function selecionarSugestaoCliente(tipo, alvoId, clienteId) {
+  const cliente = clientes.find(c => c.id === clienteId);
+  if (!cliente) return;
+  const inputId = tipo === 'no' ? `add-cliente-no-${alvoId}` : `add-cliente-${alvoId}`;
+  const input = document.getElementById(inputId);
+  if (input) input.value = cliente.nome;
+  esconderSugestoesCliente(tipo, alvoId);
+}
+
 async function adicionarClienteNoNoPorNome(ctoId, noId) {
   const input = document.getElementById(`add-cliente-no-${noId}`);
   const nomeDigitado = input.value.trim();
@@ -4192,9 +4235,10 @@ function renderCtoHtml(olt, pon, cto) {
         <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
           ${clientesNo.length ? clientesNo.map(c => linhaCliente(c, `abrirModalTrocarCto(${c.id}, '${cto.id}')`, `removerClienteDoNo(${c.id})`)).join('') : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`}
         </div>
-        <div style="display:flex;gap:5px">
-          <input type="text" list="lista-clientes-sem-cto" id="add-cliente-no-${no.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.7rem;padding:3px 6px;border:1px solid #ddd;border-radius:5px" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNoNoPorNome('${cto.id}','${no.id}');}">
+        <div style="display:flex;gap:5px;position:relative">
+          <input type="text" autocomplete="off" id="add-cliente-no-${no.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.7rem;padding:3px 6px;border:1px solid #ddd;border-radius:5px" oninput="mostrarSugestoesCliente(this,'no','${no.id}')" onblur="setTimeout(()=>esconderSugestoesCliente('no','${no.id}'),150)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNoNoPorNome('${cto.id}','${no.id}');}">
           <button class="btn btn-outline" style="font-size:0.68rem;padding:2px 7px" onclick="adicionarClienteNoNoPorNome('${cto.id}','${no.id}')" title="Vincular cliente a este nó">➕</button>
+          <div id="sugestoes-cliente-no-${no.id}" style="display:none;position:absolute;top:100%;left:0;right:34px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:160px;overflow-y:auto"></div>
         </div>
       </div>`;
   }).join('');
@@ -4209,9 +4253,10 @@ function renderCtoHtml(olt, pon, cto) {
       ${htmlNos}
       ${diretos.length ? diretos.map(c => linhaCliente(c, `abrirModalTrocarCto(${c.id}, '${cto.id}')`, `removerClienteDaCto(${c.id})`)).join('') : (nos.length ? '' : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazia</div>`)}
     </div>
-    <div style="display:flex;gap:5px;margin-bottom:6px">
-      <input type="text" list="lista-clientes-sem-cto" id="add-cliente-${cto.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.72rem;padding:4px 6px;border:1px solid #ddd;border-radius:5px" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNaCtoPorNome('${cto.id}');}">
+    <div style="display:flex;gap:5px;margin-bottom:6px;position:relative">
+      <input type="text" autocomplete="off" id="add-cliente-${cto.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.72rem;padding:4px 6px;border:1px solid #ddd;border-radius:5px" oninput="mostrarSugestoesCliente(this,'cto','${cto.id}')" onblur="setTimeout(()=>esconderSugestoesCliente('cto','${cto.id}'),150)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNaCtoPorNome('${cto.id}');}">
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 8px" onclick="adicionarClienteNaCtoPorNome('${cto.id}')" title="Vincular cliente direto a esta CTO (fibra)">➕</button>
+      <div id="sugestoes-cliente-cto-${cto.id}" style="display:none;position:absolute;top:100%;left:0;right:34px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:160px;overflow-y:auto"></div>
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
       <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#0d47a1;border-color:#90caf9" onclick="adicionarNoNaCto('${olt.id}','${pon.id}','${cto.id}')" title="Cadastrar uma ONU+Switch com vários clientes pendurados, ocupando 1 vaga de fibra">🔀 Adicionar Nó (ONU/Switch)</button>
