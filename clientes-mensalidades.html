@@ -3954,20 +3954,32 @@ async function removerNoDaCto(ctoId, noId) {
   if (!salvou) mostrarToast('⚠️ Erro ao salvar a remoção neste aparelho.', 'erro');
 }
 
+// Busca cliente(s) pelo nome digitado nos campos "Buscar cliente já
+// cadastrado" do Mapa de Rede. Primeiro tenta nome IGUAL (mais preciso);
+// se não achar nada exato, tenta nome que CONTENHA o texto digitado —
+// assim "rogeane" encontra "Rogeane Alves da Silva" mesmo sem digitar
+// o nome completo.
+function _buscarClientesPorNomeDigitado(nomeDigitado) {
+  const termo = normalizarTexto(nomeDigitado.trim());
+  if (!termo) return [];
+  const exatos = clientes.filter(c => normalizarTexto(c.nome) === termo);
+  if (exatos.length) return exatos;
+  return clientes.filter(c => normalizarTexto(c.nome).includes(termo));
+}
+
 async function adicionarClienteNoNoPorNome(ctoId, noId) {
   const input = document.getElementById(`add-cliente-no-${noId}`);
   const nomeDigitado = input.value.trim();
   if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
 
-  const nomeNorm = normalizarTexto(nomeDigitado);
-  const encontrados = clientes.filter(c => normalizarTexto(c.nome) === nomeNorm);
+  const encontrados = _buscarClientesPorNomeDigitado(nomeDigitado);
 
   if (!encontrados.length) {
-    alert(`Nenhum cliente encontrado com o nome "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    alert(`Nenhum cliente encontrado com "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
     return;
   }
   if (encontrados.length > 1) {
-    alert(`Encontrei ${encontrados.length} clientes com esse nome. Abra o cadastro de cada um e defina a posição na rede por lá, pra evitar engano.`);
+    alert(`Encontrei ${encontrados.length} clientes com "${nomeDigitado}" no nome:\n\n${encontrados.map(c => '• ' + c.nome).join('\n')}\n\nDigite um pedaço mais específico do nome (ou o nome completo) pra encontrar só um.`);
     return;
   }
 
@@ -4096,12 +4108,13 @@ function renderOlt() {
       </div>`;
     }).join('');
 
-    // Lista de sugestão (autocompletar) com os clientes que ainda não têm
-    // posição na rede definida — facilita achar rápido quem falta organizar.
+    // Lista de sugestão (autocompletar): TODOS os clientes, não só quem
+    // ainda não tem posição — assim dá pra achar e mover qualquer cliente
+    // pra um nó/CTO, mesmo que ele já esteja noutro lugar.
     const datalist = document.getElementById('lista-clientes-sem-cto');
     if (datalist) {
-      const semCto = clientes.filter(c => !c.ctoRedeId).sort((a,b) => a.nome.localeCompare(b.nome));
-      datalist.innerHTML = semCto.map(c => `<option value="${c.nome}">`).join('');
+      const todos = [...clientes].sort((a,b) => a.nome.localeCompare(b.nome));
+      datalist.innerHTML = todos.map(c => `<option value="${c.nome}">`).join('');
     }
   } catch (e) {
     // Nunca mais deixa a tela em branco silenciosamente: mostra o erro real.
@@ -4641,15 +4654,14 @@ async function adicionarClienteNaCtoPorNome(ctoId) {
   const nomeDigitado = input.value.trim();
   if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
 
-  const nomeNorm = normalizarTexto(nomeDigitado);
-  const encontrados = clientes.filter(c => normalizarTexto(c.nome) === nomeNorm);
+  const encontrados = _buscarClientesPorNomeDigitado(nomeDigitado);
 
   if (!encontrados.length) {
-    alert(`Nenhum cliente encontrado com o nome "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    alert(`Nenhum cliente encontrado com "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
     return;
   }
   if (encontrados.length > 1) {
-    alert(`Encontrei ${encontrados.length} clientes com esse nome. Abra o cadastro de cada um e defina a posição na rede por lá, pra evitar engano.`);
+    alert(`Encontrei ${encontrados.length} clientes com "${nomeDigitado}" no nome:\n\n${encontrados.map(c => '• ' + c.nome).join('\n')}\n\nDigite um pedaço mais específico do nome (ou o nome completo) pra encontrar só um.`);
     return;
   }
 
