@@ -4324,7 +4324,7 @@ function renderRedeCabo() {
     }
 
     box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
-      ${switchesCabo.map(sw => renderSwitchPrincipalHtml(sw)).join('')}
+      ${switchesCabo.map((sw, idx) => renderSwitchPrincipalHtml(sw, idx, switchesCabo.length)).join('')}
     </div>`;
   } catch (e) {
     box.innerHTML = `<div style="background:#fce8e6;border:1px solid #f5b3ac;border-radius:8px;padding:14px;color:#c0392b;font-size:0.85rem">
@@ -4438,20 +4438,28 @@ function _boxAdicionarClienteCabo(nodeId, larguraSugestoes) {
         </div>`;
 }
 
-function renderSwitchPrincipalHtml(sw) {
+function renderSwitchPrincipalHtml(sw, idx = 0, total = 1) {
   const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(sw.id));
   const subs = sw.subs || [];
   const ocupacao = ocupacaoNoCabo(sw);
   const vagas = sw.capacidade;
   const cor = ocupacao.ocupadas >= vagas ? '#c62828' : (ocupacao.ocupadas >= vagas*0.75 ? '#e65100' : '#1e8449');
 
-  const htmlSubs = [...subs].sort((a,b) => (a.portaPai || 999) - (b.portaPai || 999) || a.nome.localeCompare(b.nome)).map(sub => renderSubSwitchHtml(sub)).join('');
+  // Ordem de cadastro (não reordena sozinho) — use as setinhas ⬆️⬇️ pra
+  // mudar a posição manualmente, sem precisar apagar e recriar.
+  const htmlSubs = subs.map((sub, i) => renderSubSwitchHtml(sub, i, subs.length)).join('');
+  const setinhasPrincipal = total > 1 ? `
+      <span style="cursor:${idx > 0 ? 'pointer' : 'default'};color:${idx > 0 ? '#555' : '#ccc'};font-size:0.78rem" ${idx > 0 ? `onclick="moverSubSwitch('${sw.id}',-1)"` : ''} title="Mover pra cima">⬆️</span>
+      <span style="cursor:${idx < total - 1 ? 'pointer' : 'default'};color:${idx < total - 1 ? '#555' : '#ccc'};font-size:0.78rem" ${idx < total - 1 ? `onclick="moverSubSwitch('${sw.id}',1)"` : ''} title="Mover pra baixo">⬇️</span>` : '';
 
   return `
   <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
       <strong style="font-size:0.86rem">🔌 ${sw.nome}</strong>
-      <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Cada cliente direto ou cada sub-switch conta 1 porta deste switch">${ocupacao.ocupadas}/${vagas}</span>
+      <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        ${setinhasPrincipal}
+        <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Cada cliente direto ou cada sub-switch conta 1 porta deste switch">${ocupacao.ocupadas}/${vagas}</span>
+      </span>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:280px;overflow-y:auto">
       ${htmlSubs}
@@ -4488,16 +4496,20 @@ function totalClientesNoCaboRecursivo(no) {
   return total;
 }
 
-function renderSubSwitchHtml(no) {
+function renderSubSwitchHtml(no, idx = 0, total = 1) {
   const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(no.id));
-  const netos = [...(no.subs || [])].sort((a,b) => (a.portaPai || 999) - (b.portaPai || 999) || a.nome.localeCompare(b.nome));
+  const netos = no.subs || [];
   const ocupacao = ocupacaoNoCabo(no);
   const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : '#1a73e8';
   const portaTxt = no.portaPai ? ` <span style="font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:0.68rem">P${no.portaPai}</span>` : '';
   const aberto = _nosCaboAbertos.has(no.id);
   const totalClientesDentro = totalClientesNoCaboRecursivo(no);
 
-  const htmlNetos = netos.map(neto => renderSubSwitchHtml(neto)).join('');
+  const htmlNetos = netos.map((neto, i) => renderSubSwitchHtml(neto, i, netos.length)).join('');
+
+  const setinhas = `
+            <span style="cursor:${idx > 0 ? 'pointer' : 'default'};color:${idx > 0 ? '#555' : '#ccc'};font-size:0.72rem" ${idx > 0 ? `onclick="moverSubSwitch('${no.id}',-1)"` : ''} title="Mover pra cima">⬆️</span>
+            <span style="cursor:${idx < total - 1 ? 'pointer' : 'default'};color:${idx < total - 1 ? '#555' : '#ccc'};font-size:0.72rem" ${idx < total - 1 ? `onclick="moverSubSwitch('${no.id}',1)"` : ''} title="Mover pra baixo">⬇️</span>`;
 
   return `
       <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
@@ -4506,6 +4518,7 @@ function renderSubSwitchHtml(no) {
             ${aberto ? '▾' : '▸'} 🔌 ${no.nome}${portaTxt} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span>${!aberto && totalClientesDentro ? ` <span style="font-weight:400;color:#888">· ${totalClientesDentro} cliente${totalClientesDentro===1?'':'s'} no total</span>` : ''}
           </strong>
           <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            ${setinhas}
             <span style="cursor:pointer;color:#1a73e8;font-size:0.75rem" onclick="editarPortaPaiSubSwitch('${no.id}')" title="Editar de qual porta do switch pai este sub-switch sai">🔢</span>
             ${(diretos.length || netos.length) ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${no.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
           </span>
@@ -4525,6 +4538,23 @@ function renderSubSwitchHtml(no) {
 
 // Edição rápida da porta (do pai) em que um sub-switch está plugado —
 // toque no 🔢 do lado do nome do sub-switch.
+// Troca a posição de um sub-switch com o irmão vizinho (acima ou abaixo),
+// dentro da lista de sub-switches do mesmo pai — pra reordenar sem
+// precisar apagar e recriar nada.
+async function moverSubSwitch(nodeId, direcao) {
+  const achado = encontrarNoCaboEPai(nodeId); if (!achado) return;
+  const { pai } = achado;
+  const lista = pai ? pai.subs : switchesCabo;
+  if (!lista) return;
+  const idx = lista.findIndex(n => n.id === nodeId);
+  const novoIdx = idx + direcao;
+  if (idx === -1 || novoIdx < 0 || novoIdx >= lista.length) return;
+  [lista[idx], lista[novoIdx]] = [lista[novoIdx], lista[idx]];
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a nova ordem neste aparelho.', 'erro');
+}
+
 async function editarPortaPaiSubSwitch(nodeId) {
   const achado = encontrarNoCaboEPai(nodeId); if (!achado) return;
   const { no, pai } = achado;
