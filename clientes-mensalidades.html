@@ -404,6 +404,7 @@
   <button onclick="showPage(&#39;pagamentos&#39;)">💰 Mensalidades</button>
   <button onclick="showPage(&#39;instalacoes&#39;)">🔧 Instalações</button>
   <button onclick="showPage(&#39;olt&#39;)">🗼 OLT</button>
+  <button onclick="showPage(&#39;redecabo&#39;)">🔌 Rede a Cabo</button>
   <button onclick="showPage(&#39;planos&#39;)">📦 Planos</button>
   <button onclick="showPage(&#39;saidas&#39;)">💳 Saídas</button>
   <button onclick="showPage(&#39;config&#39;)" class="">⚙️ Configurações</button>
@@ -881,6 +882,21 @@
       </div>
       <div id="olt-conteudo"></div>
       <datalist id="lista-clientes-sem-cto"></datalist>
+    </div>
+  </div>
+
+  <!-- REDE A CABO -->
+  <div id="page-redecabo" class="page">
+    <div class="card">
+      <h2>🔌 Rede a Cabo (Switch Principal / Sub-switch)</h2>
+      <p style="color:#777;font-size:0.85rem;margin-bottom:14px">
+        Pra redes 100% por cabo de rede, sem fibra/CTO: um Switch Principal pode ter Sub-switches pendurados nele
+        (cada sub-switch ocupa 1 porta do principal), e cada switch (principal ou sub) tem seus clientes ligados por cabo.
+      </p>
+      <div style="margin-bottom:14px">
+        <button class="btn btn-primary" onclick="adicionarSwitchPrincipal()">➕ Novo Switch Principal</button>
+      </div>
+      <div id="redecabo-conteudo"></div>
     </div>
   </div>
 
@@ -1870,7 +1886,7 @@ Qualquer dúvida, estamos à disposição!</div>
 // DADOS
 // ============================================================
 let clientes = [], pagamentos = [], planos = [], instalacoes = [];
-let cartoes = [], saidas = [], categorias = [], olts = [];
+let cartoes = [], saidas = [], categorias = [], olts = [], switchesCabo = [];
 let excluirId = null, editandoId = null, editandoPlanoId = null;
 let zapClienteId = null, carneClienteId = null;
 
@@ -2110,6 +2126,7 @@ async function carregarDoServidor() {
       if (d.cm_saidas)       { saidas       = JSON.parse(d.cm_saidas);       localStorage.setItem('cm_saidas', d.cm_saidas); }
       if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       if (d.cm_olts)         { olts         = JSON.parse(d.cm_olts);        localStorage.setItem('cm_olts', d.cm_olts); }
+      if (d.cm_switches_cabo) { switchesCabo = JSON.parse(d.cm_switches_cabo); localStorage.setItem('cm_switches_cabo', d.cm_switches_cabo); }
       if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
       if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
@@ -2139,10 +2156,12 @@ async function carregarDoServidor() {
       const sa_ = localStorage.getItem('cm_saidas');
       const ca_ = localStorage.getItem('cm_categorias');
       const ol_ = localStorage.getItem('cm_olts');
+      const sc_ = localStorage.getItem('cm_switches_cabo');
       if (ct_) cartoes    = JSON.parse(ct_);
       if (sa_) saidas     = JSON.parse(sa_);
       if (ca_) categorias = JSON.parse(ca_);
       if (ol_) olts       = JSON.parse(ol_);
+      if (sc_) switchesCabo = JSON.parse(sc_);
       if (c || p || pl) dadosCarregados = true; // Tinha dados no localStorage
     } catch(e2) {}
     if (!olts.length) olts = gerarOltsPadrao();
@@ -2380,6 +2399,7 @@ async function salvarStorage() {
     localStorage.setItem('cm_saidas',      JSON.stringify(saidas));
     localStorage.setItem('cm_categorias',  JSON.stringify(categorias));
     localStorage.setItem('cm_olts',        JSON.stringify(olts));
+    localStorage.setItem('cm_switches_cabo', JSON.stringify(switchesCabo));
   } catch(e) {
     console.error('Erro ao salvar no localStorage:', e);
     mostrarToast('⚠️ Erro ao salvar neste aparelho: ' + e.message, 'erro');
@@ -2395,7 +2415,7 @@ function showPage(nome) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + nome).classList.add('active');
-  const idx = ['dashboard','clientes','pagamentos','instalacoes','olt','planos','saidas','config'].indexOf(nome);
+  const idx = ['dashboard','clientes','pagamentos','instalacoes','olt','redecabo','planos','saidas','config'].indexOf(nome);
   if (idx >= 0) document.querySelectorAll('nav button')[idx].classList.add('active');
 
   if (nome === 'dashboard')   renderDashboard();
@@ -2403,6 +2423,7 @@ function showPage(nome) {
   if (nome === 'pagamentos')  { renderSelectClientes(); renderHistorico(); }
   if (nome === 'instalacoes') renderInstalacoes();
   if (nome === 'olt')         renderOlt();
+  if (nome === 'redecabo')    renderRedeCabo();
   if (nome === 'planos')      renderPlanos();
   if (nome === 'saidas')      renderSaidas();
   if (nome === 'config')      { carregarConfig(); atualizarDiagnosticoErro(); }
@@ -3971,10 +3992,20 @@ function _buscarClientesPorNomeDigitado(nomeDigitado) {
 // que em muitos celulares simplesmente não mostra nada). Aparece embaixo
 // do campo de busca conforme a pessoa digita; toque numa opção pra
 // preencher o campo com o nome certinho.
+// Mapa de prefixos de id usados pelos campos "Buscar cliente já cadastrado"
+// espalhados pelo Mapa de Rede (fibra) e pela Rede a Cabo. Cada "tipo" tem
+// seu próprio padrão de id de input e de caixinha de sugestões.
+const _PREFIXOS_BUSCA_CLIENTE = {
+  cto:    { input: 'add-cliente-',       box: 'sugestoes-cliente-cto-' },
+  no:     { input: 'add-cliente-no-',    box: 'sugestoes-cliente-no-' },
+  swp:    { input: 'add-cliente-swp-',   box: 'sugestoes-cliente-swp-' },
+  sws:    { input: 'add-cliente-sws-',   box: 'sugestoes-cliente-sws-' },
+};
+
 function mostrarSugestoesCliente(inputEl, tipo, alvoId) {
   const termo = inputEl.value.trim();
-  const boxId = tipo === 'no' ? `sugestoes-cliente-no-${alvoId}` : `sugestoes-cliente-cto-${alvoId}`;
-  const box = document.getElementById(boxId);
+  const pref = _PREFIXOS_BUSCA_CLIENTE[tipo]; if (!pref) return;
+  const box = document.getElementById(pref.box + alvoId);
   if (!box) return;
 
   if (!termo) { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -3989,23 +4020,23 @@ function mostrarSugestoesCliente(inputEl, tipo, alvoId) {
   }
 
   box.innerHTML = achados.map(c => {
-    const posicaoTxt = c.ctoRedeId ? '<span style="color:#999">· já tem posição na rede</span>' : '<span style="color:#c62828">· sem posição na rede</span>';
+    const posicaoTxt = (c.ctoRedeId || c.switchCaboId) ? '<span style="color:#999">· já tem posição na rede</span>' : '<span style="color:#c62828">· sem posição na rede</span>';
     return `<div style="padding:6px 8px;font-size:0.75rem;cursor:pointer;border-bottom:1px solid #f0f0f0" onmousedown="selecionarSugestaoCliente('${tipo}','${alvoId}',${c.id})">${c.nome} ${posicaoTxt}</div>`;
   }).join('');
   box.style.display = 'block';
 }
 
 function esconderSugestoesCliente(tipo, alvoId) {
-  const boxId = tipo === 'no' ? `sugestoes-cliente-no-${alvoId}` : `sugestoes-cliente-cto-${alvoId}`;
-  const box = document.getElementById(boxId);
+  const pref = _PREFIXOS_BUSCA_CLIENTE[tipo]; if (!pref) return;
+  const box = document.getElementById(pref.box + alvoId);
   if (box) { box.style.display = 'none'; box.innerHTML = ''; }
 }
 
 function selecionarSugestaoCliente(tipo, alvoId, clienteId) {
   const cliente = clientes.find(c => c.id === clienteId);
   if (!cliente) return;
-  const inputId = tipo === 'no' ? `add-cliente-no-${alvoId}` : `add-cliente-${alvoId}`;
-  const input = document.getElementById(inputId);
+  const pref = _PREFIXOS_BUSCA_CLIENTE[tipo]; if (!pref) return;
+  const input = document.getElementById(pref.input + alvoId);
   if (input) input.value = cliente.nome;
   esconderSugestoesCliente(tipo, alvoId);
 }
@@ -4056,6 +4087,305 @@ async function removerClienteDoNo(clienteId) {
   renderOlt();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ Erro ao salvar a alteração neste aparelho.', 'erro');
+}
+
+// ============================================================
+// REDE A CABO (Switch Principal / Sub-switch) — pra redes 100% por cabo
+// de rede, sem fibra/CTO nenhuma. Mesmo raciocínio de "vagas" das CTOs:
+// um sub-switch ocupa 1 porta do switch principal, e os clientes
+// pendurados no sub-switch contam pra capacidade DELE, não do principal.
+// ============================================================
+function clientesDoSwitchPrincipal(switchId) {
+  return clientes.filter(c => c.switchCaboId === switchId && !c.subSwitchCaboId);
+}
+function clientesDoSubSwitch(subId) {
+  return clientes.filter(c => c.subSwitchCaboId === subId);
+}
+function ocupacaoSwitchPrincipal(sw) {
+  const diretos = clientesDoSwitchPrincipal(sw.id).length;
+  const subs = (sw.subs || []).length;
+  return { ocupadas: diretos + subs, vagas: sw.capacidade };
+}
+
+async function adicionarSwitchPrincipal() {
+  const nome = prompt('Nome/identificação deste switch principal (ex: "Switch Central Rua X"):', 'Switch Principal');
+  if (!nome || !nome.trim()) return;
+  const capRaw = prompt('Quantas portas esse switch tem (capacidade)?', '24');
+  const cap = parseInt(capRaw);
+  if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
+
+  switchesCabo.push({ id: `swp${Date.now()}`, nome: nome.trim(), capacidade: cap, subs: [] });
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
+}
+
+async function removerSwitchPrincipal(switchId) {
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const presos = clientesDoSwitchPrincipal(switchId).length;
+  if (presos || (sw.subs || []).length) {
+    alert('Este switch ainda tem clientes ou sub-switches vinculados. Remova-os antes de excluir o switch.');
+    return;
+  }
+  if (!confirm(`Remover o switch "${sw.nome}"? Essa ação não pode ser desfeita.`)) return;
+  switchesCabo = switchesCabo.filter(s => s.id !== switchId);
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a remoção neste aparelho.', 'erro');
+}
+
+async function adicionarSubSwitch(switchId) {
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const ocupacao = ocupacaoSwitchPrincipal(sw);
+  if (ocupacao.ocupadas >= sw.capacidade) {
+    if (!confirm(`⚠️ O switch principal já está com ${ocupacao.ocupadas}/${sw.capacidade} portas ocupadas. Adicionar o sub-switch mesmo assim?`)) return;
+  }
+  const nome = prompt('Nome/identificação deste sub-switch (ex: "Switch Beco da Igreja"):', 'Sub-switch');
+  if (!nome || !nome.trim()) return;
+  const capRaw = prompt('Quantas portas esse sub-switch tem (capacidade)?', '8');
+  const cap = parseInt(capRaw);
+  if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
+
+  if (!sw.subs) sw.subs = [];
+  sw.subs.push({ id: `sws${Date.now()}`, nome: nome.trim(), capacidade: cap });
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
+}
+
+async function removerSubSwitch(switchId, subId) {
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const presos = clientesDoSubSwitch(subId).length;
+  if (presos) {
+    alert('Este sub-switch ainda tem clientes vinculados. Remova-os antes de excluir.');
+    return;
+  }
+  if (!confirm('Remover este sub-switch? Essa ação não pode ser desfeita.')) return;
+  sw.subs = (sw.subs || []).filter(s => s.id !== subId);
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a remoção neste aparelho.', 'erro');
+}
+
+async function adicionarClienteNoSwitchPrincipalPorNome(switchId) {
+  const input = document.getElementById(`add-cliente-swp-${switchId}`);
+  const inputPorta = document.getElementById(`porta-cliente-swp-${switchId}`);
+  const nomeDigitado = input.value.trim();
+  if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
+
+  const encontrados = _buscarClientesPorNomeDigitado(nomeDigitado);
+  if (!encontrados.length) {
+    alert(`Nenhum cliente encontrado com "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    return;
+  }
+  if (encontrados.length > 1) {
+    alert(`Encontrei ${encontrados.length} clientes com "${nomeDigitado}" no nome:\n\n${encontrados.map(c => '• ' + c.nome).join('\n')}\n\nDigite um pedaço mais específico do nome pra encontrar só um.`);
+    return;
+  }
+
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const cliente = encontrados[0];
+  if (cliente.switchCaboId === switchId && !cliente.subSwitchCaboId) { alert('Este cliente já está direto neste switch.'); return; }
+
+  const ocupacao = ocupacaoSwitchPrincipal(sw);
+  if (ocupacao.ocupadas >= sw.capacidade) {
+    if (!confirm(`⚠️ Este switch já está com ${ocupacao.ocupadas}/${sw.capacidade} portas ocupadas. Adicionar mesmo assim?`)) return;
+  }
+
+  const porta = inputPorta && inputPorta.value ? parseInt(inputPorta.value) : null;
+  if (porta) {
+    const jaUsada = clientesDoSwitchPrincipal(switchId).find(c => c.portaCabo === porta);
+    if (jaUsada && !confirm(`⚠️ A porta ${porta} já está sendo usada por "${jaUsada.nome}" neste switch. Usar mesmo assim?`)) return;
+  }
+
+  cliente.switchCaboId = switchId;
+  cliente.subSwitchCaboId = null;
+  cliente.portaCabo = porta;
+  cliente.ctoRedeId = null; // rede a cabo é independente da rede de fibra
+  cliente.noId = null;
+  marcarClienteModificado(cliente.id);
+  input.value = '';
+  if (inputPorta) inputPorta.value = '';
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
+}
+
+async function adicionarClienteNoSubSwitchPorNome(switchId, subId) {
+  const input = document.getElementById(`add-cliente-sws-${subId}`);
+  const inputPorta = document.getElementById(`porta-cliente-sws-${subId}`);
+  const nomeDigitado = input.value.trim();
+  if (!nomeDigitado) { alert('Digite ou selecione o nome do cliente.'); return; }
+
+  const encontrados = _buscarClientesPorNomeDigitado(nomeDigitado);
+  if (!encontrados.length) {
+    alert(`Nenhum cliente encontrado com "${nomeDigitado}". Verifique a grafia ou selecione uma opção da lista sugerida.`);
+    return;
+  }
+  if (encontrados.length > 1) {
+    alert(`Encontrei ${encontrados.length} clientes com "${nomeDigitado}" no nome:\n\n${encontrados.map(c => '• ' + c.nome).join('\n')}\n\nDigite um pedaço mais específico do nome pra encontrar só um.`);
+    return;
+  }
+
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const sub = (sw.subs || []).find(s => s.id === subId); if (!sub) return;
+  const cliente = encontrados[0];
+  if (cliente.subSwitchCaboId === subId) { alert('Este cliente já está neste sub-switch.'); return; }
+
+  const ocupadosSub = clientesDoSubSwitch(subId).length;
+  if (ocupadosSub >= sub.capacidade) {
+    if (!confirm(`⚠️ Este sub-switch já está com ${ocupadosSub}/${sub.capacidade} clientes. Adicionar mesmo assim?`)) return;
+  }
+
+  const porta = inputPorta && inputPorta.value ? parseInt(inputPorta.value) : null;
+  if (porta) {
+    const jaUsada = clientesDoSubSwitch(subId).find(c => c.portaCabo === porta);
+    if (jaUsada && !confirm(`⚠️ A porta ${porta} já está sendo usada por "${jaUsada.nome}" neste sub-switch. Usar mesmo assim?`)) return;
+  }
+
+  cliente.switchCaboId = switchId;
+  cliente.subSwitchCaboId = subId;
+  cliente.portaCabo = porta;
+  cliente.ctoRedeId = null;
+  cliente.noId = null;
+  marcarClienteModificado(cliente.id);
+  input.value = '';
+  if (inputPorta) inputPorta.value = '';
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
+}
+
+// Edição rápida da porta de um cliente já pendurado na rede a cabo — toque
+// no 🔢 do lado do nome dele, dentro do switch/sub-switch onde ele está.
+async function editarPortaCabo(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  const novaPorta = prompt(`Número da porta de "${c.nome}" (deixe em branco pra remover):`, c.portaCabo || '');
+  if (novaPorta === null) return;
+  const num = novaPorta.trim() ? parseInt(novaPorta) : null;
+  if (novaPorta.trim() && (!num || num < 1)) { alert('Porta inválida.'); return; }
+
+  if (num) {
+    const irmaos = c.subSwitchCaboId ? clientesDoSubSwitch(c.subSwitchCaboId) : clientesDoSwitchPrincipal(c.switchCaboId);
+    const jaUsada = irmaos.find(x => x.id !== c.id && x.portaCabo === num);
+    if (jaUsada && !confirm(`⚠️ A porta ${num} já está sendo usada por "${jaUsada.nome}". Usar mesmo assim?`)) return;
+  }
+
+  c.portaCabo = num;
+  marcarClienteModificado(c.id);
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a porta neste aparelho.', 'erro');
+}
+
+async function removerClienteDaRedeCabo(clienteId) {
+  const c = clientes.find(x => x.id === clienteId); if (!c) return;
+  if (!confirm(`Remover "${c.nome}" da rede a cabo? Ele fica sem posição na rede a cabo.`)) return;
+  c.switchCaboId = null;
+  c.subSwitchCaboId = null;
+  marcarClienteModificado(c.id);
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a alteração neste aparelho.', 'erro');
+}
+
+function renderRedeCabo() {
+  const box = document.getElementById('redecabo-conteudo');
+  if (!box) return;
+  try {
+    if (!switchesCabo.length) {
+      box.innerHTML = `<div style="text-align:center;color:#999;padding:30px 10px">🔌 Nenhum switch principal cadastrado ainda. Clique em "➕ Novo Switch Principal" pra começar.</div>`;
+      return;
+    }
+
+    box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+      ${switchesCabo.map(sw => renderSwitchPrincipalHtml(sw)).join('')}
+    </div>`;
+  } catch (e) {
+    box.innerHTML = `<div style="background:#fce8e6;border:1px solid #f5b3ac;border-radius:8px;padding:14px;color:#c0392b;font-size:0.85rem">
+      ⚠️ Erro ao carregar a rede a cabo: ${(e && e.message) || e}<br>
+      <span style="color:#888">Tire um print desta mensagem e envie para o suporte.</span>
+    </div>`;
+    console.error('Erro em renderRedeCabo:', e);
+  }
+}
+
+function renderSwitchPrincipalHtml(sw) {
+  const diretos = clientesDoSwitchPrincipal(sw.id);
+  const subs = sw.subs || [];
+  const ocupacao = ocupacaoSwitchPrincipal(sw);
+  const vagas = sw.capacidade;
+  const cor = ocupacao.ocupadas >= vagas ? '#c62828' : (ocupacao.ocupadas >= vagas*0.75 ? '#e65100' : '#1e8449');
+
+  const linhaCliente = (c) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.75rem;background:#fff;border-radius:5px;padding:4px 6px">
+          <span style="flex-shrink:0;background:#eef1f4;color:#555;font-weight:700;font-size:0.68rem;border-radius:4px;padding:2px 5px;min-width:18px;text-align:center" title="Porta do switch">${c.portaCabo ? 'P' + c.portaCabo : '—'}</span>
+          <div style="overflow:hidden;min-width:0;flex:1">
+            <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="abrirEditar(${c.id})" title="Abrir cadastro do cliente">${c.nome}</div>
+            <div style="color:#888;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="editarPppoeRapido(${c.id})" title="Clique para editar o PPPoE deste cliente">
+              🌐 PPPoE: ${c.pppoe_usuario || '<span style="color:#c62828">não cadastrado — toque para adicionar</span>'} ✏️
+            </div>
+          </div>
+          <span style="cursor:pointer;color:#1a73e8;padding-left:2px;flex-shrink:0;font-size:0.85rem" onclick="editarPortaCabo(${c.id})" title="Editar a porta deste cliente">🔢</span>
+          <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="removerClienteDaRedeCabo(${c.id})" title="Remover">✕</span>
+        </div>`;
+  const ordenarPorPorta = lista => [...lista].sort((a,b) => (a.portaCabo || 999) - (b.portaCabo || 999) || a.nome.localeCompare(b.nome));
+
+  const htmlSubs = subs.map(sub => {
+    const clientesSub = ordenarPorPorta(clientesDoSubSwitch(sub.id));
+    const corSub = clientesSub.length >= sub.capacidade ? '#c62828' : '#1a73e8';
+    return `
+      <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <strong style="font-size:0.76rem;color:#0d47a1">🔌 ${sub.nome} <span style="font-weight:400;color:${corSub}">(${clientesSub.length}/${sub.capacidade})</span></strong>
+          ${clientesSub.length ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${sw.id}','${sub.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
+          ${clientesSub.length ? clientesSub.map(c => linhaCliente(c)).join('') : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`}
+        </div>
+        <div style="display:flex;gap:5px;position:relative">
+          <input type="text" autocomplete="off" id="add-cliente-sws-${sub.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.7rem;padding:3px 6px;border:1px solid #ddd;border-radius:5px" oninput="mostrarSugestoesCliente(this,'sws','${sub.id}')" onblur="setTimeout(()=>esconderSugestoesCliente('sws','${sub.id}'),150)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNoSubSwitchPorNome('${sw.id}','${sub.id}');}">
+          <input type="number" min="1" id="porta-cliente-sws-${sub.id}" placeholder="Porta" style="width:52px;font-size:0.7rem;padding:3px 4px;border:1px solid #ddd;border-radius:5px" title="Número da porta (opcional)">
+          <button class="btn btn-outline" style="font-size:0.68rem;padding:2px 7px" onclick="adicionarClienteNoSubSwitchPorNome('${sw.id}','${sub.id}')" title="Vincular cliente a este sub-switch">➕</button>
+          <div id="sugestoes-cliente-sws-${sub.id}" style="display:none;position:absolute;top:100%;left:0;right:88px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:160px;overflow-y:auto"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <strong style="font-size:0.86rem">🔌 ${sw.nome}</strong>
+      <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Cada cliente direto ou cada sub-switch conta 1 porta do switch principal">${ocupacao.ocupadas}/${vagas}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:230px;overflow-y:auto">
+      ${htmlSubs}
+      ${diretos.length ? ordenarPorPorta(diretos).map(c => linhaCliente(c)).join('') : (subs.length ? '' : `<div style="font-size:0.75rem;color:#aaa;text-align:center;padding:6px 0">Vazio</div>`)}
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:6px;position:relative">
+      <input type="text" autocomplete="off" id="add-cliente-swp-${sw.id}" placeholder="Buscar cliente já cadastrado..." style="flex:1;font-size:0.72rem;padding:4px 6px;border:1px solid #ddd;border-radius:5px" oninput="mostrarSugestoesCliente(this,'swp','${sw.id}')" onblur="setTimeout(()=>esconderSugestoesCliente('swp','${sw.id}'),150)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarClienteNoSwitchPrincipalPorNome('${sw.id}');}">
+      <input type="number" min="1" id="porta-cliente-swp-${sw.id}" placeholder="Porta" style="width:56px;font-size:0.72rem;padding:4px 4px;border:1px solid #ddd;border-radius:5px" title="Número da porta (opcional)">
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 8px" onclick="adicionarClienteNoSwitchPrincipalPorNome('${sw.id}')" title="Vincular cliente direto a este switch">➕</button>
+      <div id="sugestoes-cliente-swp-${sw.id}" style="display:none;position:absolute;top:100%;left:0;right:92px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:160px;overflow-y:auto"></div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${sw.id}')" title="Cadastrar um sub-switch pendurado neste switch principal, ocupando 1 porta">🔌 Adicionar Sub-switch</button>
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px" onclick="editarCapacidadeSwitchPrincipal('${sw.id}')">⚙️ Capacidade</button>
+      <button class="btn btn-outline" style="font-size:0.7rem;padding:3px 7px;color:#c62828;border-color:#f5b3ac" onclick="removerSwitchPrincipal('${sw.id}')">🗑️ Remover Switch</button>
+    </div>
+  </div>`;
+}
+
+async function editarCapacidadeSwitchPrincipal(switchId) {
+  const sw = switchesCabo.find(s => s.id === switchId); if (!sw) return;
+  const novaCap = prompt(`Capacidade atual: ${sw.capacidade} portas.\n\nDigite a nova capacidade:`, sw.capacidade);
+  if (novaCap === null) return;
+  const num = parseInt(novaCap);
+  if (!num || num < 1) { alert('Capacidade inválida.'); return; }
+  sw.capacidade = num;
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a capacidade neste aparelho.', 'erro');
 }
 
 // ===== Múltiplos pontos de internet do mesmo cliente =====
@@ -4246,7 +4576,7 @@ function renderCtoHtml(olt, pon, cto) {
   return `
   <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <strong style="font-size:0.86rem">📦 ${label}</strong>
+      <strong style="font-size:0.86rem">📦 ${label}${nos.length ? ` <span style="font-size:0.72rem;font-weight:600;color:#0d47a1;background:#e3f2fd;border-radius:5px;padding:1px 6px;white-space:nowrap" title="${nos.length} nó(s) ONU/Switch nesta CTO">🔀 ${nos.length} nó${nos.length>1?'s':''}</span>` : ''}</strong>
       <span style="font-size:0.75rem;font-weight:700;color:${cor}" title="Vagas de fibra: cada cliente direto ou cada nó (ONU/Switch) conta 1 vaga">${ocupacao.ocupadas}/${vagas}</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:230px;overflow-y:auto">
@@ -7605,6 +7935,7 @@ function importarDados(modo) {
   const novasSaidas      = _dadosImport.cm_saidas      || [];
   const novasCategorias  = _dadosImport.cm_categorias  || [];
   const novasOlts        = _dadosImport.cm_olts        || [];
+  const novosSwitchesCabo = _dadosImport.cm_switches_cabo || [];
 
   if (modo === 'substituir') {
     if (!confirm(`⚠️ Isso vai APAGAR todos os ${clientes.length} clientes, ${pagamentos.length} pagamentos e ${planos.length} planos atuais e substituir pelos ${novosClientes.length} do arquivo. Confirma?`)) return;
@@ -7622,6 +7953,7 @@ function importarDados(modo) {
     if (_dadosImport.cm_saidas)      saidas      = novasSaidas;
     if (_dadosImport.cm_categorias)  categorias  = novasCategorias;
     if (novasOlts.length)            olts        = novasOlts;
+    if (novosSwitchesCabo.length)    switchesCabo = novosSwitchesCabo;
   } else {
     // Mesclar: adiciona o que for novo E ATUALIZA quem já existe (upsert por
     // id). Antes, "mesclar" só adicionava — se um cliente já cadastrado
@@ -7642,6 +7974,7 @@ function importarDados(modo) {
     saidas      = upsertPorId(saidas, novasSaidas);
     categorias  = upsertPorId(categorias, novasCategorias);
     olts        = upsertPorId(olts, novasOlts);
+    switchesCabo = upsertPorId(switchesCabo, novosSwitchesCabo);
   }
 
   // Configurações de valor único: não fazem sentido "mesclar" (é um texto só),
@@ -8329,6 +8662,7 @@ async function exportarBackup() {
     cm_saidas:      saidas,
     cm_categorias:  categorias,
     cm_olts:        olts,
+    cm_switches_cabo: switchesCabo,
     cm_empresa:    getCfgEmpresa(),
     cm_msg:        localStorage.getItem('cm_msg')        || '',
     cm_msg_boleto: localStorage.getItem('cm_msg_boleto') || '',
@@ -8727,6 +9061,7 @@ function verificarAvisoDezembroBackup() {
     const _sa = localStorage.getItem('cm_saidas');
     const _ca = localStorage.getItem('cm_categorias');
     const _ol = localStorage.getItem('cm_olts');
+    const _sc = localStorage.getItem('cm_switches_cabo');
     if (_c  && _c  !== '[]') clientes    = JSON.parse(_c);
     if (_p  && _p  !== '[]') pagamentos  = JSON.parse(_p);
     if (_pl && _pl !== '[]') planos      = JSON.parse(_pl);
@@ -8735,6 +9070,7 @@ function verificarAvisoDezembroBackup() {
     if (_sa && _sa !== '[]') saidas      = JSON.parse(_sa);
     if (_ca && _ca !== '[]') categorias  = JSON.parse(_ca);
     if (_ol && _ol !== '[]') olts        = JSON.parse(_ol);
+    if (_sc && _sc !== '[]') switchesCabo = JSON.parse(_sc);
     // dadosCarregados = true sempre, mesmo com 0 clientes (aparelho novo) —
     // sincronização automática com servidor foi desligada de propósito: o
     // app agora é 100% local por aparelho, e os dados só viajam entre
