@@ -1544,6 +1544,28 @@ Qualquer dúvida, estamos à disposição!</div>
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-trocar-cabo">
+  <div class="modal" style="max-width:440px">
+    <h3>🔀 Trocar Cliente de Switch</h3>
+    <input type="hidden" id="trocar-cabo-cliente-id">
+    <p style="font-size:0.85rem;margin-bottom:4px">
+      Cliente: <strong id="trocar-cabo-nome-cliente"></strong>
+    </p>
+    <p style="color:#777;font-size:0.78rem;margin-bottom:14px">
+      Posição atual: <span id="trocar-cabo-origem-label"></span>
+    </p>
+    <p style="font-weight:600;font-size:0.83rem;margin-bottom:8px">Novo switch:</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:6px">
+      <div><label>Switch de destino</label><select id="trocar-cabo-select-switch"><option value="">Selecione...</option></select></div>
+      <div><label>Porta — opcional</label><input type="number" min="1" id="trocar-cabo-porta" placeholder="Ex: 3"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarTrocarCabo()">🔀 Confirmar Troca</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-escolha-meses">
   <div class="modal" style="max-width:440px">
     <h3>📅 Meses em Aberto — <span id="escolha-meses-nome"></span></h3>
@@ -4176,9 +4198,18 @@ async function adicionarSubSwitch(nodeId) {
   const capRaw = prompt('Quantas portas esse sub-switch tem (capacidade)?', '8');
   const cap = parseInt(capRaw);
   if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
+  const portaRaw = prompt(`De qual porta do "${no.nome}" esse sub-switch está saindo? (deixe em branco se não quiser marcar)`, '');
+  const porta = portaRaw && portaRaw.trim() ? parseInt(portaRaw) : null;
+  if (portaRaw && portaRaw.trim() && (!porta || porta < 1)) { alert('Porta inválida.'); return; }
+  if (porta) {
+    const portaUsadaPorCliente = clientesDiretosDoNoCabo(no.id).find(c => c.portaCabo === porta);
+    const portaUsadaPorSub = (no.subs || []).find(s => s.portaPai === porta);
+    const conflito = portaUsadaPorCliente ? portaUsadaPorCliente.nome : (portaUsadaPorSub ? portaUsadaPorSub.nome : null);
+    if (conflito && !confirm(`⚠️ A porta ${porta} já está sendo usada por "${conflito}" neste switch. Usar mesmo assim?`)) return;
+  }
 
   if (!no.subs) no.subs = [];
-  no.subs.push({ id: `sws${Date.now()}`, nome: nome.trim(), capacidade: cap, subs: [] });
+  no.subs.push({ id: `sws${Date.now()}`, nome: nome.trim(), capacidade: cap, portaPai: porta, subs: [] });
   renderRedeCabo();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ Erro ao salvar neste aparelho.', 'erro');
@@ -4304,6 +4335,78 @@ function renderRedeCabo() {
   }
 }
 
+// Lista TODOS os switches (principal + sub-switches, em qualquer
+// profundidade) num formato plano, com indentação mostrando o nível —
+// usado pra popular o select de destino no "Trocar Cliente de Switch".
+function listarTodosNosCabo() {
+  const lista = [];
+  function percorrer(nos, prof) {
+    nos.forEach(no => {
+      lista.push({ id: no.id, nome: no.nome, prof });
+      if (no.subs && no.subs.length) percorrer(no.subs, prof + 1);
+    });
+  }
+  percorrer(switchesCabo, 0);
+  return lista;
+}
+
+function abrirModalTrocarCabo(clienteId) {
+  const cliente = clientes.find(c => c.id === clienteId); if (!cliente) return;
+  const noAtual = cliente.switchCaboId ? encontrarNoCabo(cliente.switchCaboId) : null;
+
+  document.getElementById('trocar-cabo-cliente-id').value = clienteId;
+  document.getElementById('trocar-cabo-nome-cliente').textContent = cliente.nome;
+  document.getElementById('trocar-cabo-origem-label').textContent = noAtual
+    ? `${noAtual.nome}${cliente.portaCabo ? ' · porta ' + cliente.portaCabo : ''}`
+    : 'Sem posição na rede a cabo ainda';
+
+  const select = document.getElementById('trocar-cabo-select-switch');
+  const nos = listarTodosNosCabo();
+  select.innerHTML = '<option value="">Selecione...</option>' +
+    nos.map(no => `<option value="${no.id}" ${no.id === cliente.switchCaboId ? 'selected' : ''}>${'—'.repeat(no.prof)} ${no.nome}</option>`).join('');
+
+  document.getElementById('trocar-cabo-porta').value = cliente.portaCabo || '';
+
+  document.getElementById('modal-trocar-cabo').classList.add('open');
+}
+
+async function confirmarTrocarCabo() {
+  const clienteId = Number(document.getElementById('trocar-cabo-cliente-id').value);
+  const destinoId = document.getElementById('trocar-cabo-select-switch').value;
+  const portaRaw = document.getElementById('trocar-cabo-porta').value;
+
+  if (!destinoId) { alert('Selecione o switch de destino.'); return; }
+
+  const cliente = clientes.find(c => c.id === clienteId); if (!cliente) return;
+  const destino = encontrarNoCabo(destinoId); if (!destino) return;
+  const porta = portaRaw ? parseInt(portaRaw) : null;
+
+  const semMudanca = destinoId === cliente.switchCaboId && porta === (cliente.portaCabo || null);
+  if (semMudanca) { alert('Essa já é a posição atual do cliente. Escolha outro destino.'); return; }
+
+  const ocupacao = ocupacaoNoCabo(destino);
+  if (destinoId !== cliente.switchCaboId && ocupacao.ocupadas >= destino.capacidade) {
+    if (!confirm(`⚠️ O switch "${destino.nome}" já está com ${ocupacao.ocupadas}/${destino.capacidade} portas ocupadas. Trocar mesmo assim?`)) return;
+  }
+
+  if (porta) {
+    const jaUsada = clientesDiretosDoNoCabo(destinoId).find(c => c.id !== cliente.id && c.portaCabo === porta);
+    if (jaUsada && !confirm(`⚠️ A porta ${porta} já está sendo usada por "${jaUsada.nome}" neste switch. Usar mesmo assim?`)) return;
+  }
+
+  cliente.switchCaboId = destinoId;
+  cliente.subSwitchCaboId = null;
+  cliente.portaCabo = porta;
+  marcarClienteModificado(cliente.id);
+  fecharModal();
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  mostrarToast(
+    salvou ? `✅ ${cliente.nome} trocado com sucesso!` : `⚠️ Erro ao salvar a troca neste aparelho.`,
+    salvou ? 'ok' : 'erro'
+  );
+}
+
 // Linha de um cliente pendurado em qualquer switch (usada tanto no card
 // branco do switch principal quanto nos cards tracejados dos sub-switches).
 function _linhaClienteCabo(c) {
@@ -4317,6 +4420,7 @@ function _linhaClienteCabo(c) {
             </div>
           </div>
           <span style="cursor:pointer;color:#1a73e8;padding-left:2px;flex-shrink:0;font-size:0.85rem" onclick="editarPortaCabo(${c.id})" title="Editar a porta deste cliente">🔢</span>
+          <span style="cursor:pointer;color:#0d47a1;padding-left:2px;flex-shrink:0;font-size:0.85rem" onclick="abrirModalTrocarCabo(${c.id})" title="Trocar este cliente de switch">🔀</span>
           <span style="cursor:pointer;color:#c62828;padding-left:4px;flex-shrink:0" onclick="removerClienteDaRedeCabo(${c.id})" title="Remover">✕</span>
         </div>`;
 }
@@ -4341,7 +4445,7 @@ function renderSwitchPrincipalHtml(sw) {
   const vagas = sw.capacidade;
   const cor = ocupacao.ocupadas >= vagas ? '#c62828' : (ocupacao.ocupadas >= vagas*0.75 ? '#e65100' : '#1e8449');
 
-  const htmlSubs = subs.map(sub => renderSubSwitchHtml(sub)).join('');
+  const htmlSubs = [...subs].sort((a,b) => (a.portaPai || 999) - (b.portaPai || 999) || a.nome.localeCompare(b.nome)).map(sub => renderSubSwitchHtml(sub)).join('');
 
   return `
   <div style="border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa">
@@ -4367,17 +4471,21 @@ function renderSwitchPrincipalHtml(sw) {
 // tamanho que for preciso.
 function renderSubSwitchHtml(no) {
   const diretos = _ordenarPorPortaCabo(clientesDiretosDoNoCabo(no.id));
-  const netos = no.subs || [];
+  const netos = [...(no.subs || [])].sort((a,b) => (a.portaPai || 999) - (b.portaPai || 999) || a.nome.localeCompare(b.nome));
   const ocupacao = ocupacaoNoCabo(no);
   const cor = ocupacao.ocupadas >= no.capacidade ? '#c62828' : '#1a73e8';
+  const portaTxt = no.portaPai ? ` <span style="font-weight:600;color:#555;background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:0.68rem">P${no.portaPai}</span>` : '';
 
   const htmlNetos = netos.map(neto => renderSubSwitchHtml(neto)).join('');
 
   return `
       <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <strong style="font-size:0.76rem;color:#0d47a1">🔌 ${no.nome} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span></strong>
-          ${(diretos.length || netos.length) ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${no.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:4px">
+          <strong style="font-size:0.76rem;color:#0d47a1">🔌 ${no.nome}${portaTxt} <span style="font-weight:400;color:${cor}">(${ocupacao.ocupadas}/${no.capacidade})</span></strong>
+          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="cursor:pointer;color:#1a73e8;font-size:0.75rem" onclick="editarPortaPaiSubSwitch('${no.id}')" title="Editar de qual porta do switch pai este sub-switch sai">🔢</span>
+            ${(diretos.length || netos.length) ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerSubSwitch('${no.id}')" title="Remover este sub-switch (só se estiver vazio)">🗑️</span>`}
+          </span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
           ${htmlNetos}
@@ -4389,6 +4497,30 @@ function renderSubSwitchHtml(no) {
           <button class="btn btn-outline" style="font-size:0.66rem;padding:2px 6px" onclick="editarCapacidadeSwitchPrincipal('${no.id}')">⚙️ Capacidade</button>
         </div>
       </div>`;
+}
+
+// Edição rápida da porta (do pai) em que um sub-switch está plugado —
+// toque no 🔢 do lado do nome do sub-switch.
+async function editarPortaPaiSubSwitch(nodeId) {
+  const achado = encontrarNoCaboEPai(nodeId); if (!achado) return;
+  const { no, pai } = achado;
+  if (!pai) { alert('Switch principal não sai de porta de ninguém.'); return; }
+  const novaPorta = prompt(`De qual porta do "${pai.nome}" o sub-switch "${no.nome}" está saindo? (deixe em branco pra remover)`, no.portaPai || '');
+  if (novaPorta === null) return;
+  const num = novaPorta.trim() ? parseInt(novaPorta) : null;
+  if (novaPorta.trim() && (!num || num < 1)) { alert('Porta inválida.'); return; }
+
+  if (num) {
+    const portaUsadaPorCliente = clientesDiretosDoNoCabo(pai.id).find(c => c.portaCabo === num);
+    const portaUsadaPorSub = (pai.subs || []).find(s => s.id !== no.id && s.portaPai === num);
+    const conflito = portaUsadaPorCliente ? portaUsadaPorCliente.nome : (portaUsadaPorSub ? portaUsadaPorSub.nome : null);
+    if (conflito && !confirm(`⚠️ A porta ${num} já está sendo usada por "${conflito}". Usar mesmo assim?`)) return;
+  }
+
+  no.portaPai = num;
+  renderRedeCabo();
+  const salvou = await salvarStorage();
+  if (!salvou) mostrarToast('⚠️ Erro ao salvar a porta neste aparelho.', 'erro');
 }
 
 async function editarCapacidadeSwitchPrincipal(nodeId) {
