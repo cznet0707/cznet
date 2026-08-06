@@ -1509,7 +1509,11 @@ Qualquer dúvida, estamos à disposição!</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:6px">
       <div><label>OLT</label><select id="trocacto-net-olt" onchange="atualizarSelectPon('trocacto')"><option value="">Selecione...</option></select></div>
       <div><label>PON</label><select id="trocacto-net-pon" onchange="atualizarSelectCto('trocacto')"><option value="">Selecione a OLT primeiro</option></select></div>
-      <div><label>CTO</label><select id="trocacto-net-cto"><option value="">Selecione a PON primeiro</option></select></div>
+      <div><label>CTO</label><select id="trocacto-net-cto" onchange="atualizarSelectNoTrocarCto()"><option value="">Selecione a PON primeiro</option></select></div>
+      <div id="trocacto-no-wrapper" style="display:none">
+        <label>Nó (ONU/Switch) — opcional</label>
+        <select id="trocacto-net-no"><option value="">— Direto na CTO (fibra) —</option></select>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
@@ -3990,8 +3994,9 @@ async function adicionarClienteNoNoPorNome(ctoId, noId) {
 
 async function removerClienteDoNo(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
-  if (!confirm(`Remover "${c.nome}" deste nó? Ele continua vinculado à CTO, só sai do switch/ONU.`)) return;
+  if (!confirm(`Remover "${c.nome}" deste nó/switch? Ele sai completamente desta CTO (fica sem posição na rede) — use o 🔀 se quiser já mandar ele pra outro lugar.`)) return;
   c.noId = null;
+  c.ctoRedeId = null;
   marcarClienteModificado(c.id);
   renderOlt();
   const salvou = await salvarStorage();
@@ -4697,49 +4702,90 @@ function abrirModalTrocarCto(clienteId, ctoAtualId) {
   document.getElementById('trocar-cto-origem-id').value = ctoAtualId;
   document.getElementById('trocar-cto-nome-cliente').textContent = cliente.nome;
   document.getElementById('trocar-cto-origem-label').textContent = achado
-    ? `${achado.olt.nome || achado.olt.id} · PON ${achado.pon.numero} · CTO ${achado.cto.numero}${achado.cto.derivacao ? ' — ' + achado.cto.derivacao : ''}`
+    ? `${achado.olt.nome || achado.olt.id} · PON ${achado.pon.numero} · CTO ${achado.cto.numero}${achado.cto.derivacao ? ' — ' + achado.cto.derivacao : ''}${cliente.noId ? ' · nó: ' + ((nosDaCto(achado.cto).find(n => n.id === cliente.noId) || {}).nome || '?') : ''}`
     : 'CTO não encontrada';
 
   popularSelectOlt('trocacto');
   document.getElementById('trocacto-net-pon').innerHTML = '<option value="">Selecione a OLT primeiro</option>';
   document.getElementById('trocacto-net-cto').innerHTML = '<option value="">Selecione a PON primeiro</option>';
+  document.getElementById('trocacto-no-wrapper').style.display = 'none';
+  document.getElementById('trocacto-net-no').innerHTML = '<option value="">— Direto na CTO (fibra) —</option>';
 
-  // Pré-seleciona a OLT/PON atuais do cliente, pra facilitar caso a troca
-  // seja só para outra CTO dentro da mesma PON.
+  // Pré-seleciona a OLT/PON/CTO atuais do cliente, pra facilitar caso a troca
+  // seja só pra outro nó dentro da mesma CTO (ou outra CTO na mesma PON).
   if (achado) {
     document.getElementById('trocacto-net-olt').value = achado.olt.id;
     atualizarSelectPon('trocacto', achado.pon.id);
+    atualizarSelectCto('trocacto', achado.cto.id);
+    atualizarSelectNoTrocarCto();
   }
 
   document.getElementById('modal-trocar-cto').classList.add('open');
+}
+
+// Preenche o select de "Nó (ONU/Switch)" com base na CTO de destino escolhida
+// no modal de troca — só aparece se aquela CTO tiver algum nó cadastrado.
+function atualizarSelectNoTrocarCto(noIdPreSelecionado) {
+  const ctoId = document.getElementById('trocacto-net-cto').value;
+  const wrapper = document.getElementById('trocacto-no-wrapper');
+  const selNo = document.getElementById('trocacto-net-no');
+  const achado = ctoId ? encontrarCtoNaRede(ctoId) : null;
+  const nos = achado ? nosDaCto(achado.cto) : [];
+
+  if (!achado || !nos.length) {
+    wrapper.style.display = 'none';
+    selNo.innerHTML = '<option value="">— Direto na CTO (fibra) —</option>';
+    return;
+  }
+  wrapper.style.display = 'block';
+  selNo.innerHTML = '<option value="">— Direto na CTO (fibra) —</option>' +
+    nos.map(n => {
+      const ocupados = clientesDoNo(n.id).length;
+      return `<option value="${n.id}">${n.nome} (${ocupados}/${n.capacidade})</option>`;
+    }).join('');
+  if (noIdPreSelecionado) selNo.value = noIdPreSelecionado;
 }
 
 async function confirmarTrocarCto() {
   const clienteId = Number(document.getElementById('trocar-cto-cliente-id').value);
   const ctoOrigemId = document.getElementById('trocar-cto-origem-id').value;
   const ctoDestinoId = document.getElementById('trocacto-net-cto').value;
+  const noDestinoId = document.getElementById('trocacto-net-no').value || null;
 
   if (!ctoDestinoId) { alert('Selecione a CTO de destino (OLT → PON → CTO).'); return; }
-  if (ctoDestinoId === ctoOrigemId) { alert('Essa já é a CTO atual do cliente. Escolha outra CTO de destino.'); return; }
 
   const cliente = clientes.find(c => c.id === clienteId);
   if (!cliente) return;
+
+  const semMudanca = ctoDestinoId === ctoOrigemId && noDestinoId === (cliente.noId || null);
+  if (semMudanca) { alert('Essa já é a posição atual do cliente (mesma CTO e mesmo nó/switch). Escolha outro destino.'); return; }
+
   const achadoDestino = encontrarCtoNaRede(ctoDestinoId);
   if (!achadoDestino) return;
 
-  const ocupacaoDestino = clientesDaCto(ctoDestinoId).length;
-  if (ocupacaoDestino >= achadoDestino.cto.capacidade) {
-    if (!confirm(`⚠️ A CTO de destino já está com ${ocupacaoDestino}/${achadoDestino.cto.capacidade} vagas ocupadas. Trocar mesmo assim?`)) return;
+  if (noDestinoId) {
+    const no = nosDaCto(achadoDestino.cto).find(n => n.id === noDestinoId);
+    if (no) {
+      const ocupadosNo = clientesDoNo(noDestinoId).length;
+      if (ocupadosNo >= no.capacidade) {
+        if (!confirm(`⚠️ Este nó já está com ${ocupadosNo}/${no.capacidade} clientes. Trocar mesmo assim?`)) return;
+      }
+    }
+  } else {
+    const ocupacaoDestino = ocupacaoCto(achadoDestino.cto);
+    if (ocupacaoDestino.ocupadas >= achadoDestino.cto.capacidade) {
+      if (!confirm(`⚠️ A CTO de destino já está com ${ocupacaoDestino.ocupadas}/${achadoDestino.cto.capacidade} vagas ocupadas. Trocar mesmo assim?`)) return;
+    }
   }
 
   cliente.ctoRedeId = ctoDestinoId;
-  cliente.noId = null; // o nó (ONU/Switch) pertence à CTO de origem, não faz sentido manter na CTO nova
+  cliente.noId = noDestinoId;
   marcarClienteModificado(cliente.id);
   fecharModal();
   renderOlt();
   const salvou = await salvarStorage();
   mostrarToast(
-    salvou ? `✅ ${cliente.nome} trocado de CTO com sucesso!` : `⚠️ Erro ao salvar a troca neste aparelho.`,
+    salvou ? `✅ ${cliente.nome} trocado com sucesso!` : `⚠️ Erro ao salvar a troca neste aparelho.`,
     salvou ? 'ok' : 'erro'
   );
 }
