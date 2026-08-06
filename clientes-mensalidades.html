@@ -4198,14 +4198,25 @@ async function adicionarSubSwitch(nodeId) {
   const capRaw = prompt('Quantas portas esse sub-switch tem (capacidade)?', '8');
   const cap = parseInt(capRaw);
   if (!cap || cap < 1) { alert('Capacidade inválida.'); return; }
-  const portaRaw = prompt(`De qual porta do "${no.nome}" esse sub-switch está saindo? (deixe em branco se não quiser marcar)`, '');
+
+  // Mostra as portas já usadas neste switch antes de perguntar — ajuda a
+  // lembrar qual porta usar, ou confirmar de propósito que vários
+  // sub-switches saem fisicamente da mesma porta (uma cadeia).
+  const contagemPortas = {};
+  (no.subs || []).forEach(s => { if (s.portaPai) contagemPortas[s.portaPai] = (contagemPortas[s.portaPai] || 0) + 1; });
+  const resumoPortas = Object.keys(contagemPortas).length
+    ? `\n\nPortas já usadas neste switch: ${Object.entries(contagemPortas).map(([p,n]) => `porta ${p} (${n} switch${n>1?'es':''})`).join(', ')}.`
+    : '';
+
+  const portaRaw = prompt(`De qual porta do "${no.nome}" esse sub-switch está saindo? (deixe em branco se não quiser marcar)${resumoPortas}`, '');
   const porta = portaRaw && portaRaw.trim() ? parseInt(portaRaw) : null;
   if (portaRaw && portaRaw.trim() && (!porta || porta < 1)) { alert('Porta inválida.'); return; }
   if (porta) {
+    // Um mesmo cliente direto nesta porta seria um conflito de verdade —
+    // mas vários sub-switches na MESMA porta é esperado (é a cadeia), então
+    // não avisa nesse caso.
     const portaUsadaPorCliente = clientesDiretosDoNoCabo(no.id).find(c => c.portaCabo === porta);
-    const portaUsadaPorSub = (no.subs || []).find(s => s.portaPai === porta);
-    const conflito = portaUsadaPorCliente ? portaUsadaPorCliente.nome : (portaUsadaPorSub ? portaUsadaPorSub.nome : null);
-    if (conflito && !confirm(`⚠️ A porta ${porta} já está sendo usada por "${conflito}" neste switch. Usar mesmo assim?`)) return;
+    if (portaUsadaPorCliente && !confirm(`⚠️ A porta ${porta} já está sendo usada pelo cliente "${portaUsadaPorCliente.nome}" neste switch. Usar mesmo assim?`)) return;
   }
 
   if (!no.subs) no.subs = [];
@@ -4413,12 +4424,37 @@ function renderPainelSwitchCabo(no) {
       ${caminho.map(n => `<span>›</span><span style="cursor:pointer;color:${n.id===no.id?'#333':'#1a73e8'};font-weight:${n.id===no.id?'700':'400'}" onclick="navegarCabo('${n.id}')">${n.nome}</span>`).join('')}
     </div>`;
 
+  // Agrupa os sub-switches pela porta do mestre de onde eles saem — assim
+  // fica bem visível "da porta 4 saem estes 5 switches", em vez de cada
+  // um mostrar a porta solta numa lista comprida.
+  function agruparPorPorta(lista) {
+    const grupos = new Map();
+    lista.forEach((sub, idx) => {
+      const chave = sub.portaPai || 'sem';
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push({ sub, idx });
+    });
+    const chaves = Array.from(grupos.keys()).sort((a, b) => {
+      if (a === 'sem') return 1;
+      if (b === 'sem') return -1;
+      return a - b;
+    });
+    return chaves.map(chave => ({ porta: chave === 'sem' ? null : chave, itens: grupos.get(chave) }));
+  }
+
+  const gruposSubs = agruparPorPorta(subs);
   const listaSubs = subs.length ? `
     <div style="margin-bottom:14px">
-      <div style="font-size:0.8rem;font-weight:600;color:#555;margin-bottom:6px">🔌 Sub-switches (${subs.length})</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${subs.map((sub, idx) => renderLinhaSwitchResumoCabo(sub, idx, subs.length)).join('')}
-      </div>
+      <div style="font-size:0.8rem;font-weight:600;color:#555;margin-bottom:8px">🔌 Sub-switches (${subs.length})</div>
+      ${gruposSubs.map(g => `
+        <div style="margin-bottom:10px">
+          <div style="font-size:0.74rem;font-weight:700;color:#0d47a1;background:#e3f2fd;display:inline-block;border-radius:5px;padding:3px 9px;margin-bottom:6px">
+            ${g.porta ? `🔌 Porta ${g.porta}` : '🔌 Sem porta definida'} — ${g.itens.length} switch${g.itens.length>1?'es':''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${g.itens.map(({sub, idx}) => renderLinhaSwitchResumoCabo(sub, idx, subs.length)).join('')}
+          </div>
+        </div>`).join('')}
     </div>` : '';
 
   const removerBotao = pai
@@ -4602,10 +4638,10 @@ async function editarPortaPaiSubSwitch(nodeId) {
   if (novaPorta.trim() && (!num || num < 1)) { alert('Porta inválida.'); return; }
 
   if (num) {
+    // Só avisa se a porta já for de um CLIENTE — vários sub-switches na
+    // mesma porta é esperado (representa a cadeia física).
     const portaUsadaPorCliente = clientesDiretosDoNoCabo(pai.id).find(c => c.portaCabo === num);
-    const portaUsadaPorSub = (pai.subs || []).find(s => s.id !== no.id && s.portaPai === num);
-    const conflito = portaUsadaPorCliente ? portaUsadaPorCliente.nome : (portaUsadaPorSub ? portaUsadaPorSub.nome : null);
-    if (conflito && !confirm(`⚠️ A porta ${num} já está sendo usada por "${conflito}". Usar mesmo assim?`)) return;
+    if (portaUsadaPorCliente && !confirm(`⚠️ A porta ${num} já está sendo usada pelo cliente "${portaUsadaPorCliente.nome}". Usar mesmo assim?`)) return;
   }
 
   no.portaPai = num;
