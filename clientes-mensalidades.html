@@ -434,6 +434,10 @@
         <div class="stat-card-icon">👥</div>
         <div class="stat-card-body"><p>Total de Clientes</p><h3 id="stat-total" class="valor-oculto">383</h3></div>
       </div>
+      <div class="stat-card">
+        <div class="stat-card-icon">🔀</div>
+        <div class="stat-card-body"><p>Clientes em Nós + Rede a Cabo</p><h3 id="stat-nos-cabo" class="valor-oculto">0</h3></div>
+      </div>
       <div class="stat-card green">
         <div class="stat-card-icon">✅</div>
         <div class="stat-card-body"><p>Clientes Pagos</p><h3 id="stat-pagos" class="valor-oculto">119</h3></div>
@@ -876,9 +880,10 @@
         Veja quantos clientes estão instalados em cada CTO e onde estão. Para um cliente aparecer aqui, selecione a
         posição dele (OLT / PON / CTO) no cadastro ou na edição do cliente.
       </p>
-      <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-primary" onclick="adicionarNovaOlt()">➕ Nova OLT</button>
         <button class="btn btn-outline" onclick="abrirModalAdesivosCTOs()">🖨️ Gerar Adesivos das CTOs</button>
+        <span id="contador-clientes-nos" style="margin-left:auto;font-size:0.8rem;font-weight:700;color:#0d47a1;background:#e3f2fd;border-radius:7px;padding:5px 12px"></span>
       </div>
       <div id="olt-conteudo"></div>
       <datalist id="lista-clientes-sem-cto"></datalist>
@@ -893,8 +898,9 @@
         Pra redes 100% por cabo de rede, sem fibra/CTO: um Switch Principal pode ter Sub-switches pendurados nele
         (cada sub-switch ocupa 1 porta do principal), e cada switch (principal ou sub) tem seus clientes ligados por cabo.
       </p>
-      <div style="margin-bottom:14px">
+      <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-primary" onclick="adicionarSwitchPrincipal()">➕ Novo Switch Principal</button>
+        <span id="contador-clientes-cabo" style="margin-left:auto;font-size:0.8rem;font-weight:700;color:#0d47a1;background:#e3f2fd;border-radius:7px;padding:5px 12px"></span>
       </div>
       <div id="redecabo-conteudo"></div>
     </div>
@@ -4292,6 +4298,7 @@ async function removerClienteDaRedeCabo(clienteId) {
 function renderRedeCabo() {
   const box = document.getElementById('redecabo-conteudo');
   if (!box) return;
+  atualizarContadorClientesCabo();
   try {
     if (!switchesCabo.length) {
       box.innerHTML = `<div style="text-align:center;color:#999;padding:30px 10px">🔌 Nenhum switch principal cadastrado ainda. Clique em "➕ Novo Switch Principal" pra começar.</div>`;
@@ -4446,9 +4453,26 @@ function cancelarNovoPonto() {
   limparForm();
 }
 
+// Contadores automáticos mostrados no topo do Mapa de Rede e da Rede a
+// Cabo — recalculados toda vez que a tela é redesenhada (ou seja, toda
+// vez que você adiciona/remove um cliente de um nó ou de um switch).
+function atualizarContadorClientesNos() {
+  const el = document.getElementById('contador-clientes-nos');
+  if (!el) return;
+  const total = clientes.filter(c => c.noId).length;
+  el.textContent = `🔀 ${total} cliente${total === 1 ? '' : 's'} em nós (ONU/Switch)`;
+}
+function atualizarContadorClientesCabo() {
+  const el = document.getElementById('contador-clientes-cabo');
+  if (!el) return;
+  const total = clientes.filter(c => c.switchCaboId).length;
+  el.textContent = `🔌 ${total} cliente${total === 1 ? '' : 's'} na rede a cabo`;
+}
+
 function renderOlt() {
   const box = document.getElementById('olt-conteudo');
   if (!box) { console.error('renderOlt: elemento #olt-conteudo não encontrado na página.'); return; }
+  atualizarContadorClientesNos();
   try {
     // Auto-correção: se por algum motivo a estrutura estiver vazia ou
     // corrompida (ex: veio "[]" salvo de um teste antigo), regenera o padrão
@@ -7456,6 +7480,11 @@ function renderDashboard() {
   const mesAtual = fmtMes();
 
   document.getElementById('stat-total').textContent = clientes.length;
+
+  const totalNos  = clientes.filter(c => c.noId).length;
+  const totalCabo = clientes.filter(c => c.switchCaboId).length;
+  const elNosCabo = document.getElementById('stat-nos-cabo');
+  if (elNosCabo) elNosCabo.textContent = totalNos + totalCabo;
 
   const pagosDoMes = pagamentos.filter(p => p.mes === mesSel);
   const idsPagos   = new Set(pagosDoMes.map(p => p.clienteId));
