@@ -4436,6 +4436,7 @@ function renderPainelSwitchCabo(no) {
         ${pai ? `<button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px" onclick="editarPortaPaiSubSwitch('${no.id}')">🔢 Porta no switch de cima</button>` : ''}
         <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px" onclick="editarCapacidadeSwitchPrincipal('${no.id}')">⚙️ Capacidade</button>
         <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px;color:#0d47a1;border-color:#90caf9" onclick="adicionarSubSwitch('${no.id}')">🔌 Adicionar Sub-switch aqui</button>
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:4px 10px;color:#1a73e8;border-color:#90caf9" onclick="avisarTecnicoSwitchCabo('${no.id}')" title="Avisa o técnico incluindo todos os clientes afetados por este switch">📲 Avisar Técnico</button>
         ${removerBotao}
       </div>
 
@@ -5599,17 +5600,19 @@ function avisarTecnicoCto(oltId, ponId, ctoId) {
 
 function confirmarAvisoTecnico() {
   if (!_avisoTecnicoPendente) return;
-  const { olt, pon, label, ocupantes } = _avisoTecnicoPendente;
+  const { olt, pon, label, ocupantes, tipo } = _avisoTecnicoPendente;
 
   const telTecnico = document.getElementById('atc-tel-tecnico').value.replace(/\D/g,'');
   if (!telTecnico || telTecnico.length < 10) { alert('Digite um número de WhatsApp válido para o técnico.'); return; }
   localStorage.setItem('os_tel_tecnico', telTecnico);
 
-  let msg = `🗼 *${olt.nome} — PON ${pon.numero} — ${label}*\n\n`;
+  let msg = tipo === 'cabo'
+    ? `🔌 *Rede a Cabo — ${label}*\n\n`
+    : `🗼 *${olt.nome} — PON ${pon.numero} — ${label}*\n\n`;
   if (!ocupantes.length) {
-    msg += `Nenhum cliente cadastrado nessa CTO no sistema ainda.`;
+    msg += `Nenhum cliente cadastrado nesse switch/CTO no sistema ainda.`;
   } else {
-    msg += `👥 *${ocupantes.length} cliente(s) selecionado(s):*\n\n`;
+    msg += `👥 *${ocupantes.length} cliente(s)${tipo === 'cabo' ? ' afetado(s)' : ' selecionado(s)'}:*\n\n`;
     msg += ocupantes.map((c,i) => `${i+1}. ${c.nome}${c.pppoe_usuario ? ' — PPPoE: ' + c.pppoe_usuario : ''}`).join('\n');
   }
 
@@ -5617,6 +5620,33 @@ function confirmarAvisoTecnico() {
   window.open(url, '_blank');
   fecharModal();
   _avisoTecnicoPendente = null;
+}
+
+// Avisa o técnico sobre problema num switch/sub-switch da Rede a Cabo —
+// junta automaticamente TODOS os clientes afetados (os direto neste
+// switch + os de qualquer sub-switch pendurado nele, em qualquer
+// profundidade), já que um problema aqui derruba a internet de todo
+// mundo que vem depois na cadeia.
+function avisarTecnicoSwitchCabo(nodeId) {
+  const no = encontrarNoCabo(nodeId); if (!no) return;
+  const caminho = caminhoCabo(nodeId).map(n => n.nome).join(' › ');
+
+  function todosClientesRecursivo(node) {
+    let lista = [...clientesDiretosDoNoCabo(node.id)];
+    (node.subs || []).forEach(s => { lista = lista.concat(todosClientesRecursivo(s)); });
+    return lista;
+  }
+  const ocupantes = todosClientesRecursivo(no);
+
+  _avisoTecnicoPendente = { tipo: 'cabo', label: caminho, ocupantes };
+
+  document.getElementById('atc-resumo').textContent = `${caminho} · ${ocupantes.length} cliente(s) afetado(s)`;
+
+  const ultimoTel = localStorage.getItem('os_tel_tecnico') || '';
+  _popularSelectTecnicosAtc(ultimoTel);
+  document.getElementById('atc-tel-tecnico').value = ultimoTel;
+
+  document.getElementById('modal-avisar-tecnico').classList.add('open');
 }
 
 // ===== Seleção de técnico salvo, reaproveitando a mesma lista da tela de OS =====
