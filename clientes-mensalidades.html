@@ -7473,9 +7473,11 @@ function gerarCarneBranco() {
     const x = MAR_H;
 
     // data de vencimento desta parcela = data inicial + idx meses
+    // (usada só pra saber o mês/competência de cada parcela — o dia exato
+    // de vencimento fica em branco de propósito, pra você preencher à mão)
     const dVenc = new Date(anoIni, (mesIni - 1) + idx, diaIni);
     const mesNome = dVenc.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, s => s.toUpperCase());
-    const vctoStr = `${String(dVenc.getDate()).padStart(2,'0')}/${String(dVenc.getMonth()+1).padStart(2,'0')}/${dVenc.getFullYear()}`;
+    const vctoStr = '___/___/______';
 
     // ══════════════════════════════════════
     // CANHOTO
