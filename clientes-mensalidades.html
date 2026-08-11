@@ -1240,6 +1240,17 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
 
     <div class="card">
+      <h2>🧹 Liberar Espaço (Fotos)</h2>
+      <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
+        O navegador tem um limite pequeno de armazenamento (uns 5-10MB) — se aparecer erro de
+        "armazenamento cheio" ao salvar, use isso pra achar rápido quais clientes têm mais fotos
+        acumuladas e apagar as que não precisa mais.
+      </p>
+      <button class="btn btn-outline" onclick="abrirLimpezaFotos()">🔍 Ver Clientes com Mais Fotos</button>
+      <div id="limpeza-fotos-resultado" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
       <h2>📥 Importar Backup</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
         Selecione o arquivo <strong>importar_backup.json</strong> gerado pelo assistente.<br>
@@ -2453,6 +2464,48 @@ function mostrarToast(mensagem, tipo) {
 // servidor foi desligada de propósito — o sistema agora funciona 100% local
 // por aparelho, e a forma de levar dados de um pra outro é o backup manual
 // (seção "Backup dos Dados" / "Importar Backup" em Configurações).
+// Lista os clientes com mais espaço ocupado em fotos (soma o tamanho em
+// base64 de foto/fotoAntes/fotoDepois de cada um), do maior pro menor —
+// ajuda a achar rápido onde limpar quando o armazenamento encher.
+function abrirLimpezaFotos() {
+  const el = document.getElementById('limpeza-fotos-resultado');
+  if (!el) return;
+
+  const linhas = clientes.map(c => {
+    const fotos = c.fotosServico || [];
+    let bytes = 0;
+    let qtdFotos = 0;
+    fotos.forEach(f => {
+      if (f.foto)       { bytes += f.foto.length;       qtdFotos++; }
+      if (f.fotoAntes)  { bytes += f.fotoAntes.length;   qtdFotos++; }
+      if (f.fotoDepois) { bytes += f.fotoDepois.length;  qtdFotos++; }
+    });
+    return { cliente: c, registros: fotos.length, qtdFotos, kb: Math.round(bytes / 1024) };
+  }).filter(x => x.registros > 0).sort((a,b) => b.kb - a.kb);
+
+  if (!linhas.length) {
+    el.innerHTML = `<div style="color:#999;font-size:0.85rem">Nenhum cliente com fotos registradas ainda.</div>`;
+    return;
+  }
+
+  const totalKb = linhas.reduce((s,x) => s+x.kb, 0);
+  el.innerHTML = `
+    <p style="font-size:0.82rem;color:#555;margin-bottom:10px">
+      Total ocupado por fotos: <strong>${totalKb >= 1024 ? (totalKb/1024).toFixed(1)+' MB' : totalKb+' KB'}</strong>
+      em ${linhas.length} cliente(s). Mostrando os que mais ocupam espaço primeiro:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto">
+      ${linhas.slice(0, 40).map(x => `
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:8px;padding:8px 10px">
+          <div style="flex:1;min-width:0">
+            <strong style="font-size:0.85rem">${x.cliente.nome}</strong>
+            <div style="font-size:0.76rem;color:#888">${x.registros} registro(s) · ${x.qtdFotos} foto(s) · ~${x.kb >= 1024 ? (x.kb/1024).toFixed(1)+' MB' : x.kb+' KB'}</div>
+          </div>
+          <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="abrirFotosCliente(${x.cliente.id})">📸 Ver/Apagar Fotos</button>
+        </div>`).join('')}
+    </div>`;
+}
+
 async function salvarStorage() {
   if (!dadosCarregados) return true;
   try {
@@ -2467,7 +2520,21 @@ async function salvarStorage() {
     localStorage.setItem('cm_switches_cabo', JSON.stringify(switchesCabo));
   } catch(e) {
     console.error('Erro ao salvar no localStorage:', e);
-    mostrarToast('⚠️ Erro ao salvar neste aparelho: ' + e.message, 'erro');
+    const ehQuota = e.name === 'QuotaExceededError' || /quota/i.test(e.message || '');
+    if (ehQuota) {
+      alert(
+        '⚠️ ARMAZENAMENTO CHEIO NESTE APARELHO\n\n' +
+        'Isso NÃO foi salvo. O espaço que o navegador reserva pra esse sistema encheu — geralmente por causa das fotos ' +
+        '(principalmente as de "antes/depois").\n\n' +
+        'O que fazer agora:\n' +
+        '1. Vá em algum cliente com fotos antigas ou repetidas e exclua as que não precisa mais (📸 Histórico de Serviços → 🗑️)\n' +
+        '2. Depois tente salvar de novo\n\n' +
+        'Dica: use o "Backup dos Dados" em Configurações regularmente pra ter uma cópia de segurança fora deste aparelho.'
+      );
+      mostrarToast('⚠️ Armazenamento cheio — nada foi salvo. Apague fotos antigas e tente de novo.', 'erro');
+    } else {
+      mostrarToast('⚠️ Erro ao salvar neste aparelho: ' + e.message, 'erro');
+    }
     return false;
   }
   return true;
@@ -5970,8 +6037,10 @@ function lerFotoServico(input, slot) {
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
-      // Redimensiona/comprime pra não pesar o armazenamento
-      const MAX = 1280;
+      // Redimensiona/comprime bem mais que antes — o armazenamento do
+      // navegador é pequeno (uns 5-10MB no total), e fotos de "antes/depois"
+      // dobram o gasto por registro. Com isso cabe bem mais fotos no mesmo espaço.
+      const MAX = 820;
       let w = img.width, h = img.height;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -5980,7 +6049,7 @@ function lerFotoServico(input, slot) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const base64 = canvas.toDataURL('image/jpeg', 0.78);
+      const base64 = canvas.toDataURL('image/jpeg', 0.55);
       if (slot === 'antes') {
         _fotoAntesBase64 = base64;
         document.getElementById('foto-preview-antes').innerHTML = `<img src="${base64}" style="max-width:100%;max-height:110px;border-radius:8px">`;
