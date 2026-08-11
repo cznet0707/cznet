@@ -2506,8 +2506,59 @@ function abrirLimpezaFotos() {
     </div>`;
 }
 
+// Envia o estado atual pro servidor (MongoDB, se configurado no Vercel via
+// MONGODB_URI — é grátis até 512MB no plano Atlas). Isso é o que faltava
+// pra ter uma nuvem de verdade: antes, o app só LIA do servidor no início,
+// nunca escrevia nada nele — tudo ficava só no navegador de cada aparelho.
+async function salvarNoServidor() {
+  try {
+    const payload = {
+      cm_clientes:          JSON.stringify(clientes),
+      cm_pagamentos:        JSON.stringify(pagamentos),
+      cm_planos:            JSON.stringify(planos),
+      cm_instalacoes:       JSON.stringify(instalacoes),
+      cm_cartoes:           JSON.stringify(cartoes),
+      cm_saidas:            JSON.stringify(saidas),
+      cm_categorias:        JSON.stringify(categorias),
+      cm_olts:              JSON.stringify(olts),
+      cm_switches_cabo:     JSON.stringify(switchesCabo),
+      cm_empresa:           JSON.stringify(getCfgEmpresa()),
+      cm_msg:               localStorage.getItem('cm_msg')               || '',
+      cm_msg_boleto:        localStorage.getItem('cm_msg_boleto')        || '',
+      cm_msg_profissional:  localStorage.getItem('cm_msg_profissional')  || '',
+      cm_msg_agradecimento: localStorage.getItem('cm_msg_agradecimento') || '',
+      cm_msg_suporte:       localStorage.getItem('cm_msg_suporte')       || '',
+      cm_qrcode:             localStorage.getItem('cm_qrcode')             || '',
+      cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
+      _baseUpdatedAt: ultimoUpdatedAt || 0,
+    };
+
+    const resp = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (resp.status === 409) {
+      const conflito = await resp.json();
+      console.warn('[salvarNoServidor] Outro aparelho salvou por último — não sobrescrevi.', conflito);
+      return { ok: false, conflict: true };
+    }
+    if (!resp.ok) throw new Error('Servidor respondeu ' + resp.status);
+
+    const data = await resp.json();
+    if (data.updatedAt) ultimoUpdatedAt = data.updatedAt;
+    return { ok: true };
+  } catch (e) {
+    console.error('[salvarNoServidor] Falha ao salvar no servidor:', e);
+    return { ok: false, erro: e.message };
+  }
+}
+
 async function salvarStorage() {
   if (!dadosCarregados) return true;
+  let localOk = true;
   try {
     localStorage.setItem('cm_clientes',    JSON.stringify(clientes));
     localStorage.setItem('cm_pagamentos',  JSON.stringify(pagamentos));
@@ -2520,23 +2571,42 @@ async function salvarStorage() {
     localStorage.setItem('cm_switches_cabo', JSON.stringify(switchesCabo));
   } catch(e) {
     console.error('Erro ao salvar no localStorage:', e);
-    const ehQuota = e.name === 'QuotaExceededError' || /quota/i.test(e.message || '');
-    if (ehQuota) {
-      alert(
-        '⚠️ ARMAZENAMENTO CHEIO NESTE APARELHO\n\n' +
-        'Isso NÃO foi salvo. O espaço que o navegador reserva pra esse sistema encheu — geralmente por causa das fotos ' +
-        '(principalmente as de "antes/depois").\n\n' +
-        'O que fazer agora:\n' +
-        '1. Vá em algum cliente com fotos antigas ou repetidas e exclua as que não precisa mais (📸 Histórico de Serviços → 🗑️)\n' +
-        '2. Depois tente salvar de novo\n\n' +
-        'Dica: use o "Backup dos Dados" em Configurações regularmente pra ter uma cópia de segurança fora deste aparelho.'
-      );
-      mostrarToast('⚠️ Armazenamento cheio — nada foi salvo. Apague fotos antigas e tente de novo.', 'erro');
-    } else {
-      mostrarToast('⚠️ Erro ao salvar neste aparelho: ' + e.message, 'erro');
-    }
+    localOk = false;
+  }
+
+  const servidor = await salvarNoServidor();
+
+  if (servidor.conflict) {
+    mostrarToast('⚠️ Outro aparelho salvou uma mudança mais recente. Recarregue a página antes de continuar, pra não perder nada.', 'erro');
     return false;
   }
+
+  if (!localOk && servidor.ok) {
+    // Armazenamento deste aparelho cheio, mas foi pra nuvem — dado está seguro.
+    mostrarToast('✅ Salvo na nuvem — o armazenamento deste aparelho está cheio, mas os dados foram salvos no servidor normalmente.', 'ok');
+    return true;
+  }
+
+  if (!localOk && !servidor.ok) {
+    alert(
+      '⚠️ ARMAZENAMENTO CHEIO NESTE APARELHO E FALHA AO SALVAR NA NUVEM\n\n' +
+      'Isso NÃO foi salvo em lugar nenhum.\n\n' +
+      'O que fazer agora:\n' +
+      '1. Vá em algum cliente com fotos antigas ou repetidas e exclua as que não precisa mais (📸 Histórico de Serviços → 🗑️)\n' +
+      '2. Confira sua internet e tente salvar de novo\n\n' +
+      'Dica: use o "Backup dos Dados" em Configurações regularmente pra ter uma cópia de segurança extra.'
+    );
+    mostrarToast('⚠️ Armazenamento cheio e falha na nuvem — nada foi salvo. Apague fotos antigas e tente de novo.', 'erro');
+    return false;
+  }
+
+  if (!servidor.ok) {
+    // Salvou local (neste aparelho) mas não conseguiu sincronizar com a nuvem
+    // agora (rede instável, servidor fora do ar etc.) — não é um erro grave,
+    // só um aviso discreto no console; o dado local está seguro.
+    console.warn('Dado salvo neste aparelho, mas não sincronizou com o servidor agora.');
+  }
+
   return true;
 }
 
