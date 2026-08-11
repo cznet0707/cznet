@@ -8335,7 +8335,7 @@ function renderDashboard() {
         }
 
         return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
-          <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong></td>
+          <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong>${(c.fotosServico||[]).length ? ` <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e7d32;vertical-align:middle" title="${(c.fotosServico||[]).length} registro(s) de instalação/manutenção/troca"></span>` : ''}</td>
           <td>${c.tel}</td>
           <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
           <td>${moeda(c.valor)}</td>
