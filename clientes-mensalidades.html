@@ -1618,13 +1618,40 @@ Qualquer dúvida, estamos à disposição!</div>
         <input type="date" id="foto-data" style="flex:1;min-width:140px">
       </div>
       <input type="text" id="foto-descricao" placeholder="Descrição (opcional)" style="margin-bottom:8px">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-camera').click()">📷 Tirar Foto</button>
-        <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-galeria').click()">🖼️ Escolher da Galeria</button>
+
+      <!-- Foto única (Instalação / OS) -->
+      <div id="foto-bloco-unico">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-camera').click()">📷 Tirar Foto</button>
+          <button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="document.getElementById('foto-arquivo-galeria').click()">🖼️ Escolher da Galeria</button>
+        </div>
+        <input type="file" id="foto-arquivo-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this,'unico')">
+        <input type="file" id="foto-arquivo-galeria" accept="image/*" style="display:none" onchange="lerFotoServico(this,'unico')">
+        <div id="foto-preview" style="margin-bottom:10px"></div>
       </div>
-      <input type="file" id="foto-arquivo-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this)">
-      <input type="file" id="foto-arquivo-galeria" accept="image/*" style="display:none" onchange="lerFotoServico(this)">
-      <div id="foto-preview" style="margin-bottom:10px"></div>
+
+      <!-- Antes / Depois (Troca de Equipamento) -->
+      <div id="foto-bloco-antes-depois" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div style="border:1px dashed #ddd;border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:0.78rem;font-weight:600;color:#c62828;margin-bottom:6px">📤 ANTES (retirado)</div>
+            <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px" onclick="document.getElementById('foto-arquivo-antes-camera').click()">📷 Câmera</button>
+            <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px;margin-top:5px" onclick="document.getElementById('foto-arquivo-antes-galeria').click()">🖼️ Galeria</button>
+            <input type="file" id="foto-arquivo-antes-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this,'antes')">
+            <input type="file" id="foto-arquivo-antes-galeria" accept="image/*" style="display:none" onchange="lerFotoServico(this,'antes')">
+            <div id="foto-preview-antes" style="margin-top:6px"></div>
+          </div>
+          <div style="border:1px dashed #ddd;border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:0.78rem;font-weight:600;color:#2e7d32;margin-bottom:6px">📥 DEPOIS (instalado)</div>
+            <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px" onclick="document.getElementById('foto-arquivo-depois-camera').click()">📷 Câmera</button>
+            <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px;margin-top:5px" onclick="document.getElementById('foto-arquivo-depois-galeria').click()">🖼️ Galeria</button>
+            <input type="file" id="foto-arquivo-depois-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this,'depois')">
+            <input type="file" id="foto-arquivo-depois-galeria" accept="image/*" style="display:none" onchange="lerFotoServico(this,'depois')">
+            <div id="foto-preview-depois" style="margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+
       <button type="button" class="btn btn-success" style="width:100%;justify-content:center" onclick="salvarFotoServico()">💾 Salvar Foto</button>
     </div>
 
@@ -5841,6 +5868,8 @@ function removerTecnicoSelecionado() {
 // ===== Fotos de serviço/instalação do cliente =====
 let _fotosClienteId = null;
 let _fotoServicoBase64 = null;
+let _fotoAntesBase64 = null;
+let _fotoDepoisBase64 = null;
 
 function abrirFotosCliente(clienteId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
@@ -5853,7 +5882,15 @@ function abrirFotosCliente(clienteId) {
   document.getElementById('foto-arquivo-camera').value = '';
   document.getElementById('foto-arquivo-galeria').value = '';
   document.getElementById('foto-preview').innerHTML = '';
+  document.getElementById('foto-preview-antes').innerHTML = '';
+  document.getElementById('foto-preview-depois').innerHTML = '';
+  document.getElementById('foto-arquivo-antes-camera').value = '';
+  document.getElementById('foto-arquivo-antes-galeria').value = '';
+  document.getElementById('foto-arquivo-depois-camera').value = '';
+  document.getElementById('foto-arquivo-depois-galeria').value = '';
   _fotoServicoBase64 = null;
+  _fotoAntesBase64 = null;
+  _fotoDepoisBase64 = null;
   atualizarPlaceholderFoto();
 
   renderFotosClienteLista();
@@ -5864,11 +5901,15 @@ function abrirFotosCliente(clienteId) {
 function atualizarPlaceholderFoto() {
   const tipo = document.getElementById('foto-tipo').value;
   const campo = document.getElementById('foto-descricao');
-  if (tipo === 'Troca de Equipamento') {
+  const ehTroca = (tipo === 'Troca de Equipamento');
+  if (ehTroca) {
     campo.placeholder = 'Motivo da troca (obrigatório)';
   } else {
     campo.placeholder = 'Descrição (opcional)';
   }
+  // Troca de Equipamento usa duas fotos (antes/depois) no lugar da foto única
+  document.getElementById('foto-bloco-unico').style.display = ehTroca ? 'none' : 'block';
+  document.getElementById('foto-bloco-antes-depois').style.display = ehTroca ? 'block' : 'none';
 }
 
 function renderFotosClienteLista() {
@@ -5883,11 +5924,18 @@ function renderFotosClienteLista() {
 
   lista.innerHTML = fotos.map(f => {
     const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+    const temAntesDepois = f.fotoAntes && f.fotoDepois;
+    const miniaturas = temAntesDepois
+      ? `<div style="display:flex;gap:3px;flex-shrink:0">
+           <img src="${f.fotoAntes}" title="Antes" style="width:31px;height:64px;object-fit:cover;border-radius:6px 0 0 6px;cursor:pointer" onclick="verFotoServico(${f.id})">
+           <img src="${f.fotoDepois}" title="Depois" style="width:31px;height:64px;object-fit:cover;border-radius:0 6px 6px 0;cursor:pointer" onclick="verFotoServico(${f.id})">
+         </div>`
+      : `<img src="${f.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})">`;
     return `
     <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px">
-      <img src="${f.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})">
+      ${miniaturas}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}</div>
+        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}${temAntesDepois ? ' <span style=\"font-weight:400;color:#888;font-size:0.72rem\">(antes/depois)</span>' : ''}</div>
         <div style="font-size:0.78rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
@@ -5898,7 +5946,9 @@ function renderFotosClienteLista() {
   }).join('');
 }
 
-function lerFotoServico(input) {
+// slot: 'unico' (Instalação/OS), 'antes' ou 'depois' (Troca de Equipamento)
+function lerFotoServico(input, slot) {
+  slot = slot || 'unico';
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -5914,8 +5964,17 @@ function lerFotoServico(input) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      _fotoServicoBase64 = canvas.toDataURL('image/jpeg', 0.78);
-      document.getElementById('foto-preview').innerHTML = `<img src="${_fotoServicoBase64}" style="max-width:100%;max-height:160px;border-radius:8px">`;
+      const base64 = canvas.toDataURL('image/jpeg', 0.78);
+      if (slot === 'antes') {
+        _fotoAntesBase64 = base64;
+        document.getElementById('foto-preview-antes').innerHTML = `<img src="${base64}" style="max-width:100%;max-height:110px;border-radius:8px">`;
+      } else if (slot === 'depois') {
+        _fotoDepoisBase64 = base64;
+        document.getElementById('foto-preview-depois').innerHTML = `<img src="${base64}" style="max-width:100%;max-height:110px;border-radius:8px">`;
+      } else {
+        _fotoServicoBase64 = base64;
+        document.getElementById('foto-preview').innerHTML = `<img src="${base64}" style="max-width:100%;max-height:160px;border-radius:8px">`;
+      }
     };
     img.src = e.target.result;
   };
@@ -5924,25 +5983,45 @@ function lerFotoServico(input) {
 
 function salvarFotoServico() {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
-  if (!_fotoServicoBase64) { alert('Selecione uma foto primeiro.'); return; }
   const tipo = document.getElementById('foto-tipo').value;
   const data = document.getElementById('foto-data').value || fmtData();
   const descricao = document.getElementById('foto-descricao').value.trim();
 
-  if (tipo === 'Troca de Equipamento' && !descricao) {
-    alert('Informe o motivo da troca de equipamento antes de salvar.');
-    return;
+  if (!c.fotosServico) c.fotosServico = [];
+
+  if (tipo === 'Troca de Equipamento') {
+    if (!descricao) { alert('Informe o motivo da troca de equipamento antes de salvar.'); return; }
+    if (!_fotoAntesBase64 || !_fotoDepoisBase64) {
+      alert('Tire as duas fotos: a do equipamento ANTES (retirado) e a de DEPOIS (instalado).');
+      return;
+    }
+    // "foto" fica com a de depois — é a usada como miniatura e no envio por
+    // WhatsApp de um clique; as duas ficam salvas em fotoAntes/fotoDepois.
+    c.fotosServico.push({
+      id: Date.now(), tipo, data, descricao,
+      foto: _fotoDepoisBase64,
+      fotoAntes: _fotoAntesBase64,
+      fotoDepois: _fotoDepoisBase64,
+    });
+    document.getElementById('foto-preview-antes').innerHTML = '';
+    document.getElementById('foto-preview-depois').innerHTML = '';
+    document.getElementById('foto-arquivo-antes-camera').value = '';
+    document.getElementById('foto-arquivo-antes-galeria').value = '';
+    document.getElementById('foto-arquivo-depois-camera').value = '';
+    document.getElementById('foto-arquivo-depois-galeria').value = '';
+    _fotoAntesBase64 = null;
+    _fotoDepoisBase64 = null;
+  } else {
+    if (!_fotoServicoBase64) { alert('Selecione uma foto primeiro.'); return; }
+    c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
+    document.getElementById('foto-arquivo-camera').value = '';
+    document.getElementById('foto-arquivo-galeria').value = '';
+    document.getElementById('foto-preview').innerHTML = '';
+    _fotoServicoBase64 = null;
   }
 
-  if (!c.fotosServico) c.fotosServico = [];
-  c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
   salvarStorage();
-
   document.getElementById('foto-descricao').value = '';
-  document.getElementById('foto-arquivo-camera').value = '';
-  document.getElementById('foto-arquivo-galeria').value = '';
-  document.getElementById('foto-preview').innerHTML = '';
-  _fotoServicoBase64 = null;
 
   renderFotosClienteLista();
   atualizarHistoricoFotosSeAberto();
@@ -5953,7 +6032,23 @@ function verFotoServico(fotoId) {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
   const win = window.open('', '_blank');
-  win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${f.foto}" style="max-width:100%;max-height:100vh"></body>`);
+  if (f.fotoAntes && f.fotoDepois) {
+    win.document.write(`<title>Antes/Depois - ${c.nome}</title>
+      <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:6px;font-family:sans-serif">
+        <div style="display:flex;gap:6px;width:100%;max-width:1000px">
+          <div style="flex:1;text-align:center">
+            <p style="color:#fff;margin:8px 0 4px">ANTES</p>
+            <img src="${f.fotoAntes}" style="max-width:100%;max-height:80vh">
+          </div>
+          <div style="flex:1;text-align:center">
+            <p style="color:#fff;margin:8px 0 4px">DEPOIS</p>
+            <img src="${f.fotoDepois}" style="max-width:100%;max-height:80vh">
+          </div>
+        </div>
+      </body>`);
+  } else {
+    win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${f.foto}" style="max-width:100%;max-height:100vh"></body>`);
+  }
 }
 
 function excluirFotoServico(fotoId) {
