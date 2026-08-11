@@ -1634,7 +1634,7 @@ Qualquer dúvida, estamos à disposição!</div>
       <div id="foto-bloco-antes-depois" style="display:none">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div style="border:1px dashed #ddd;border-radius:8px;padding:8px;text-align:center">
-            <div style="font-size:0.78rem;font-weight:600;color:#c62828;margin-bottom:6px">📤 ANTES (retirado)</div>
+            <div id="foto-label-antes" style="font-size:0.78rem;font-weight:600;color:#c62828;margin-bottom:6px">📤 ANTES</div>
             <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px" onclick="document.getElementById('foto-arquivo-antes-camera').click()">📷 Câmera</button>
             <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px;margin-top:5px" onclick="document.getElementById('foto-arquivo-antes-galeria').click()">🖼️ Galeria</button>
             <input type="file" id="foto-arquivo-antes-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this,'antes')">
@@ -1642,7 +1642,7 @@ Qualquer dúvida, estamos à disposição!</div>
             <div id="foto-preview-antes" style="margin-top:6px"></div>
           </div>
           <div style="border:1px dashed #ddd;border-radius:8px;padding:8px;text-align:center">
-            <div style="font-size:0.78rem;font-weight:600;color:#2e7d32;margin-bottom:6px">📥 DEPOIS (instalado)</div>
+            <div id="foto-label-depois" style="font-size:0.78rem;font-weight:600;color:#2e7d32;margin-bottom:6px">📥 DEPOIS</div>
             <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px" onclick="document.getElementById('foto-arquivo-depois-camera').click()">📷 Câmera</button>
             <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;font-size:0.75rem;padding:5px;margin-top:5px" onclick="document.getElementById('foto-arquivo-depois-galeria').click()">🖼️ Galeria</button>
             <input type="file" id="foto-arquivo-depois-camera" accept="image/*" capture="environment" style="display:none" onchange="lerFotoServico(this,'depois')">
@@ -3515,8 +3515,12 @@ function renderClientes(filtro = '') {
           const badgePontos = pontos.length > 1
             ? ` <span class="badge" style="background:#fff3e0;color:#e65100" title="${pontos.length} pontos de internet deste cliente">🔗 ${pontos.length} pontos</span>`
             : '';
+          const totalServicos = (c.fotosServico || []).length;
+          const indicadorServico = totalServicos
+            ? ` <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e7d32;vertical-align:middle" title="${totalServicos} registro${totalServicos>1?'s':''} de instalação/manutenção/troca — abra o cliente e veja em 📸 Histórico de Serviços"></span>`
+            : '';
           return `<tr ondblclick="abrirEditar(${c.id})" title="Toque no nome (ou dê 2 cliques na linha) para ver os dados completos" style="cursor:pointer">
-            <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong>${badgePontos}<br><small style="color:#888">${end||''}</small></td>
+            <td onclick="abrirEditar(${c.id})" style="cursor:pointer"><strong>${c.nome}</strong>${indicadorServico}${badgePontos}<br><small style="color:#888">${end||''}</small></td>
             <td>${c.tel}</td>
             <td>${c.cpf||'-'}</td>
             <td>${pl ? `<span class="badge" style="background:#e8f0fe;color:#1a73e8">${pl.nome}</span>` : '-'}</td>
@@ -5898,18 +5902,30 @@ function abrirFotosCliente(clienteId) {
 }
 
 // Deixa claro que o motivo é obrigatório quando o tipo é "Troca de Equipamento".
+// Tipos de foto que usam o modo "antes/depois" (2 fotos), em vez de foto única
+const TIPOS_FOTO_ANTES_DEPOIS = ['Troca de Equipamento', 'OS / Manutenção'];
+
 function atualizarPlaceholderFoto() {
   const tipo = document.getElementById('foto-tipo').value;
   const campo = document.getElementById('foto-descricao');
-  const ehTroca = (tipo === 'Troca de Equipamento');
-  if (ehTroca) {
+  const usaAntesDepois = TIPOS_FOTO_ANTES_DEPOIS.includes(tipo);
+  if (tipo === 'Troca de Equipamento') {
     campo.placeholder = 'Motivo da troca (obrigatório)';
+  } else if (tipo === 'OS / Manutenção') {
+    campo.placeholder = 'O que foi feito no reparo (opcional)';
   } else {
     campo.placeholder = 'Descrição (opcional)';
   }
-  // Troca de Equipamento usa duas fotos (antes/depois) no lugar da foto única
-  document.getElementById('foto-bloco-unico').style.display = ehTroca ? 'none' : 'block';
-  document.getElementById('foto-bloco-antes-depois').style.display = ehTroca ? 'block' : 'none';
+  document.getElementById('foto-bloco-unico').style.display = usaAntesDepois ? 'none' : 'block';
+  document.getElementById('foto-bloco-antes-depois').style.display = usaAntesDepois ? 'block' : 'none';
+
+  if (tipo === 'Troca de Equipamento') {
+    document.getElementById('foto-label-antes').textContent = '📤 ANTES (retirado)';
+    document.getElementById('foto-label-depois').textContent = '📥 DEPOIS (instalado)';
+  } else if (tipo === 'OS / Manutenção') {
+    document.getElementById('foto-label-antes').textContent = '📤 ANTES do reparo';
+    document.getElementById('foto-label-depois').textContent = '📥 DEPOIS do reparo';
+  }
 }
 
 function renderFotosClienteLista() {
@@ -5989,10 +6005,10 @@ function salvarFotoServico() {
 
   if (!c.fotosServico) c.fotosServico = [];
 
-  if (tipo === 'Troca de Equipamento') {
-    if (!descricao) { alert('Informe o motivo da troca de equipamento antes de salvar.'); return; }
+  if (TIPOS_FOTO_ANTES_DEPOIS.includes(tipo)) {
+    if (tipo === 'Troca de Equipamento' && !descricao) { alert('Informe o motivo da troca de equipamento antes de salvar.'); return; }
     if (!_fotoAntesBase64 || !_fotoDepoisBase64) {
-      alert('Tire as duas fotos: a do equipamento ANTES (retirado) e a de DEPOIS (instalado).');
+      alert('Tire as duas fotos: a de ANTES e a de DEPOIS do serviço.');
       return;
     }
     // "foto" fica com a de depois — é a usada como miniatura e no envio por
