@@ -6066,6 +6066,44 @@ function _chaveFoto(fotoRegistroId, slot) {
   return `foto:${fotoRegistroId}:${slot}`;
 }
 
+// Migração automática (roda 1x a cada abertura do app, é rápida se não tiver
+// nada pra migrar): registros de foto salvos ANTES desta atualização ainda
+// têm a imagem embutida direto no cadastro do cliente (formato antigo).
+// Isso resgata essas fotos pro IndexedDB (novo formato) e limpa o peso de
+// dentro do cadastro do cliente — sem isso, elas ficavam "invisíveis" pro
+// sistema novo, mesmo sem terem sido apagadas de verdade.
+async function migrarFotosAntigasParaIndexedDB() {
+  let mudou = 0;
+  for (const c of clientes) {
+    if (!c.fotosServico || !c.fotosServico.length) continue;
+    for (const f of c.fotosServico) {
+      if (f.temAntesDepois !== undefined) continue; // já é do formato novo
+      try {
+        if (f.fotoAntes && f.fotoDepois) {
+          await salvarFotoLocal(_chaveFoto(f.id, 'antes'), f.fotoAntes);
+          await salvarFotoLocal(_chaveFoto(f.id, 'depois'), f.fotoDepois);
+          f.temAntesDepois = true;
+        } else if (f.foto) {
+          await salvarFotoLocal(_chaveFoto(f.id, 'unico'), f.foto);
+          f.temAntesDepois = false;
+        } else {
+          f.temAntesDepois = false; // registro sem foto nenhuma, só marca pra não tentar de novo
+        }
+        delete f.foto;
+        delete f.fotoAntes;
+        delete f.fotoDepois;
+        mudou++;
+      } catch (e) {
+        console.error('Falha ao migrar foto do registro', f.id, e);
+      }
+    }
+  }
+  if (mudou) {
+    console.log(`📸 ${mudou} registro(s) de foto migrado(s) pro IndexedDB.`);
+    await salvarStorage();
+  }
+}
+
 let _fotosClienteId = null;
 let _fotoServicoBase64 = null;
 let _fotoAntesBase64 = null;
@@ -10067,6 +10105,11 @@ function verificarAvisoDezembroBackup() {
     renderClientes();
   } catch(e) {}
   if (!Array.isArray(olts) || olts.length === 0) olts = gerarOltsPadrao();
+
+  // Resgata fotos antigas (de antes desta atualização) que ainda estejam
+  // embutidas nos dados do cliente, pro IndexedDB — só roda de verdade
+  // quando encontra alguma, é rápido e seguro rodar toda vez.
+  try { await migrarFotosAntigasParaIndexedDB(); } catch(e) { console.error('Migração de fotos:', e); }
 
   popularSelectOlt('c');
   verificarAvisoDezembroBackup();
