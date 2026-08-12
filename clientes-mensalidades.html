@@ -939,7 +939,20 @@
       <div id="trocas-pendentes-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px"></div>
 
       <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;color:#555">✅ Concluídas recentemente</div>
-      <div id="trocas-concluidas-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="trocas-concluidas-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px"></div>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div style="font-weight:600;font-size:0.9rem">📜 Todos os clientes já trocados</div>
+        <span id="troca-contador-historico" style="font-size:0.78rem;color:#888"></span>
+      </div>
+      <p style="color:#888;font-size:0.8rem;margin-bottom:10px">
+        Isso puxa TODO o histórico de trocas de equipamento já feitas — inclusive as que foram
+        registradas antes de existir essa fila de agendamento. É a lista completa de "já trocou".
+      </p>
+      <input type="text" id="troca-historico-busca" placeholder="Buscar cliente no histórico..." style="width:100%;box-sizing:border-box;margin-bottom:10px" oninput="renderHistoricoTrocasCompleto()">
+      <div id="trocas-historico-lista" style="display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -4684,6 +4697,52 @@ function renderTrocasEquip() {
   concluidasBox.innerHTML = concluidas.length
     ? concluidas.map(t => linha(t, false)).join('')
     : `<div style="color:#999;font-size:0.85rem;text-align:center;padding:10px 0">Nenhuma troca concluída ainda.</div>`;
+
+  renderHistoricoTrocasCompleto();
+}
+
+// Lista TODOS os clientes que já tiveram alguma "Troca de Equipamento"
+// registrada no histórico de fotos — pega o histórico de verdade (direto
+// no cadastro de cada cliente), então inclui trocas feitas antes mesmo de
+// existir essa fila de agendamento acima.
+function renderHistoricoTrocasCompleto() {
+  const box = document.getElementById('trocas-historico-lista');
+  if (!box) return;
+  const termo = normalizarTexto((document.getElementById('troca-historico-busca') || {}).value || '');
+
+  const linhas = clientes
+    .map(c => {
+      const trocas = (c.fotosServico || []).filter(f => f.tipo === 'Troca de Equipamento');
+      if (!trocas.length) return null;
+      const maisRecente = trocas.reduce((a,b) => (a.data||'') > (b.data||'') ? a : b);
+      return { cliente: c, qtd: trocas.length, dataMaisRecente: maisRecente.data, motivo: maisRecente.descricao };
+    })
+    .filter(Boolean)
+    .filter(x => !termo || normalizarTexto(x.cliente.nome).includes(termo))
+    .sort((a,b) => (b.dataMaisRecente||'').localeCompare(a.dataMaisRecente||''));
+
+  const totalGeral = clientes.reduce((s,c) => s + (c.fotosServico||[]).filter(f => f.tipo === 'Troca de Equipamento').length, 0);
+  document.getElementById('troca-contador-historico').textContent = `${linhas.length} cliente(s) · ${totalGeral} troca(s) no total`;
+
+  if (!linhas.length) {
+    box.innerHTML = `<div style="color:#999;font-size:0.85rem;text-align:center;padding:16px 0">${termo ? 'Nenhum cliente encontrado.' : 'Nenhuma troca de equipamento registrada ainda.'}</div>`;
+    return;
+  }
+
+  box.innerHTML = linhas.map(x => {
+    const dataFmt = x.dataMaisRecente ? x.dataMaisRecente.split('-').reverse().join('/') : '-';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:8px;padding:9px 12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <strong style="font-size:0.86rem;cursor:pointer" onclick="abrirEditar(${x.cliente.id})">${x.cliente.nome}</strong>
+          <span style="color:#888;font-size:0.76rem"> · ${x.cliente.tel || ''}</span>
+          <br>
+          <span style="font-size:0.76rem;color:#777">🔄 ${x.qtd} troca${x.qtd>1?'s':''} · última em ${dataFmt}</span>
+          ${x.motivo ? `<br><span style="font-size:0.76rem;color:#555">📝 ${x.motivo}</span>` : ''}
+        </div>
+        <button class="btn btn-outline" style="font-size:0.75rem;padding:5px 10px" onclick="abrirFotosCliente(${x.cliente.id})">📸 Ver Fotos</button>
+      </div>`;
+  }).join('');
 }
 
 function renderRedeCabo() {
