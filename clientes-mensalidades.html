@@ -405,6 +405,7 @@
   <button onclick="showPage(&#39;instalacoes&#39;)">🔧 Instalações</button>
   <button onclick="showPage(&#39;olt&#39;)">🗼 OLT</button>
   <button onclick="showPage(&#39;redecabo&#39;)">🔌 Rede a Cabo</button>
+  <button onclick="showPage(&#39;trocas&#39;)">🔄 Trocas de Equipamento</button>
   <button onclick="showPage(&#39;planos&#39;)">📦 Planos</button>
   <button onclick="showPage(&#39;saidas&#39;)">💳 Saídas</button>
   <button onclick="showPage(&#39;config&#39;)" class="">⚙️ Configurações</button>
@@ -903,6 +904,42 @@
         <span id="contador-clientes-cabo" style="margin-left:auto;font-size:0.8rem;font-weight:700;color:#0d47a1;background:#e3f2fd;border-radius:7px;padding:5px 12px"></span>
       </div>
       <div id="redecabo-conteudo"></div>
+    </div>
+  </div>
+
+  <!-- TROCAS DE EQUIPAMENTO -->
+  <div id="page-trocas" class="page">
+    <div class="card">
+      <h2>🔄 Trocas de Equipamento</h2>
+      <p style="color:#777;font-size:0.85rem;margin-bottom:14px">
+        Agende aqui quem você vai trocar o equipamento — tipo uma lista do dia. Quando terminar em
+        cada cliente, clica em "Dar Baixa" e já tira as fotos de antes/depois na hora, sem precisar
+        procurar o cliente lá em Clientes.
+      </p>
+      <div style="margin-bottom:16px;border:1px solid #eee;border-radius:8px;padding:14px;background:#fafafa">
+        <div style="font-weight:600;font-size:0.85rem;margin-bottom:8px">➕ Agendar nova troca</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;position:relative">
+          <div style="flex:2;min-width:200px;position:relative">
+            <input type="text" id="troca-cliente-busca-novo" autocomplete="off" placeholder="Buscar cliente pelo nome..." style="width:100%;box-sizing:border-box" oninput="mostrarSugestoesCliente(this,'troca','novo')" onblur="setTimeout(()=>esconderSugestoesCliente('troca','novo'),150)">
+            <input type="hidden" id="troca-cliente-id">
+            <div id="sugestoes-cliente-troca-novo" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:20;max-height:180px;overflow-y:auto"></div>
+          </div>
+          <input type="date" id="troca-data" style="flex:1;min-width:140px">
+          <input type="text" id="troca-obs" placeholder="Motivo / observação (opcional)" style="flex:2;min-width:180px">
+          <button class="btn btn-primary" onclick="agendarTrocaEquip()">➕ Agendar</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <span id="troca-contador-pendentes" class="badge" style="background:#fff3e0;color:#e65100;font-size:0.8rem;padding:6px 12px"></span>
+        <span id="troca-contador-concluidas" class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:0.8rem;padding:6px 12px"></span>
+      </div>
+
+      <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px">📋 Pendentes</div>
+      <div id="trocas-pendentes-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px"></div>
+
+      <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;color:#555">✅ Concluídas recentemente</div>
+      <div id="trocas-concluidas-lista" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
 
@@ -1962,7 +1999,7 @@ Qualquer dúvida, estamos à disposição!</div>
 // DADOS
 // ============================================================
 let clientes = [], pagamentos = [], planos = [], instalacoes = [];
-let cartoes = [], saidas = [], categorias = [], olts = [], switchesCabo = [];
+let cartoes = [], saidas = [], categorias = [], olts = [], switchesCabo = [], trocasEquip = [];
 let excluirId = null, editandoId = null, editandoPlanoId = null;
 let zapClienteId = null, carneClienteId = null;
 
@@ -2203,6 +2240,7 @@ async function carregarDoServidor() {
       if (d.cm_categorias)   { categorias   = JSON.parse(d.cm_categorias);   localStorage.setItem('cm_categorias', d.cm_categorias); }
       if (d.cm_olts)         { olts         = JSON.parse(d.cm_olts);        localStorage.setItem('cm_olts', d.cm_olts); }
       if (d.cm_switches_cabo) { switchesCabo = JSON.parse(d.cm_switches_cabo); localStorage.setItem('cm_switches_cabo', d.cm_switches_cabo); }
+      if (d.cm_trocas_equip)  { trocasEquip   = JSON.parse(d.cm_trocas_equip);  localStorage.setItem('cm_trocas_equip', d.cm_trocas_equip); }
       if (d.cm_empresa)    localStorage.setItem('cm_empresa', d.cm_empresa);
       if (d.cm_msg)        localStorage.setItem('cm_msg', d.cm_msg);
       if (d.cm_msg_boleto) localStorage.setItem('cm_msg_boleto', d.cm_msg_boleto);
@@ -2233,11 +2271,13 @@ async function carregarDoServidor() {
       const ca_ = localStorage.getItem('cm_categorias');
       const ol_ = localStorage.getItem('cm_olts');
       const sc_ = localStorage.getItem('cm_switches_cabo');
+      const te_ = localStorage.getItem('cm_trocas_equip');
       if (ct_) cartoes    = JSON.parse(ct_);
       if (sa_) saidas     = JSON.parse(sa_);
       if (ca_) categorias = JSON.parse(ca_);
       if (ol_) olts       = JSON.parse(ol_);
       if (sc_) switchesCabo = JSON.parse(sc_);
+      if (te_) trocasEquip  = JSON.parse(te_);
       if (c || p || pl) dadosCarregados = true; // Tinha dados no localStorage
     } catch(e2) {}
     if (!olts.length) olts = gerarOltsPadrao();
@@ -2512,6 +2552,7 @@ async function salvarNoServidor() {
       cm_categorias:        JSON.stringify(categorias),
       cm_olts:              JSON.stringify(olts),
       cm_switches_cabo:     JSON.stringify(switchesCabo),
+      cm_trocas_equip:      JSON.stringify(trocasEquip),
       cm_empresa:           JSON.stringify(getCfgEmpresa()),
       cm_msg:               localStorage.getItem('cm_msg')               || '',
       cm_msg_boleto:        localStorage.getItem('cm_msg_boleto')        || '',
@@ -2559,6 +2600,7 @@ async function salvarStorage() {
     localStorage.setItem('cm_categorias',  JSON.stringify(categorias));
     localStorage.setItem('cm_olts',        JSON.stringify(olts));
     localStorage.setItem('cm_switches_cabo', JSON.stringify(switchesCabo));
+    localStorage.setItem('cm_trocas_equip', JSON.stringify(trocasEquip));
   } catch(e) {
     console.error('Erro ao salvar no localStorage:', e);
     localOk = false;
@@ -2607,7 +2649,7 @@ function showPage(nome) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + nome).classList.add('active');
-  const idx = ['dashboard','clientes','pagamentos','instalacoes','olt','redecabo','planos','saidas','config'].indexOf(nome);
+  const idx = ['dashboard','clientes','pagamentos','instalacoes','olt','redecabo','trocas','planos','saidas','config'].indexOf(nome);
   if (idx >= 0) document.querySelectorAll('nav button')[idx].classList.add('active');
 
   if (nome === 'dashboard')   renderDashboard();
@@ -2616,6 +2658,7 @@ function showPage(nome) {
   if (nome === 'instalacoes') renderInstalacoes();
   if (nome === 'olt')         renderOlt();
   if (nome === 'redecabo')    renderRedeCabo();
+  if (nome === 'trocas')      renderTrocasEquip();
   if (nome === 'planos')      renderPlanos();
   if (nome === 'saidas')      renderSaidas();
   if (nome === 'config')      { carregarConfig(); atualizarDiagnosticoErro(); }
@@ -4202,6 +4245,7 @@ const _PREFIXOS_BUSCA_CLIENTE = {
   cto:    { input: 'add-cliente-',       box: 'sugestoes-cliente-cto-' },
   no:     { input: 'add-cliente-no-',    box: 'sugestoes-cliente-no-' },
   sw:     { input: 'add-cliente-sw-',    box: 'sugestoes-cliente-sw-' },
+  troca:  { input: 'troca-cliente-busca-', box: 'sugestoes-cliente-troca-' },
 };
 
 function mostrarSugestoesCliente(inputEl, tipo, alvoId) {
@@ -4240,6 +4284,10 @@ function selecionarSugestaoCliente(tipo, alvoId, clienteId) {
   const pref = _PREFIXOS_BUSCA_CLIENTE[tipo]; if (!pref) return;
   const input = document.getElementById(pref.input + alvoId);
   if (input) input.value = cliente.nome;
+  if (tipo === 'troca') {
+    const campoId = document.getElementById('troca-cliente-id');
+    if (campoId) campoId.value = clienteId;
+  }
   esconderSugestoesCliente(tipo, alvoId);
 }
 
@@ -4524,6 +4572,118 @@ function caminhoCabo(nodeId) {
     idAtual = achado.pai ? achado.pai.id : null;
   }
   return caminho;
+}
+
+// ============================================================
+// TROCAS DE EQUIPAMENTO — lista de tarefas do dia
+// ============================================================
+async function agendarTrocaEquip() {
+  const nomeDigitado = document.getElementById('troca-cliente-busca-novo').value.trim();
+  const idCampo = document.getElementById('troca-cliente-id').value;
+  const data = document.getElementById('troca-data').value || fmtData();
+  const obs = document.getElementById('troca-obs').value.trim();
+
+  if (!nomeDigitado) { alert('Busque e selecione o cliente.'); return; }
+
+  let cliente = idCampo ? clientes.find(c => c.id === Number(idCampo)) : null;
+  // Se o texto foi editado depois de selecionar (nome não bate mais), refaz a busca por nome
+  if (!cliente || normalizarTexto(cliente.nome) !== normalizarTexto(nomeDigitado)) {
+    const achados = _buscarClientesPorNomeDigitado(nomeDigitado);
+    if (!achados.length) { alert(`Nenhum cliente encontrado com "${nomeDigitado}". Selecione uma opção da lista sugerida.`); return; }
+    if (achados.length > 1) { alert(`Encontrei ${achados.length} clientes com esse nome. Digite um pedaço mais específico e selecione na lista.`); return; }
+    cliente = achados[0];
+  }
+
+  trocasEquip.push({
+    id: Date.now(),
+    clienteId: cliente.id,
+    data,
+    obs,
+    status: 'pendente',
+    dataConclusao: null,
+  });
+
+  document.getElementById('troca-cliente-busca-novo').value = '';
+  document.getElementById('troca-cliente-id').value = '';
+  document.getElementById('troca-obs').value = '';
+  document.getElementById('troca-data').value = '';
+
+  await salvarStorage();
+  renderTrocasEquip();
+}
+
+async function cancelarTrocaEquip(id) {
+  if (!confirm('Cancelar esta troca agendada? Isso não apaga nenhuma foto já registrada, só remove da lista de pendentes.')) return;
+  trocasEquip = trocasEquip.filter(t => t.id !== id);
+  await salvarStorage();
+  renderTrocasEquip();
+}
+
+async function excluirTrocaConcluida(id) {
+  if (!confirm('Remover este registro da lista de concluídas? As fotos e o histórico do cliente continuam intactos, isso só tira daqui da lista.')) return;
+  trocasEquip = trocasEquip.filter(t => t.id !== id);
+  await salvarStorage();
+  renderTrocasEquip();
+}
+
+// Abre direto o modal de fotos do cliente, já no tipo "Troca de Equipamento"
+// — ao salvar a foto de lá, essa troca é marcada como concluída sozinha.
+function darBaixaTrocaEquip(trocaId) {
+  const troca = trocasEquip.find(t => t.id === trocaId); if (!troca) return;
+  const cliente = clientes.find(c => c.id === troca.clienteId);
+  if (!cliente) { alert('Cliente não encontrado (pode ter sido excluído).'); return; }
+  abrirFotosCliente(cliente.id, 'Troca de Equipamento', trocaId);
+  // Pré-preenche o motivo com a observação do agendamento, se tiver
+  if (troca.obs) {
+    setTimeout(() => { const el = document.getElementById('foto-descricao'); if (el) el.value = troca.obs; }, 0);
+  }
+}
+
+function renderTrocasEquip() {
+  const pendentesBox = document.getElementById('trocas-pendentes-lista');
+  const concluidasBox = document.getElementById('trocas-concluidas-lista');
+  if (!pendentesBox || !concluidasBox) return;
+
+  const pendentes = trocasEquip.filter(t => t.status !== 'concluida').sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  const concluidas = trocasEquip.filter(t => t.status === 'concluida').sort((a,b) => (b.dataConclusao||'').localeCompare(a.dataConclusao||'')).slice(0, 20);
+
+  document.getElementById('troca-contador-pendentes').textContent = `📋 ${pendentes.length} pendente${pendentes.length===1?'':'s'}`;
+  document.getElementById('troca-contador-concluidas').textContent = `✅ ${trocasEquip.filter(t=>t.status==='concluida').length} concluída(s) no total`;
+
+  const linha = (t, pendente) => {
+    const cliente = clientes.find(c => c.id === t.clienteId);
+    const nomeCliente = cliente ? cliente.nome : '(cliente removido)';
+    const telCliente = cliente ? cliente.tel : '';
+    const dataFmt = (t.data || '').split('-').reverse().join('/');
+    const dataConclusaoFmt = t.dataConclusao ? t.dataConclusao.split('-').reverse().join('/') : '';
+    const hoje = fmtData();
+    const atrasada = pendente && t.data && t.data < hoje;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid ${atrasada ? '#f5b3ac' : '#eee'};background:${atrasada ? '#fff5f4' : '#fff'};border-radius:8px;padding:10px 12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <strong style="font-size:0.88rem;cursor:pointer" onclick="${cliente ? `abrirEditar(${cliente.id})` : ''}">${nomeCliente}</strong>
+          ${telCliente ? `<span style="color:#888;font-size:0.78rem"> · ${telCliente}</span>` : ''}
+          <br>
+          <span style="font-size:0.78rem;color:${atrasada ? '#c62828' : '#777'}">📅 ${pendente ? 'Agendado' : 'Concluído'}: ${pendente ? dataFmt : dataConclusaoFmt}${atrasada ? ' — atrasada' : ''}</span>
+          ${t.obs ? `<br><span style="font-size:0.78rem;color:#555">📝 ${t.obs}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${pendente
+            ? `<button class="btn btn-success" style="font-size:0.75rem;padding:5px 10px" onclick="darBaixaTrocaEquip(${t.id})" ${cliente ? '' : 'disabled'}>✅ Dar Baixa</button>
+               <button class="btn btn-outline" style="font-size:0.75rem;padding:5px 10px;color:#c62828;border-color:#f5b3ac" onclick="cancelarTrocaEquip(${t.id})">✕ Cancelar</button>`
+            : `<button class="btn btn-outline" style="font-size:0.75rem;padding:5px 10px" onclick="${cliente ? `abrirFotosCliente(${cliente.id})` : ''}" ${cliente ? '' : 'disabled'}>📸 Ver Fotos</button>
+               <button class="btn btn-outline" style="font-size:0.75rem;padding:5px 10px;color:#c62828;border-color:#f5b3ac" onclick="excluirTrocaConcluida(${t.id})">🗑️</button>`}
+        </div>
+      </div>`;
+  };
+
+  pendentesBox.innerHTML = pendentes.length
+    ? pendentes.map(t => linha(t, true)).join('')
+    : `<div style="color:#999;font-size:0.85rem;text-align:center;padding:16px 0">Nenhuma troca pendente. Agende uma acima. 🎉</div>`;
+
+  concluidasBox.innerHTML = concluidas.length
+    ? concluidas.map(t => linha(t, false)).join('')
+    : `<div style="color:#999;font-size:0.85rem;text-align:center;padding:10px 0">Nenhuma troca concluída ainda.</div>`;
 }
 
 function renderRedeCabo() {
@@ -6109,12 +6269,15 @@ let _fotoServicoBase64 = null;
 let _fotoAntesBase64 = null;
 let _fotoDepoisBase64 = null;
 
-function abrirFotosCliente(clienteId) {
+let _trocaVinculadaId = null; // troca de equipamento pendente vinculada ao modal de fotos aberto (se veio da aba "Trocas de Equipamento")
+
+function abrirFotosCliente(clienteId, tipoPreSelecionado, trocaId) {
   const c = clientes.find(x => x.id === clienteId); if (!c) return;
   _fotosClienteId = clienteId;
+  _trocaVinculadaId = trocaId || null;
   document.getElementById('fotos-cliente-nome').textContent = `Cliente: ${c.nome}`;
 
-  document.getElementById('foto-tipo').value = 'Instalação';
+  document.getElementById('foto-tipo').value = tipoPreSelecionado || 'Instalação';
   document.getElementById('foto-data').value = fmtData();
   document.getElementById('foto-descricao').value = '';
   document.getElementById('foto-arquivo-camera').value = '';
@@ -6292,11 +6455,23 @@ async function salvarFotoServico() {
     _fotoServicoBase64 = null;
   }
 
+  // Se esse registro veio de "Dar Baixa" numa troca de equipamento agendada,
+  // marca aquela troca como concluída automaticamente.
+  if (_trocaVinculadaId) {
+    const troca = trocasEquip.find(t => t.id === _trocaVinculadaId);
+    if (troca) {
+      troca.status = 'concluida';
+      troca.dataConclusao = fmtData();
+    }
+    _trocaVinculadaId = null;
+  }
+
   const salvou = await salvarStorage();
   document.getElementById('foto-descricao').value = '';
 
   await renderFotosClienteLista();
   await atualizarHistoricoFotosSeAberto();
+  if (document.getElementById('page-trocas') && document.getElementById('page-trocas').classList.contains('active')) renderTrocasEquip();
   alert(salvou ? '✅ Foto salva!' : '✅ Foto salva neste aparelho (veja o aviso sobre a nuvem).');
 }
 
@@ -8906,6 +9081,7 @@ async function importarDados(modo) {
   const novasCategorias  = _dadosImport.cm_categorias  || [];
   const novasOlts        = _dadosImport.cm_olts        || [];
   const novosSwitchesCabo = _dadosImport.cm_switches_cabo || [];
+  const novasTrocasEquip  = _dadosImport.cm_trocas_equip  || [];
 
   if (modo === 'substituir') {
     if (!confirm(`⚠️ Isso vai APAGAR todos os ${clientes.length} clientes, ${pagamentos.length} pagamentos e ${planos.length} planos atuais e substituir pelos ${novosClientes.length} do arquivo. Confirma?`)) return;
@@ -8924,6 +9100,7 @@ async function importarDados(modo) {
     if (_dadosImport.cm_categorias)  categorias  = novasCategorias;
     if (novasOlts.length)            olts        = novasOlts;
     if (novosSwitchesCabo.length)    switchesCabo = novosSwitchesCabo;
+    if (novasTrocasEquip.length)     trocasEquip  = novasTrocasEquip;
   } else {
     // Mesclar: adiciona o que for novo E ATUALIZA quem já existe (upsert por
     // id). Antes, "mesclar" só adicionava — se um cliente já cadastrado
@@ -8945,6 +9122,7 @@ async function importarDados(modo) {
     categorias  = upsertPorId(categorias, novasCategorias);
     olts        = upsertPorId(olts, novasOlts);
     switchesCabo = upsertPorId(switchesCabo, novosSwitchesCabo);
+    trocasEquip  = upsertPorId(trocasEquip, novasTrocasEquip);
   }
 
   // Configurações de valor único: não fazem sentido "mesclar" (é um texto só),
@@ -9683,6 +9861,7 @@ async function exportarBackup() {
     cm_categorias:  categorias,
     cm_olts:        olts,
     cm_switches_cabo: switchesCabo,
+    cm_trocas_equip:  trocasEquip,
     cm_empresa:    getCfgEmpresa(),
     cm_msg:        localStorage.getItem('cm_msg')        || '',
     cm_msg_boleto: localStorage.getItem('cm_msg_boleto') || '',
@@ -10085,6 +10264,7 @@ function verificarAvisoDezembroBackup() {
     const _ca = localStorage.getItem('cm_categorias');
     const _ol = localStorage.getItem('cm_olts');
     const _sc = localStorage.getItem('cm_switches_cabo');
+    const _te = localStorage.getItem('cm_trocas_equip');
     if (_c  && _c  !== '[]') clientes    = JSON.parse(_c);
     if (_p  && _p  !== '[]') pagamentos  = JSON.parse(_p);
     if (_pl && _pl !== '[]') planos      = JSON.parse(_pl);
@@ -10094,6 +10274,7 @@ function verificarAvisoDezembroBackup() {
     if (_ca && _ca !== '[]') categorias  = JSON.parse(_ca);
     if (_ol && _ol !== '[]') olts        = JSON.parse(_ol);
     if (_sc && _sc !== '[]') switchesCabo = JSON.parse(_sc);
+    if (_te && _te !== '[]') trocasEquip  = JSON.parse(_te);
     // dadosCarregados = true sempre, mesmo com 0 clientes (aparelho novo) —
     // sincronização automática com servidor foi desligada de propósito: o
     // app agora é 100% local por aparelho, e os dados só viajam entre
