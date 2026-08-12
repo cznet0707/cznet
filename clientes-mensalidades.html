@@ -1240,11 +1240,11 @@ Qualquer dúvida, estamos à disposição!</div>
     </div>
 
     <div class="card">
-      <h2>🧹 Liberar Espaço (Fotos)</h2>
+      <h2>📸 Fotos por Cliente</h2>
       <p style="color:#555;font-size:0.9rem;margin-bottom:14px">
-        O navegador tem um limite pequeno de armazenamento (uns 5-10MB) — se aparecer erro de
-        "armazenamento cheio" ao salvar, use isso pra achar rápido quais clientes têm mais fotos
-        acumuladas e apagar as que não precisa mais.
+        As fotos de serviço ficam guardadas separadas dos outros dados (num espaço bem maior do
+        navegador), então não travam mais o salvamento. Use isso pra ver rapidinho quais clientes
+        têm mais fotos registradas.
       </p>
       <button class="btn btn-outline" onclick="abrirLimpezaFotos()">🔍 Ver Clientes com Mais Fotos</button>
       <div id="limpeza-fotos-resultado" style="margin-top:14px"></div>
@@ -2460,46 +2460,36 @@ function mostrarToast(mensagem, tipo) {
   setTimeout(() => toast.remove(), tipo === 'ok' ? 2500 : 7000);
 }
 
-// Salva só neste aparelho (localStorage). Sincronização automática com
-// servidor foi desligada de propósito — o sistema agora funciona 100% local
-// por aparelho, e a forma de levar dados de um pra outro é o backup manual
-// (seção "Backup dos Dados" / "Importar Backup" em Configurações).
-// Lista os clientes com mais espaço ocupado em fotos (soma o tamanho em
-// base64 de foto/fotoAntes/fotoDepois de cada um), do maior pro menor —
-// ajuda a achar rápido onde limpar quando o armazenamento encher.
+// Lista os clientes com mais fotos/registros de serviço — ajuda a organizar
+// e conferir o que já foi documentado. As fotos em si ficam no IndexedDB
+// (não mais dentro dos dados do cliente), então isso é mais um jeito de
+// visualizar do que uma ferramenta de "limpeza urgente" como antes.
 function abrirLimpezaFotos() {
   const el = document.getElementById('limpeza-fotos-resultado');
   if (!el) return;
 
   const linhas = clientes.map(c => {
     const fotos = c.fotosServico || [];
-    let bytes = 0;
-    let qtdFotos = 0;
-    fotos.forEach(f => {
-      if (f.foto)       { bytes += f.foto.length;       qtdFotos++; }
-      if (f.fotoAntes)  { bytes += f.fotoAntes.length;   qtdFotos++; }
-      if (f.fotoDepois) { bytes += f.fotoDepois.length;  qtdFotos++; }
-    });
-    return { cliente: c, registros: fotos.length, qtdFotos, kb: Math.round(bytes / 1024) };
-  }).filter(x => x.registros > 0).sort((a,b) => b.kb - a.kb);
+    const qtdFotos = fotos.reduce((s,f) => s + (f.temAntesDepois ? 2 : 1), 0);
+    return { cliente: c, registros: fotos.length, qtdFotos };
+  }).filter(x => x.registros > 0).sort((a,b) => b.qtdFotos - a.qtdFotos);
 
   if (!linhas.length) {
     el.innerHTML = `<div style="color:#999;font-size:0.85rem">Nenhum cliente com fotos registradas ainda.</div>`;
     return;
   }
 
-  const totalKb = linhas.reduce((s,x) => s+x.kb, 0);
+  const totalFotos = linhas.reduce((s,x) => s+x.qtdFotos, 0);
   el.innerHTML = `
     <p style="font-size:0.82rem;color:#555;margin-bottom:10px">
-      Total ocupado por fotos: <strong>${totalKb >= 1024 ? (totalKb/1024).toFixed(1)+' MB' : totalKb+' KB'}</strong>
-      em ${linhas.length} cliente(s). Mostrando os que mais ocupam espaço primeiro:
+      <strong>${totalFotos} foto(s)</strong> em ${linhas.length} cliente(s). Mostrando quem tem mais primeiro:
     </p>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto">
       ${linhas.slice(0, 40).map(x => `
         <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:8px;padding:8px 10px">
           <div style="flex:1;min-width:0">
             <strong style="font-size:0.85rem">${x.cliente.nome}</strong>
-            <div style="font-size:0.76rem;color:#888">${x.registros} registro(s) · ${x.qtdFotos} foto(s) · ~${x.kb >= 1024 ? (x.kb/1024).toFixed(1)+' MB' : x.kb+' KB'}</div>
+            <div style="font-size:0.76rem;color:#888">${x.registros} registro(s) · ${x.qtdFotos} foto(s)</div>
           </div>
           <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px" onclick="abrirFotosCliente(${x.cliente.id})">📸 Ver/Apagar Fotos</button>
         </div>`).join('')}
@@ -3770,7 +3760,7 @@ function renderPontosEdicao(c) {
 // Mostra, dentro da própria ficha do cliente, um resumo dos serviços já
 // registrados (instalação, troca de equipamento, OS) com miniatura da foto.
 // Reaproveita os mesmos dados de fotosServico usados no modal de fotos (📸).
-function renderHistoricoFotosEdicao(c) {
+async function renderHistoricoFotosEdicao(c) {
   const box = document.getElementById('edit-historico-fotos');
   const fotos = (c.fotosServico || []).slice().sort((a,b) => (b.data||'').localeCompare(a.data||''));
 
@@ -3779,17 +3769,24 @@ function renderHistoricoFotosEdicao(c) {
     return;
   }
 
-  box.innerHTML = fotos.map(f => {
+  box.innerHTML = `<p style="color:#999;font-size:0.8rem;text-align:center;padding:8px 0;margin:0">Carregando fotos...</p>`;
+
+  const linhas = await Promise.all(fotos.map(async f => {
     const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
+    const miniSrc = f.temAntesDepois
+      ? await lerFotoLocal(_chaveFoto(f.id, 'depois'))
+      : await lerFotoLocal(_chaveFoto(f.id, 'unico'));
     return `
     <div style="display:flex;gap:10px;align-items:center;border:1px solid #f0f0f0;border-radius:8px;padding:6px">
-      <img src="${f.foto}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})" title="Clique para ampliar">
+      <img src="${miniSrc || ''}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:pointer;background:#f0f0f0" onclick="verFotoServico(${f.id})" title="Clique para ampliar">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:0.82rem">${f.tipo || 'Foto'}</div>
+        <div style="font-weight:600;font-size:0.82rem">${f.tipo || 'Foto'}${f.temAntesDepois ? ' <span style="font-weight:400;color:#888;font-size:0.7rem">(antes/depois)</span>' : ''}</div>
         <div style="font-size:0.75rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
       </div>
     </div>`;
-  }).join('');
+  }));
+
+  box.innerHTML = linhas.join('');
 }
 async function confirmarEdicao() {
   const c = clientes.find(x => x.id === editandoId); if (!c) return;
@@ -6007,6 +6004,68 @@ function removerTecnicoSelecionado() {
 }
 
 // ===== Fotos de serviço/instalação do cliente =====
+// ============================================================
+// ARMAZENAMENTO DE FOTOS EM INDEXEDDB (não no localStorage)
+// ============================================================
+// O localStorage tem um limite bem pequeno (uns 5-10MB no total), e fotos
+// em base64 enchem isso rapidinho — principalmente as de antes/depois, que
+// dobram o gasto. O IndexedDB é outro "cofre" do navegador, separado do
+// localStorage, com um limite MUITO maior (centenas de MB, geralmente).
+// Por isso as fotos em si ficam guardadas aqui, e o que vai no localStorage
+// (e no envio pro servidor) é só um registro leve dizendo "esse serviço TEM
+// foto", sem o conteúdo pesado da imagem.
+const _FOTOS_DB_NOME = 'cznet_fotos_db';
+const _FOTOS_STORE = 'fotos';
+let _fotosDbPromise = null;
+
+function _abrirFotosDB() {
+  if (_fotosDbPromise) return _fotosDbPromise;
+  _fotosDbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('Este navegador não suporta IndexedDB.')); return; }
+    const req = indexedDB.open(_FOTOS_DB_NOME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(_FOTOS_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _fotosDbPromise;
+}
+async function salvarFotoLocal(chave, dataUrl) {
+  const db = await _abrirFotosDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(_FOTOS_STORE, 'readwrite');
+    tx.objectStore(_FOTOS_STORE).put(dataUrl, chave);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function lerFotoLocal(chave) {
+  try {
+    const db = await _abrirFotosDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(_FOTOS_STORE, 'readonly');
+      const req = tx.objectStore(_FOTOS_STORE).get(chave);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { console.error('lerFotoLocal:', e); return null; }
+}
+async function excluirFotoLocal(chave) {
+  try {
+    const db = await _abrirFotosDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(_FOTOS_STORE, 'readwrite');
+      tx.objectStore(_FOTOS_STORE).delete(chave);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { console.error('excluirFotoLocal:', e); return false; }
+}
+// Monta a chave de armazenamento de uma foto de um registro de serviço.
+// slot: 'unico' | 'antes' | 'depois'
+function _chaveFoto(fotoRegistroId, slot) {
+  return `foto:${fotoRegistroId}:${slot}`;
+}
+
 let _fotosClienteId = null;
 let _fotoServicoBase64 = null;
 let _fotoAntesBase64 = null;
@@ -6065,7 +6124,7 @@ function atualizarPlaceholderFoto() {
   }
 }
 
-function renderFotosClienteLista() {
+async function renderFotosClienteLista() {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   const lista = document.getElementById('fotos-cliente-lista');
   const fotos = (c.fotosServico || []).slice().sort((a,b) => (b.data||'').localeCompare(a.data||''));
@@ -6075,20 +6134,29 @@ function renderFotosClienteLista() {
     return;
   }
 
-  lista.innerHTML = fotos.map(f => {
+  lista.innerHTML = `<p style="color:#999;font-size:0.82rem;text-align:center;padding:14px 0">Carregando fotos...</p>`;
+
+  const linhas = await Promise.all(fotos.map(async f => {
     const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
-    const temAntesDepois = f.fotoAntes && f.fotoDepois;
-    const miniaturas = temAntesDepois
-      ? `<div style="display:flex;gap:3px;flex-shrink:0">
-           <img src="${f.fotoAntes}" title="Antes" style="width:31px;height:64px;object-fit:cover;border-radius:6px 0 0 6px;cursor:pointer" onclick="verFotoServico(${f.id})">
-           <img src="${f.fotoDepois}" title="Depois" style="width:31px;height:64px;object-fit:cover;border-radius:0 6px 6px 0;cursor:pointer" onclick="verFotoServico(${f.id})">
-         </div>`
-      : `<img src="${f.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="verFotoServico(${f.id})">`;
+    let miniaturas;
+    if (f.temAntesDepois) {
+      const [fotoAntes, fotoDepois] = await Promise.all([
+        lerFotoLocal(_chaveFoto(f.id, 'antes')),
+        lerFotoLocal(_chaveFoto(f.id, 'depois')),
+      ]);
+      miniaturas = `<div style="display:flex;gap:3px;flex-shrink:0">
+           <img src="${fotoAntes || ''}" title="Antes" style="width:31px;height:64px;object-fit:cover;border-radius:6px 0 0 6px;cursor:pointer;background:#f0f0f0" onclick="verFotoServico(${f.id})">
+           <img src="${fotoDepois || ''}" title="Depois" style="width:31px;height:64px;object-fit:cover;border-radius:0 6px 6px 0;cursor:pointer;background:#f0f0f0" onclick="verFotoServico(${f.id})">
+         </div>`;
+    } else {
+      const foto = await lerFotoLocal(_chaveFoto(f.id, 'unico'));
+      miniaturas = `<img src="${foto || ''}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;background:#f0f0f0" onclick="verFotoServico(${f.id})">`;
+    }
     return `
     <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px">
       ${miniaturas}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}${temAntesDepois ? ' <span style=\"font-weight:400;color:#888;font-size:0.72rem\">(antes/depois)</span>' : ''}</div>
+        <div style="font-weight:600;font-size:0.86rem">${f.tipo || 'Foto'}${f.temAntesDepois ? ' <span style=\"font-weight:400;color:#888;font-size:0.72rem\">(antes/depois)</span>' : ''}</div>
         <div style="font-size:0.78rem;color:#777">📅 ${dataFmt}${f.descricao ? ' • ' + f.descricao : ''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
@@ -6096,7 +6164,9 @@ function renderFotosClienteLista() {
         <button class="btn btn-outline" style="font-size:0.72rem;padding:3px 7px;color:#c62828;border-color:#ef9a9a" onclick="excluirFotoServico(${f.id})" title="Excluir">🗑️</button>
       </div>
     </div>`;
-  }).join('');
+  }));
+
+  lista.innerHTML = linhas.join('');
 }
 
 // slot: 'unico' (Instalação/OS), 'antes' ou 'depois' (Troca de Equipamento)
@@ -6136,13 +6206,14 @@ function lerFotoServico(input, slot) {
   reader.readAsDataURL(file);
 }
 
-function salvarFotoServico() {
+async function salvarFotoServico() {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   const tipo = document.getElementById('foto-tipo').value;
   const data = document.getElementById('foto-data').value || fmtData();
   const descricao = document.getElementById('foto-descricao').value.trim();
 
   if (!c.fotosServico) c.fotosServico = [];
+  const registroId = Date.now();
 
   if (TIPOS_FOTO_ANTES_DEPOIS.includes(tipo)) {
     if (tipo === 'Troca de Equipamento' && !descricao) { alert('Informe o motivo da troca de equipamento antes de salvar.'); return; }
@@ -6150,14 +6221,16 @@ function salvarFotoServico() {
       alert('Tire as duas fotos: a de ANTES e a de DEPOIS do serviço.');
       return;
     }
-    // "foto" fica com a de depois — é a usada como miniatura e no envio por
-    // WhatsApp de um clique; as duas ficam salvas em fotoAntes/fotoDepois.
-    c.fotosServico.push({
-      id: Date.now(), tipo, data, descricao,
-      foto: _fotoDepoisBase64,
-      fotoAntes: _fotoAntesBase64,
-      fotoDepois: _fotoDepoisBase64,
-    });
+    try {
+      await salvarFotoLocal(_chaveFoto(registroId, 'antes'), _fotoAntesBase64);
+      await salvarFotoLocal(_chaveFoto(registroId, 'depois'), _fotoDepoisBase64);
+    } catch (e) {
+      alert('⚠️ Não consegui guardar as fotos neste aparelho (' + e.message + '). Tente novamente ou tire fotos menores.');
+      return;
+    }
+    // Registro leve — a foto em si NÃO fica aqui (fica no IndexedDB), então
+    // não pesa no localStorage nem no envio pro servidor.
+    c.fotosServico.push({ id: registroId, tipo, data, descricao, temAntesDepois: true });
     document.getElementById('foto-preview-antes').innerHTML = '';
     document.getElementById('foto-preview-depois').innerHTML = '';
     document.getElementById('foto-arquivo-antes-camera').value = '';
@@ -6168,51 +6241,77 @@ function salvarFotoServico() {
     _fotoDepoisBase64 = null;
   } else {
     if (!_fotoServicoBase64) { alert('Selecione uma foto primeiro.'); return; }
-    c.fotosServico.push({ id: Date.now(), tipo, data, descricao, foto: _fotoServicoBase64 });
+    try {
+      await salvarFotoLocal(_chaveFoto(registroId, 'unico'), _fotoServicoBase64);
+    } catch (e) {
+      alert('⚠️ Não consegui guardar a foto neste aparelho (' + e.message + '). Tente novamente ou tire uma foto menor.');
+      return;
+    }
+    c.fotosServico.push({ id: registroId, tipo, data, descricao, temAntesDepois: false });
     document.getElementById('foto-arquivo-camera').value = '';
     document.getElementById('foto-arquivo-galeria').value = '';
     document.getElementById('foto-preview').innerHTML = '';
     _fotoServicoBase64 = null;
   }
 
-  salvarStorage();
+  const salvou = await salvarStorage();
   document.getElementById('foto-descricao').value = '';
 
-  renderFotosClienteLista();
-  atualizarHistoricoFotosSeAberto();
-  alert('✅ Foto salva!');
+  await renderFotosClienteLista();
+  await atualizarHistoricoFotosSeAberto();
+  alert(salvou ? '✅ Foto salva!' : '✅ Foto salva neste aparelho (veja o aviso sobre a nuvem).');
 }
 
-function verFotoServico(fotoId) {
+async function verFotoServico(fotoId) {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   const f = (c.fotosServico || []).find(x => x.id === fotoId); if (!f) return;
   const win = window.open('', '_blank');
-  if (f.fotoAntes && f.fotoDepois) {
+  win.document.write('<title>Carregando...</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#fff;font-family:sans-serif">Carregando foto(s)...</body>');
+
+  if (f.temAntesDepois) {
+    const [fotoAntes, fotoDepois] = await Promise.all([
+      lerFotoLocal(_chaveFoto(f.id, 'antes')),
+      lerFotoLocal(_chaveFoto(f.id, 'depois')),
+    ]);
+    win.document.open();
     win.document.write(`<title>Antes/Depois - ${c.nome}</title>
       <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:6px;font-family:sans-serif">
         <div style="display:flex;gap:6px;width:100%;max-width:1000px">
           <div style="flex:1;text-align:center">
             <p style="color:#fff;margin:8px 0 4px">ANTES</p>
-            <img src="${f.fotoAntes}" style="max-width:100%;max-height:80vh">
+            <img src="${fotoAntes || ''}" style="max-width:100%;max-height:80vh">
           </div>
           <div style="flex:1;text-align:center">
             <p style="color:#fff;margin:8px 0 4px">DEPOIS</p>
-            <img src="${f.fotoDepois}" style="max-width:100%;max-height:80vh">
+            <img src="${fotoDepois || ''}" style="max-width:100%;max-height:80vh">
           </div>
         </div>
       </body>`);
+    win.document.close();
   } else {
-    win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${f.foto}" style="max-width:100%;max-height:100vh"></body>`);
+    const foto = await lerFotoLocal(_chaveFoto(f.id, 'unico'));
+    win.document.open();
+    win.document.write(`<title>Foto - ${c.nome}</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${foto || ''}" style="max-width:100%;max-height:100vh"></body>`);
+    win.document.close();
   }
 }
 
-function excluirFotoServico(fotoId) {
+async function excluirFotoServico(fotoId) {
   const c = clientes.find(x => x.id === _fotosClienteId); if (!c) return;
   if (!confirm('Excluir esta foto? Essa ação não pode ser desfeita.')) return;
+  const f = (c.fotosServico || []).find(x => x.id === fotoId);
   c.fotosServico = (c.fotosServico || []).filter(x => x.id !== fotoId);
-  salvarStorage();
-  renderFotosClienteLista();
-  atualizarHistoricoFotosSeAberto();
+  if (f) {
+    if (f.temAntesDepois) {
+      await excluirFotoLocal(_chaveFoto(fotoId, 'antes'));
+      await excluirFotoLocal(_chaveFoto(fotoId, 'depois'));
+    } else {
+      await excluirFotoLocal(_chaveFoto(fotoId, 'unico'));
+    }
+  }
+  await salvarStorage();
+  await renderFotosClienteLista();
+  await atualizarHistoricoFotosSeAberto();
 }
 
 // Se a ficha de edição do mesmo cliente estiver aberta por trás do modal de
@@ -6241,18 +6340,28 @@ async function enviarFotoCliente(fotoId) {
   if (!tel) { alert('Cliente sem telefone cadastrado.'); return; }
 
   const dataFmt = f.data ? f.data.split('-').reverse().join('/') : '-';
-  const temAntesDepois = !!(f.fotoAntes && f.fotoDepois);
+  const temAntesDepois = !!f.temAntesDepois;
   const msg = `Olá, ${c.nome}! 👋\n\nSegue o registro do serviço realizado:\n\n🛠️ *${f.tipo}*\n📅 *Data:* ${dataFmt}${f.descricao ? `\n📝 ${f.descricao}` : ''}${temAntesDepois ? '\n\n📤 Antes e 📥 Depois em anexo.' : ''}\n\nQualquer dúvida, estamos à disposição! 😊`;
   const dataArquivo = (f.data || fmtData()).replace(/-/g,'');
   const prefixo = f.tipo.replace(/[^a-zA-Z0-9]/g,'_');
 
-  // Monta a lista de arquivos: 1 foto normal, ou as 2 (antes+depois) juntas
-  const arquivos = temAntesDepois
-    ? [
-        dataURLparaFile(f.fotoAntes,  `${prefixo}_ANTES_${dataArquivo}.jpg`),
-        dataURLparaFile(f.fotoDepois, `${prefixo}_DEPOIS_${dataArquivo}.jpg`),
-      ]
-    : [dataURLparaFile(f.foto, `${prefixo}_${dataArquivo}.jpg`)];
+  // Busca a(s) foto(s) no IndexedDB (não ficam mais embutidas no registro)
+  let arquivos;
+  if (temAntesDepois) {
+    const [fotoAntes, fotoDepois] = await Promise.all([
+      lerFotoLocal(_chaveFoto(f.id, 'antes')),
+      lerFotoLocal(_chaveFoto(f.id, 'depois')),
+    ]);
+    if (!fotoAntes || !fotoDepois) { alert('Não encontrei as fotos deste registro neste aparelho.'); return; }
+    arquivos = [
+      dataURLparaFile(fotoAntes,  `${prefixo}_ANTES_${dataArquivo}.jpg`),
+      dataURLparaFile(fotoDepois, `${prefixo}_DEPOIS_${dataArquivo}.jpg`),
+    ];
+  } else {
+    const foto = await lerFotoLocal(_chaveFoto(f.id, 'unico'));
+    if (!foto) { alert('Não encontrei a foto deste registro neste aparelho.'); return; }
+    arquivos = [dataURLparaFile(foto, `${prefixo}_${dataArquivo}.jpg`)];
+  }
 
   // Tenta usar o compartilhamento nativo do celular: manda a(s) foto(s) + a
   // mensagem juntas, você só escolhe o WhatsApp e o contato — sem procurar
@@ -8748,7 +8857,7 @@ function lerArquivoImport(input) {
 // pagamentos e planos — instalações, cartões, saídas, categorias, mapa de
 // rede (OLT/PON/CTO), QR code e configurações ficavam de fora e sumiam ao
 // levar o backup para outro aparelho).
-function importarDados(modo) {
+async function importarDados(modo) {
   if (!_dadosImport) return;
   const novosClientes    = _dadosImport.cm_clientes    || [];
   const novosPagamentos  = _dadosImport.cm_pagamentos  || [];
@@ -8811,6 +8920,15 @@ function importarDados(modo) {
   if (_dadosImport.cm_qrcode)             localStorage.setItem('cm_qrcode', _dadosImport.cm_qrcode);
   if (_dadosImport.cm_mes_inicio_sistema) localStorage.setItem('cm_mes_inicio_sistema', _dadosImport.cm_mes_inicio_sistema);
 
+  // Restaura as fotos de serviço (📸) no IndexedDB deste aparelho — elas
+  // vêm dentro do backup separadas de cm_clientes, então sem isso as fotos
+  // não apareceriam aqui mesmo com os registros já importados.
+  let qtdFotosImportadas = 0;
+  if (_dadosImport.cm_fotos_indexeddb) {
+    qtdFotosImportadas = Object.keys(_dadosImport.cm_fotos_indexeddb).length;
+    await importarFotosLocal(_dadosImport.cm_fotos_indexeddb);
+  }
+
   salvarStorage();
   renderClientes(); renderDashboard(); renderHistorico(); renderPlanos();
   try { renderOlt(); } catch(e) {}
@@ -8818,7 +8936,7 @@ function importarDados(modo) {
   document.getElementById('import-filename').textContent = '';
   document.getElementById('import-file').value = '';
   _dadosImport = null;
-  alert(`✅ Importação concluída! ${clientes.length} clientes carregados.`);
+  alert(`✅ Importação concluída! ${clientes.length} clientes carregados.${qtdFotosImportadas ? `\n📸 ${qtdFotosImportadas} foto(s) restauradas neste aparelho.` : ''}`);
   showPage('dashboard');
 }
 
@@ -9473,6 +9591,47 @@ function renderTabelaSaidas() {
 // categorias, mapa de rede OLT/PON/CTO, QR code e mês de início — um backup
 // assim incompleto perdia essas informações ao importar em outro aparelho,
 // que é agora a única forma de levar dados de um aparelho pro outro).
+// Exporta TODAS as fotos guardadas no IndexedDB deste aparelho, num
+// dicionário {chave: dataUrl} — usado pra incluir as fotos dentro do
+// arquivo de backup, já que elas não ficam mais junto com cm_clientes.
+async function exportarTodasFotosLocal() {
+  try {
+    const db = await _abrirFotosDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(_FOTOS_STORE, 'readonly');
+      const store = tx.objectStore(_FOTOS_STORE);
+      const reqKeys = store.getAllKeys();
+      const reqVals = store.getAll();
+      let pendentes = 2;
+      function verificaFim() {
+        pendentes--;
+        if (pendentes === 0) {
+          const obj = {};
+          reqKeys.result.forEach((k, i) => { obj[k] = reqVals.result[i]; });
+          resolve(obj);
+        }
+      }
+      reqKeys.onsuccess = verificaFim;
+      reqVals.onsuccess = verificaFim;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { console.error('exportarTodasFotosLocal:', e); return {}; }
+}
+// Restaura fotos de um backup pro IndexedDB deste aparelho.
+async function importarFotosLocal(obj) {
+  if (!obj || !Object.keys(obj).length) return true;
+  try {
+    const db = await _abrirFotosDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(_FOTOS_STORE, 'readwrite');
+      const store = tx.objectStore(_FOTOS_STORE);
+      Object.entries(obj).forEach(([chave, valor]) => store.put(valor, chave));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { console.error('importarFotosLocal:', e); return false; }
+}
+
 async function exportarBackup() {
   const dados = {
     sistema: 'CZnET Telecom - Controle de Mensalidades',
@@ -9493,6 +9652,9 @@ async function exportarBackup() {
     cm_msg_agradecimento: localStorage.getItem('cm_msg_agradecimento') || '',
     cm_qrcode:             localStorage.getItem('cm_qrcode') || '',
     cm_mes_inicio_sistema: localStorage.getItem('cm_mes_inicio_sistema') || '',
+    // As fotos de serviço (📸) ficam no IndexedDB, não em cm_clientes — por
+    // isso vão incluídas aqui separado, senão o backup ficaria sem elas.
+    cm_fotos_indexeddb: await exportarTodasFotosLocal(),
   };
   const conteudo = JSON.stringify(dados, null, 2);
   const nomeArquivo = `backup_cznet_${fmtData()}.json`;
