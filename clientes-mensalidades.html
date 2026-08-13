@@ -4223,15 +4223,21 @@ async function removerNoDaCto(ctoId, noId) {
   const achado = encontrarCtoNaRede(ctoId); if (!achado) return;
   const { cto } = achado;
   const presos = clientesDoNo(noId);
-  if (presos.length) {
-    alert(`Este nó ainda tem ${presos.length} cliente(s) vinculado(s). Remova ou troque esses clientes de nó/CTO antes de excluir o nó.`);
-    return;
-  }
-  if (!confirm('Remover este nó (ONU/Switch)? Essa ação não pode ser desfeita.')) return;
+
+  const mensagemConfirm = presos.length
+    ? `⚠️ Este nó ainda tem ${presos.length} cliente(s) vinculado(s): ${presos.map(c => c.nome).join(', ')}.\n\nAo remover o nó, esses clientes NÃO são apagados — eles ficam direto na CTO (sem passar pelo switch). Depois você pode trocá-los de nó/CTO normalmente se precisar.\n\nRemover o nó mesmo assim?`
+    : 'Remover este nó (ONU/Switch)? Essa ação não pode ser desfeita.';
+  if (!confirm(mensagemConfirm)) return;
+
+  // Solta os clientes que estavam pendurados no nó — eles continuam na
+  // mesma CTO, só deixam de estar "atrás" desse switch específico.
+  presos.forEach(c => { c.noId = null; marcarClienteModificado(c.id); });
+
   cto.nos = nosDaCto(cto).filter(n => n.id !== noId);
   renderOlt();
   const salvou = await salvarStorage();
   if (!salvou) mostrarToast('⚠️ Erro ao salvar a remoção neste aparelho.', 'erro');
+  else if (presos.length) mostrarToast(`✅ Nó removido. ${presos.length} cliente(s) ficaram direto na CTO.`, 'ok');
 }
 
 // Busca cliente(s) pelo nome digitado nos campos "Buscar cliente já
@@ -5245,7 +5251,7 @@ function renderCtoHtml(olt, pon, cto) {
       <div style="border:1px dashed #90caf9;border-radius:6px;padding:6px;background:#f2f8ff;margin-bottom:4px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <strong style="font-size:0.76rem;color:#0d47a1">🔀 ${no.nome} <span style="font-weight:400;color:${corNo}">(${clientesNo.length}/${no.capacidade})</span></strong>
-          ${clientesNo.length ? '' : `<span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerNoDaCto('${cto.id}','${no.id}')" title="Remover este nó (só se estiver vazio)">🗑️</span>`}
+          <span style="cursor:pointer;color:#c62828;font-size:0.75rem" onclick="removerNoDaCto('${cto.id}','${no.id}')" title="${clientesNo.length ? 'Remover este nó (os clientes de dentro ficam soltos na CTO)' : 'Remover este nó'}">🗑️</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
           ${clientesNo.length ? clientesNo.map(c => linhaCliente(c, `abrirModalTrocarCto(${c.id}, '${cto.id}')`, `removerClienteDoNo(${c.id})`)).join('') : `<div style="font-size:0.72rem;color:#aaa;text-align:center;padding:3px 0">Nenhum cliente pendurado ainda</div>`}
